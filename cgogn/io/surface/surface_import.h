@@ -54,6 +54,10 @@ struct SurfaceImportData
 
 	std::vector<uint32> vertex_id_after_import_;
 
+	std::string mtl_filename; 
+	uint32 nb_material = 0; 
+	std::vector<std::vector<uint32>> material_data; 
+
 	inline void reserve(uint32 nb_vertices, uint32 nb_faces)
 	{
 		nb_vertices_ = nb_vertices;

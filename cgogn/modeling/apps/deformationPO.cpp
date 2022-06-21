@@ -28,8 +28,8 @@
 
 #include <cgogn/core/ui_modules/mesh_provider.h>
 #include <cgogn/geometry/ui_modules/surface_differential_properties.h>
-#include <cgogn/geometry/ui_modules/surface_selection.h>
-#include <cgogn/modeling/ui_modules/surface_deformation.h>
+#include <cgogn/geometry/ui_modules/surface_selectionPO.h>
+#include <cgogn/modeling/ui_modules/surface_deformationPO.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
 #include <cgogn/rendering/ui_modules/vector_per_face_render.h>
 #include <cgogn/rendering/ui_modules/vector_per_vertex_render.h>
@@ -51,15 +51,18 @@ int main(int argc, char** argv)
 	using Scalar = cgogn::geometry::Scalar;
 
 	std::string filename;
+	//std:string texname; 
 	if (argc < 2)
-		filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/low-poly-fox-by-pixelmannen.obj");
+		filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/low-poly-fox-by-pixelmannen.obj"); //
+		//texname = std::string(DEFAULT_MESH_PATH) + std::string("obj/rooster_1.0.1.mtl"); 
 	else
 		filename = std::string(argv[1]);
+		//texname = std::string(argv[2]);
 
 	cgogn::thread_start();
 
 	cgogn::ui::App app;
-	app.set_window_title("Deformation");
+	app.set_window_title("DeformationPO");
 	app.set_window_size(1000, 800);
 
 	cgogn::ui::MeshProvider<Mesh> mp(app);
@@ -67,8 +70,8 @@ int main(int argc, char** argv)
 	cgogn::ui::VectorPerVertexRender<Mesh> vpvr(app);
 	cgogn::ui::VectorPerFaceRender<Mesh> vpfr(app);
 	cgogn::ui::SurfaceDifferentialProperties<Mesh> sdp(app);
-	cgogn::ui::SurfaceDeformation<Mesh> sd(app);
-	cgogn::ui::SurfaceSelection<Mesh> ss(app);
+	cgogn::ui::SurfaceDeformationPO<Mesh> sd(app);
+	cgogn::ui::SurfaceSelectionPO<Mesh> ss(app);
 
 	app.init_modules();
 
@@ -96,6 +99,9 @@ int main(int argc, char** argv)
 
 	sr.set_vertex_position(*v1, *m, vertex_position);
 	sr.set_vertex_normal(*v1, *m, vertex_normal);
+
+	sr.set_render_vertices(*v1, *m, false);
+	sr.set_render_edges(*v1, *m, false);
 
 	ss.set_vertex_position(*m, vertex_position);
 

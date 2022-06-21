@@ -41,6 +41,16 @@ target_link_libraries(deformation
 	${CMAKE_DL_LIBS}
 )
 
+add_executable(deformationPO deformationPO.cpp)
+target_link_libraries(deformationPO
+	cgogn::core
+	cgogn::ui
+	cgogn::io
+	cgogn::rendering
+	cgogn::modeling
+	${CMAKE_DL_LIBS}
+)
+
 add_executable(skeleton_extractor skeleton_extractor.cpp)
 target_link_libraries(skeleton_extractor
 	cgogn::core
@@ -73,6 +83,10 @@ if(APPLE)
 		${CARBON}
 	)
 	target_link_libraries(deformation
+		${CORE_FOUNDATION}
+		${CARBON}
+	)
+	target_link_libraries(deformationPO
 		${CORE_FOUNDATION}
 		${CARBON}
 	)

@@ -58,6 +58,22 @@ bool import_OBJ(MESH& m, const std::string& filename)
 	std::string line, tag;
 	line.reserve(512u);
 
+	std::string tex_name; 
+
+	do
+	{
+		fp >> tag;
+		getline_safe(fp, line);
+		if (tag == std::string("mtllib"))
+		{
+			std::istringstream iss(line); 
+			 
+			// line stocke le nom du fichier .mtl 
+			surface_data.mtl_filename = line; 
+			break; 
+			}
+	} while (!fp.eof());
+
 	// read vertices position
 	do
 	{
@@ -78,6 +94,24 @@ bool import_OBJ(MESH& m, const std::string& filename)
 		std::cerr << "File \"" << filename << " has no vertices." << std::endl;
 		return false;
 	}
+
+	// rewind
+	fp.clear();
+	fp.seekg(0, std::ios::beg);
+
+	
+
+	do
+	{
+		fp >> tag;
+		getline_safe(fp, line);
+		if (tag == std::string("usemtl"))
+		{
+			surface_data.nb_material ++; 
+			//std::cout << tag << std::endl;
+			//break; 
+			}
+	} while (!fp.eof());
 
 	// rewind
 	fp.clear();
@@ -120,6 +154,10 @@ bool import_OBJ(MESH& m, const std::string& filename)
 		std::cerr << "File \"" << filename << " has no faces." << std::endl;
 		return false;
 	}
+
+
+	//std::cout << surface_data.mtl_filename << std::endl;
+	std::cout << surface_data.nb_material << std::endl;
 
 	import_surface_data(m, surface_data);
 
