@@ -157,7 +157,7 @@ bool import_OBJ(MESH& m, const std::string& filename)
 
 
 	//std::cout << surface_data.mtl_filename << std::endl;
-	std::cout << surface_data.nb_material << std::endl;
+	//std::cout << surface_data.nb_material << std::endl;
 
 	import_surface_data(m, surface_data);
 

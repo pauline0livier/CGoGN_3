@@ -117,7 +117,7 @@ class SurfaceRender : public ViewModule
 			param_bold_line_color_ = rendering::ShaderBoldLineColor::generate_param();
 
 			param_flat_ = rendering::ShaderFlat::generate_param();
-			param_flat_->front_color_ = {0.1f, 0.9f, 0.9f, 1.0f};
+			param_flat_->front_color_ = {0.5f, 0.1f, 0.9f, 1.0f}; //main color
 			param_flat_->back_color_ = {0.1f, 0.9f, 0.9f, 1.0f};
 
 			param_flat_color_per_vertex_ = rendering::ShaderFlatColorPerVertex::generate_param();

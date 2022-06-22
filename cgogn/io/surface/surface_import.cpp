@@ -45,6 +45,8 @@ void import_surface_data(CMap2& m, SurfaceImportData& surface_data)
 {
 	using Vertex = CMap2::Vertex;
 
+	// ici par .obj
+
 	auto position = get_or_add_attribute<geometry::Vec3, Vertex>(m, surface_data.vertex_position_attribute_name_);
 
 	for (uint32 i = 0u; i < surface_data.nb_vertices_; ++i)
@@ -144,6 +146,8 @@ void import_surface_data(CMap2& m, SurfaceImportData& surface_data)
 	// }
 
 	remove_attribute<Vertex>(m, darts_per_vertex);
+
+	//std::cout << m.begin() << std::endl;
 }
 
 void import_surface_data(IncidenceGraph& ig, SurfaceImportData& surface_data)

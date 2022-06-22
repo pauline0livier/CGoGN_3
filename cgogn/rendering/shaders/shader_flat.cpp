@@ -71,7 +71,8 @@ ShaderFlat::ShaderFlat()
 			if (ghost_mode)
 				lambert = 0.4 * pow(1.0 - lambert, 2);
 			if (gl_FrontFacing)
-				frag_out = vec4(ambiant_color.rgb + lambert * front_color.rgb, front_color.a);
+				//frag_out = vec4(ambiant_color.rgb + lambert * front_color.rgb, front_color.a);
+				frag_out = vec4(abs(L.x-N.x), abs(L.y-N.y), abs(L.z - N.z), 1.0); 
 			else
 				if (!double_side)
 					discard;
