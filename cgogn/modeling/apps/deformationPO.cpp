@@ -28,8 +28,9 @@
 
 #include <cgogn/core/ui_modules/mesh_provider.h>
 #include <cgogn/geometry/ui_modules/surface_differential_properties.h>
-#include <cgogn/geometry/ui_modules/surface_selectionPO.h>
-#include <cgogn/modeling/ui_modules/surface_deformationPO.h>
+#include <cgogn/geometry/ui_modules/surface_selection.h>
+#include <cgogn/modeling/ui_modules/surface_deformation.h>
+#include <cgogn/modeling/ui_modules/cage_deformation.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
 
 #define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_DATA_PATH) "/meshes/"
@@ -51,7 +52,7 @@ int main(int argc, char** argv)
 	std::string filename;
 	 
 	if (argc < 2)
-		filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/low-poly-fox-by-pixelmannen.obj"); //
+		filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/low-poly-fox-by-pixelmannen.obj");
 	else
 		filename = std::string(argv[1]);
 
@@ -64,8 +65,9 @@ int main(int argc, char** argv)
 	cgogn::ui::MeshProvider<Mesh> mp(app);
 	cgogn::ui::SurfaceRender<Mesh> sr(app);
 	cgogn::ui::SurfaceDifferentialProperties<Mesh> sdp(app);
-	cgogn::ui::SurfaceDeformationPO<Mesh> sd(app);
-	cgogn::ui::SurfaceSelectionPO<Mesh> ss(app);
+	cgogn::ui::SurfaceDeformation<Mesh> sd(app);
+	cgogn::ui::SurfaceSelection<Mesh> ss(app);
+	cgogn::ui::CageDeformation<Mesh> cd(app);
 
 	app.init_modules();
 
@@ -85,20 +87,31 @@ int main(int argc, char** argv)
 	std::shared_ptr<Attribute<Vec3>> vertex_position = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
 	std::shared_ptr<Attribute<Vec3>> vertex_normal = cgogn::add_attribute<Vec3, Vertex>(*m, "normal");
 
-	mp.set_mesh_bb_vertex_position(*m, vertex_position);
-
 	sdp.compute_normal(*m, vertex_position.get(), vertex_normal.get());
 
 	sr.set_vertex_position(*v1, *m, vertex_position);
 	sr.set_vertex_normal(*v1, *m, vertex_normal);
-
 	sr.set_render_vertices(*v1, *m, false);
 	sr.set_render_edges(*v1, *m, false);
 
 	ss.set_vertex_position(*m, vertex_position);
 
-	std::shared_ptr<Attribute<Vec3>> face_normal = cgogn::add_attribute<Vec3, Face>(*m, "normal");
-	cgogn::geometry::compute_normal<Face>(*m, vertex_position.get(), face_normal.get());
+	Mesh* cage = cd.generate_cage(*m, vertex_position);
+	std::shared_ptr<Attribute<Vec3>> cage_vertex_position = cgogn::get_attribute<Vec3, Vertex>(*cage, "position");
+
+	sr.set_vertex_position(*v1, *cage, cage_vertex_position);
+	sr.set_render_faces(*v1, *cage, false);
+
+	cgogn::ui::MeshData<Mesh>& md = mp.mesh_data(*cage);
+	cgogn::ui::CellsSet<Mesh, Vertex>& set = md.add_cells_set<Vertex>();
+
+	ss.set_selected_mesh(*cage);
+	ss.set_vertex_position(*cage, cage_vertex_position);
+	ss.set_selected_cells_set(*cage, &set);
+
+	sd.set_selected_mesh(*cage);
+	sd.set_vertex_position(*cage, cage_vertex_position);
+	sd.set_selected_handle_vertices_set(*cage, &set);
 
 	return app.launch();
 }

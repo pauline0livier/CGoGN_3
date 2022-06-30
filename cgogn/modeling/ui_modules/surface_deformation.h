@@ -439,6 +439,11 @@ private:
 	}
 
 public:
+	void set_selected_mesh(MESH& m)
+	{
+		selected_mesh_ = &m;
+	}
+
 	void set_vertex_position(const MESH& m, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
 		Parameters& p = parameters_[&m];

@@ -224,7 +224,6 @@ public:
 private:
 	void init_mesh(MESH* m)
 	{
-
 		for (View* v : linked_views_)
 		{
 			parameters_[v][m];
@@ -563,8 +562,6 @@ protected:
 
 	void init() override
 	{
-
-		std::cout << "passage" << std::endl; 
 		mesh_provider_ = static_cast<ui::MeshProvider<MESH>*>(
 			app_.module("MeshProvider (" + std::string{mesh_traits<MESH>::name} + ")"));
 		mesh_provider_->foreach_mesh([this](MESH& m, const std::string&) { init_mesh(&m); });
