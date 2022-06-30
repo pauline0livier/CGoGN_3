@@ -190,11 +190,11 @@ public:
 	}
 
 	template <typename CELL>
-	void add_cells_set()
+	CellsSet<MESH, CELL>& add_cells_set()
 	{
 		static_assert(is_in_tuple<CELL, typename mesh_traits<MESH>::Cells>::value, "CELL not supported in this MESH");
 		static const uint32 cell_index = tuple_type_index<CELL, typename mesh_traits<MESH>::Cells>::value;
-		cells_sets<CELL>().emplace_back(*mesh_, mesh_traits<MESH>::cell_names[cell_index] +
+		return cells_sets<CELL>().emplace_back(*mesh_, mesh_traits<MESH>::cell_names[cell_index] +
 													std::to_string(cells_sets<CELL>().size()));
 	}
 

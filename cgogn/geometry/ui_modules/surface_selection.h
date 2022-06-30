@@ -259,6 +259,32 @@ public:
 			v->request_update();
 	}
 
+	void set_selected_mesh(MESH& m)
+	{
+		selected_mesh_ = &m;
+	}
+
+	template <typename CELL>
+	void set_selected_cells_set(const MESH& m, CellsSet<MESH, CELL>* cs)
+	{
+		Parameters& p = parameters_[&m];
+		if constexpr (std::is_same_v<CELL, Vertex>)
+		{
+			p.selected_vertices_set_ = cs;
+			p.update_selected_vertices_vbo();
+		}
+		if constexpr (std::is_same_v<CELL, Edge>)
+		{
+			p.selected_edges_set_ = cs;
+			p.update_selected_edges_vbo();
+		}
+		if constexpr (std::is_same_v<CELL, Face>)
+		{
+			p.selected_faces_set_ = cs;
+			p.update_selected_faces_vbo();
+		}
+	}
+
 protected:
 	void init() override
 	{
