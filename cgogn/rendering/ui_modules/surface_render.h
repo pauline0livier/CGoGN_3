@@ -35,6 +35,7 @@
 #include <cgogn/rendering/shaders/outliner.h>
 #include <cgogn/rendering/shaders/shader_bold_line.h>
 #include <cgogn/rendering/shaders/shader_flat.h>
+#include <cgogn/rendering/shaders/shader_flatPO.h>
 #include <cgogn/rendering/shaders/shader_flat_color_per_face.h>
 #include <cgogn/rendering/shaders/shader_flat_color_per_vertex.h>
 #include <cgogn/rendering/shaders/shader_flat_scalar_per_face.h>
@@ -120,6 +121,13 @@ class SurfaceRender : public ViewModule
 			param_flat_->front_color_ = {0.5f, 0.1f, 0.9f, 1.0f}; //main color
 			param_flat_->back_color_ = {0.1f, 0.9f, 0.9f, 1.0f};
 
+			param_flatPO_ = rendering::ShaderFlatPO::generate_param();
+			param_flatPO_->ambient_color_ = {0.7f, 0.0f, 0.0f, 1.0f}; 
+			param_flatPO_->diffuse_color_ = {1.0f, 1.0f, 1.0f, 1.0f}; 
+			param_flatPO_->specular_color_ = {0.089804f, 0.089804f, 0.89804f, 1.0f}; 
+			param_flatPO_->shininess_ = {960.078431}; 
+
+
 			param_flat_color_per_vertex_ = rendering::ShaderFlatColorPerVertex::generate_param();
 
 			param_flat_scalar_per_vertex_ = rendering::ShaderFlatScalarPerVertex::generate_param();
@@ -169,6 +177,7 @@ class SurfaceRender : public ViewModule
 		std::unique_ptr<rendering::ShaderBoldLine::Param> param_bold_line_;
 		std::unique_ptr<rendering::ShaderBoldLineColor::Param> param_bold_line_color_;
 		std::unique_ptr<rendering::ShaderFlat::Param> param_flat_;
+		std::unique_ptr<rendering::ShaderFlatPO::Param> param_flatPO_;
 		std::unique_ptr<rendering::ShaderFlatColorPerVertex::Param> param_flat_color_per_vertex_;
 		std::unique_ptr<rendering::ShaderFlatScalarPerVertex::Param> param_flat_scalar_per_vertex_;
 		std::unique_ptr<rendering::ShaderFlatColorPerFace::Param> param_flat_color_per_face_;
@@ -215,6 +224,7 @@ public:
 private:
 	void init_mesh(MESH* m)
 	{
+
 		for (View* v : linked_views_)
 		{
 			parameters_[v][m];
@@ -290,6 +300,7 @@ public:
 		p.param_bold_line_->set_vbos({p.vertex_position_vbo_});
 		p.param_bold_line_color_->set_vbos({p.vertex_position_vbo_, p.edge_color_vbo_});
 		p.param_flat_->set_vbos({p.vertex_position_vbo_});
+		p.param_flatPO_->set_vbos({p.vertex_position_vbo_});
 		p.param_flat_color_per_vertex_->set_vbos({p.vertex_position_vbo_, p.vertex_color_vbo_});
 		p.param_flat_scalar_per_vertex_->set_vbos({p.vertex_position_vbo_, p.vertex_scalar_vbo_});
 		p.param_flat_color_per_face_->set_vbos({p.vertex_position_vbo_, p.face_color_vbo_});
@@ -552,6 +563,8 @@ protected:
 
 	void init() override
 	{
+
+		std::cout << "passage" << std::endl; 
 		mesh_provider_ = static_cast<ui::MeshProvider<MESH>*>(
 			app_.module("MeshProvider (" + std::string{mesh_traits<MESH>::name} + ")"));
 		mesh_provider_->foreach_mesh([this](MESH& m, const std::string&) { init_mesh(&m); });
@@ -650,11 +663,11 @@ protected:
 					switch (p.color_per_cell_)
 					{
 					case GLOBAL: {
-						if (p.param_flat_->attributes_initialized())
+						if (p.param_flatPO_->attributes_initialized())
 						{
-							p.param_flat_->bind(proj_matrix, view_matrix);
+							p.param_flatPO_->bind(proj_matrix, view_matrix);
 							md.draw(rendering::TRIANGLES, p.vertex_position_);
-							p.param_flat_->release();
+							p.param_flatPO_->release();
 						}
 					}
 					break;

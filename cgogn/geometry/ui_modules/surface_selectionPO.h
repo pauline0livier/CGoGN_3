@@ -277,7 +277,7 @@ protected:
 				//ImGui::GetForegroundDrawList()->AddCircle(ImVec2(100, 100), 5.0,IM_COL32(0, 255, 0, 255), 32); 
 				//ImGui::SetCursor(io.MouseDrawCursor ? NULL : LoadCursor(NULL, IDC_ARROW));
 				ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-				std::cout << "cursor " << ImGui::GetMouseCursor() << std::endl;
+				
 				rendering::GLVec3d near = view->unproject(x, y, 0.0);
 				rendering::GLVec3d far = view->unproject(x, y, 1.0);
 				Vec3 A{near.x(), near.y(), near.z()};

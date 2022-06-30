@@ -1,4 +1,4 @@
-/*******************************************************************************
+﻿/*******************************************************************************
  * CGoGN: Combinatorial and Geometric modeling with Generic N-dimensional Maps  *
  * Copyright (C), IGG Group, ICube, University of Strasbourg, France            *
  *                                                                              *
@@ -21,7 +21,11 @@
  *                                                                              *
  *******************************************************************************/
 
-#include <cgogn/rendering/shaders/shader_flat.h>
+#ifndef CGOGN_RENDERING_SHADERS_FLAT_PO_H_
+#define CGOGN_RENDERING_SHADERS_FLAT_PO_H_
+
+#include <cgogn/rendering/cgogn_rendering_export.h>
+#include <cgogn/rendering/shader_program.h>
 
 namespace cgogn
 {
@@ -29,65 +33,38 @@ namespace cgogn
 namespace rendering
 {
 
-ShaderFlat* ShaderFlat::instance_ = nullptr;
+DECLARE_SHADER_CLASS(FlatPO, false, CGOGN_STR(FlatPO))
 
-ShaderFlat::ShaderFlat()
+class CGOGN_RENDERING_EXPORT ShaderParamFlatPO : public ShaderParam
 {
-	const char* vertex_shader_source = R"(
-		#version 150
-		uniform mat4 projection_matrix;
-		uniform mat4 model_view_matrix;
 
-		in vec3 vertex_position;
-		
-		out vec3 position;
-		
-		void main()
-		{
-			vec4 position4 = model_view_matrix * vec4(vertex_position, 1.0);
-			position = position4.xyz;
-			gl_Position = projection_matrix * position4;
-		}
-	)";
+	void set_uniforms() override;
 
-	const char* fragment_shader_source = R"(
-		#version 150
-		uniform vec4 front_color;
-		uniform vec4 back_color;
-		uniform vec4 ambiant_color;
-		uniform vec3 light_position;
-		uniform bool double_side;
-		uniform bool ghost_mode;
-		
-		in vec3 position;
+public:
+	GLColor ambient_color_;
+	GLColor diffuse_color_;
+	GLColor specular_color_;
+	GLfloat shininess_;
+	GLfloat alpha_;  
+	GLVec3 light_position_;
+	bool double_side_;
+	bool ghost_mode_;
 
-		out vec4 frag_out;
+	using ShaderType = ShaderFlatPO;
 
-		void main()
-		{
-			vec3 N = normalize(cross(dFdx(position), dFdy(position)));
-			vec3 L = normalize(light_position - position);
-			float lambert = dot(N, L);
-			if (ghost_mode)
-				lambert = 0.4 * pow(1.0 - lambert, 2);
-			if (gl_FrontFacing)
-				frag_out = vec4(ambiant_color.rgb + lambert * front_color.rgb, front_color.a);
-			else
-				if (!double_side)
-					discard;
-				else frag_out = vec4(ambiant_color.rgb + lambert * back_color.rgb, back_color.a);
-		}
-	)";
+	ShaderParamFlatPO(ShaderType* sh)
+		: ShaderParam(sh), ambient_color_(0.05f, 0.05f, 0.05f, 1), diffuse_color_(0.05f, 0.05f, 0.05f, 1), specular_color_(0.05f, 0.05f, 0.05f, 1),
+		shininess_(40.0), alpha_(1.0), light_position_(10, 100, 1000), ghost_mode_(false)
+	{
+	}
 
-	load2_bind(vertex_shader_source, fragment_shader_source, "vertex_position");
-	get_uniforms("front_color", "back_color", "ambiant_color", "light_position", "double_side", "ghost_mode");
-}
-
-void ShaderParamFlat::set_uniforms()
-{
-	shader_->set_uniforms_values(front_color_, back_color_, ambiant_color_, light_position_, double_side_, ghost_mode_);
-}
+	inline ~ShaderParamFlatPO() override
+	{
+	}
+};
 
 } // namespace rendering
 
 } // namespace cgogn
+
+#endif // CGOGN_RENDERING_SHADERS_FLAT_PO_H_

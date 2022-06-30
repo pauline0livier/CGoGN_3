@@ -31,8 +31,6 @@
 #include <cgogn/geometry/ui_modules/surface_selectionPO.h>
 #include <cgogn/modeling/ui_modules/surface_deformationPO.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
-#include <cgogn/rendering/ui_modules/vector_per_face_render.h>
-#include <cgogn/rendering/ui_modules/vector_per_vertex_render.h>
 
 #define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_DATA_PATH) "/meshes/"
 
@@ -51,13 +49,11 @@ int main(int argc, char** argv)
 	using Scalar = cgogn::geometry::Scalar;
 
 	std::string filename;
-	//std:string texname; 
+	 
 	if (argc < 2)
 		filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/low-poly-fox-by-pixelmannen.obj"); //
-		//texname = std::string(DEFAULT_MESH_PATH) + std::string("obj/rooster_1.0.1.mtl"); 
 	else
 		filename = std::string(argv[1]);
-		//texname = std::string(argv[2]);
 
 	cgogn::thread_start();
 
@@ -67,8 +63,6 @@ int main(int argc, char** argv)
 
 	cgogn::ui::MeshProvider<Mesh> mp(app);
 	cgogn::ui::SurfaceRender<Mesh> sr(app);
-	cgogn::ui::VectorPerVertexRender<Mesh> vpvr(app);
-	cgogn::ui::VectorPerFaceRender<Mesh> vpfr(app);
 	cgogn::ui::SurfaceDifferentialProperties<Mesh> sdp(app);
 	cgogn::ui::SurfaceDeformationPO<Mesh> sd(app);
 	cgogn::ui::SurfaceSelectionPO<Mesh> ss(app);
@@ -78,8 +72,6 @@ int main(int argc, char** argv)
 	cgogn::ui::View* v1 = app.current_view();
 	v1->link_module(&mp);
 	v1->link_module(&sr);
-	v1->link_module(&vpvr);
-	v1->link_module(&vpfr);
 	v1->link_module(&sd);
 	v1->link_module(&ss);
 

@@ -21,7 +21,7 @@
  *                                                                              *
  *******************************************************************************/
 
-#include <cgogn/rendering/shaders/shader_flat.h>
+#include <cgogn/rendering/shaders/shader_flatPO.h>
 
 namespace cgogn
 {
@@ -29,21 +29,25 @@ namespace cgogn
 namespace rendering
 {
 
-ShaderFlat* ShaderFlat::instance_ = nullptr;
+ShaderFlatPO* ShaderFlatPO::instance_ = nullptr;
 
-ShaderFlat::ShaderFlat()
+ShaderFlatPO::ShaderFlatPO()
 {
 	const char* vertex_shader_source = R"(
 		#version 150
+		
 		uniform mat4 projection_matrix;
 		uniform mat4 model_view_matrix;
-
+	
 		in vec3 vertex_position;
+		in vec2 vertex_tc;
 		
 		out vec3 position;
+		out vec2 tc;
 		
 		void main()
 		{
+			tc = vertex_tc;
 			vec4 position4 = model_view_matrix * vec4(vertex_position, 1.0);
 			position = position4.xyz;
 			gl_Position = projection_matrix * position4;
@@ -52,40 +56,69 @@ ShaderFlat::ShaderFlat()
 
 	const char* fragment_shader_source = R"(
 		#version 150
-		uniform vec4 front_color;
-		uniform vec4 back_color;
-		uniform vec4 ambiant_color;
+		uniform vec4 ambient_color;
+		uniform vec4 diffuse_color;
+		uniform vec4 specular_color;
+		uniform float shininess;
+		uniform float alpha;
 		uniform vec3 light_position;
-		uniform bool double_side;
 		uniform bool ghost_mode;
 		
 		in vec3 position;
+		in vec2 tc; 
 
 		out vec4 frag_out;
+
+		
 
 		void main()
 		{
 			vec3 N = normalize(cross(dFdx(position), dFdy(position)));
-			vec3 L = normalize(light_position - position);
-			float lambert = dot(N, L);
+
+			vec3 LightDir = light_position - position; 
+			float distance = length(LightDir); 
+			distance = distance*distance; 
+			LightDir = normalize(LightDir);
+			float lambert = max(dot(N, LightDir), 0.0);
 			if (ghost_mode)
 				lambert = 0.4 * pow(1.0 - lambert, 2);
-			if (gl_FrontFacing)
-				frag_out = vec4(ambiant_color.rgb + lambert * front_color.rgb, front_color.a);
-			else
-				if (!double_side)
-					discard;
-				else frag_out = vec4(ambiant_color.rgb + lambert * back_color.rgb, back_color.a);
+			
+			float specular = 0.0;
+			if (lambert > 0.0){
+				vec3 viewDir = normalize(-position);
+
+				vec3 halfDir = normalize(LightDir + viewDir);
+    			float specAngle = max(dot(halfDir, N), 0.0);
+    			specular = pow(specAngle, shininess);
+
+      			//vec3 reflectDir = reflect(-LightDir, N);
+      			//float specAngle = max(dot(reflectDir, viewDir), 0.0);
+      			// note that the exponent is different here
+      			//specular = pow(specAngle, shininess/4.0);
+    
+  			}		
+
+			//vec3 newColor = normalize(vec3(abs(position.y), abs(position.z), abs(position.x))); 
+			vec3 colorLinear = ambient_color.xyz + diffuse_color.xyz*lambert* vec3(1.0, 1.0, 1.0) * 40.0 / distance +
+                    specular_color.xyz * specular * vec3(1.0, 1.0, 1.0) * 10.0 / distance; 
+
+
+			vec3 colorGammaCorrected = pow(colorLinear, vec3(1.0 / 2.2));
+			
+			frag_out = vec4(abs(LightDir.x-N.x), abs(LightDir.y-N.y), abs(LightDir.z - N.z), 1.0); 
+			//frag_out = vec4(colorLinear, alpha); 
 		}
 	)";
 
-	load2_bind(vertex_shader_source, fragment_shader_source, "vertex_position");
-	get_uniforms("front_color", "back_color", "ambiant_color", "light_position", "double_side", "ghost_mode");
+	load2_bind(vertex_shader_source, fragment_shader_source, "vertex_position","vertex_tc");
+	get_uniforms("ambient_color", "diffuse_color", "specular_color", "shininess",
+				 "alpha", "light_position", "ghost_mode");
 }
 
-void ShaderParamFlat::set_uniforms()
+void ShaderParamFlatPO::set_uniforms()
 {
-	shader_->set_uniforms_values(front_color_, back_color_, ambiant_color_, light_position_, double_side_, ghost_mode_);
+	shader_->set_uniforms_values(ambient_color_, diffuse_color_, specular_color_, shininess_,
+								alpha_, light_position_, ghost_mode_);
 }
 
 } // namespace rendering
