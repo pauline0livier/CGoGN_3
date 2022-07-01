@@ -31,6 +31,7 @@
 
 #include <cgogn/core/functions/mesh_ops/volume.h>
 
+#include <cgogn/geometry/functions/angle.h>
 #include <cgogn/geometry/types/vector_traits.h>
 
 #include <boost/synapse/connect.hpp>
@@ -49,17 +50,10 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 {
 	CMap2::Volume v = add_prism(m, 4);
 	Dart f1 = v.dart;
-	Dart f2 = phi<2,1,1,2>(m, f1);
+	Dart f2 = phi<2, 1, 1, 2>(m, f1);
 	std::vector<CMap2::Vertex> vertices = {
-		CMap2::Vertex(f1),
-		CMap2::Vertex(phi1(m, f1)),
-		CMap2::Vertex(phi<1,1>(m, f1)),
-		CMap2::Vertex(phi_1(m, f1)),
-		CMap2::Vertex(f2),
-		CMap2::Vertex(phi1(m, f2)),
-		CMap2::Vertex(phi<1,1>(m, f2)),
-		CMap2::Vertex(phi_1(m, f2))
-	};
+		CMap2::Vertex(f1), CMap2::Vertex(phi1(m, f1)), CMap2::Vertex(phi<1, 1>(m, f1)), CMap2::Vertex(phi_1(m, f1)),
+		CMap2::Vertex(f2), CMap2::Vertex(phi1(m, f2)), CMap2::Vertex(phi<1, 1>(m, f2)), CMap2::Vertex(phi_1(m, f2))};
 	value<Vec3>(m, vertex_position, vertices[0]) = bb_min;
 	value<Vec3>(m, vertex_position, vertices[1]) = {bb_max[0], bb_min[1], bb_min[2]};
 	value<Vec3>(m, vertex_position, vertices[2]) = {bb_max[0], bb_max[1], bb_min[2]};
@@ -70,21 +64,62 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0], bb_max[1], bb_max[2]};
 }
 
+/*float compute_mvc(CMap2& object, const Vec3& surface_point, Dart vertex, CMap2& cage,
+				  const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
+{
+
+	double r = (cage_vertex_position[vertex] - surface_point).norm();
+
+	double sumU(0.);
+
+	Dart it = vertex;
+
+	do
+	{
+		Vec3 vi = cage_vertex_position[it];
+		Vec3 vj = cage_vertex_position[phi1(cage, it)];
+		Vec3 vk = cage_vertex_position[phi_1(cage, it)];
+
+		double Bjk = angle((vj - surface_point), (vk - surface_point));
+		double Bij = angle((vi - surface_point), (vj - surface_point));
+		double Bki = angle((vk - surface_point), (vi - surface_point));
+
+		Vec3 ei = (vi - pt) / ((vi - surface_point).norm());
+		Vec3 ej = (vj - pt) / ((vj - surface_point).norm());
+		Vec3 ek = (vk - pt) / ((vk - surface_point).norm());
+
+		Vec3 eiej = ei ^ ej;
+		Vec3 ejek = ej ^ ek;
+		Vec3 ekei = ek ^ ei;
+
+		Vec3 nij = eiej / (eiej.norm());
+		Vec3 njk = ejek / (ejek.norm());
+		Vec3 nki = ekei / (ekei.norm());
+
+		double ui = (Bjk + (Bij * (nij * njk)) + (Bki * (nki * njk))) / (2.f * ei * njk);
+
+		sumU += ui;
+
+		it = phi<2, 1>(cage, it);
+	} while (it != vertex);
+
+	return (1.0f / r) * sumU;
+}*/
+
 template <typename MESH>
 class CageDeformation : public Module
 {
 	static_assert(mesh_traits<MESH>::dimension == 2, "CageDeformation can only be used with meshes of dimension 2");
 
-	template <typename T>
-	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
-
 	using Vertex = typename mesh_traits<MESH>::Vertex;
 	using Edge = typename mesh_traits<MESH>::Edge;
 
+	template <typename T>
+	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
+
 	struct Parameters
 	{
-		Parameters()
-			: vertex_position_(nullptr), cage_(nullptr), cage_vertex_position_(nullptr)
+		Parameters() : vertex_position_(nullptr), cage_(nullptr), cage_vertex_position_(nullptr)
 		{
 		}
 
@@ -97,7 +132,8 @@ class CageDeformation : public Module
 		std::shared_ptr<Attribute<Vec3>> vertex_position_;
 		MESH* cage_;
 		std::shared_ptr<Attribute<Vec3>> cage_vertex_position_;
-		Eigen::MatrixXd coords_;
+		// Eigen::MatrixXd coords_;
+		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> coords_;
 
 		std::shared_ptr<boost::synapse::connection> cage_attribute_update_connection_;
 	};
@@ -150,14 +186,47 @@ public:
 		return cage;
 	}
 
-	void bind_object(
-		const MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
-		const MESH& cage, const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
+	void bind_object( MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
+					 const MESH& cage, const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
 	{
+
+		// createWeightedMatrix(const MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
+		// const MESH& cage, const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position);
+
 		Parameters& p = parameters_[&object];
+
+		std::shared_ptr<Attribute<uint32>> object_vertex_index = add_attribute<uint32, Vertex>(object, "weight_index");
+		uint32 nb_vertices = 0;
+		foreach_cell(object, [&](Vertex v) -> bool {
+			value<uint32>(object, object_vertex_index, v) = nb_vertices++;
+			return true;
+		});
 
 		uint32 nbv_object = nb_cells<Vertex>(object);
 		uint32 nbv_cage = nb_cells<Vertex>(cage);
+
+		p.coords_.resize(nbv_object, nbv_cage);
+
+
+		foreach_cell(object, [&](Vertex v) -> bool {
+			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
+			// uint32 surface_point_idx = value<uint32>(object, vertex_index, v);
+
+			std::cout << v << std::endl;
+
+			/*foreach_cell(cage, [&](Cell c) -> bool {
+				const d = c.dart;
+
+				std::cout << d << std::endl;
+
+				// p.coords(surface_point_idx, d.index) = compute_mvc(*object, surface_point, d, *cage,
+				// cage_vertex_position);
+
+				return true;
+			});*/
+
+			return true;
+		});
 
 		p.cage_attribute_update_connection_ =
 			boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
@@ -165,6 +234,15 @@ public:
 					if (p.cage_vertex_position_.get() == attribute)
 					{
 						std::cout << "recompute object position" << std::endl;
+
+						/*parallel_foreach_cell(object, [&](Vertex v) -> bool {
+							const Vec3& val = value<Vec3>(m, vertex_attribute, v);
+							uint32 vidx = value<uint32>(m, vertex_index, v);
+							vattr(vidx, 0) = val[0];
+							vattr(vidx, 1) = val[1];
+							vattr(vidx, 2) = val[2];
+							return true;
+						});*/
 					}
 				});
 	}
