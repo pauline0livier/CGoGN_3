@@ -64,11 +64,22 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0], bb_max[1], bb_max[2]};
 }
 
-/*float compute_mvc(CMap2& object, const Vec3& surface_point, Dart vertex, CMap2& cage,
-				  const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
+// Github SuperBoubek QMVC https://github.com/superboubek/QMVC/blob/master/coordinates/mvc/mvc.h
+double getAngleBetweenUnitVectors( const Vec3& a, const Vec3& b ) {
+    return 2.0 * asin( (a - b).norm() / 2.0 );
+}
+
+float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage,
+				  const Vec3& cage_point, CMap2::Attribute<Vec3>* cage_position)
 {
 
-	double r = (cage_vertex_position[vertex] - surface_point).norm();
+	double r = (cage_point - surface_point).norm();
+
+	std::cout << "dist" << r << std::endl; 
+
+	if (r == 0){
+		std::cerr << "Alert" << std::endl; 
+	}
 
 	double sumU(0.);
 
@@ -76,37 +87,49 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 
 	do
 	{
-		Vec3 vi = cage_vertex_position[it];
-		Vec3 vj = cage_vertex_position[phi1(cage, it)];
-		Vec3 vk = cage_vertex_position[phi_1(cage, it)];
+		Vec3 vi = value<Vec3>(cage, cage_position, CMap2::Vertex(it));
+		Vec3 vj = value<Vec3>(cage, cage_position, CMap2::Vertex(phi1(cage, it)));
+		Vec3 vk = value<Vec3>(cage, cage_position, CMap2::Vertex(phi_1(cage, it)));
 
-		double Bjk = angle((vj - surface_point), (vk - surface_point));
-		double Bij = angle((vi - surface_point), (vj - surface_point));
-		double Bki = angle((vk - surface_point), (vi - surface_point));
 
-		Vec3 ei = (vi - pt) / ((vi - surface_point).norm());
-		Vec3 ej = (vj - pt) / ((vj - surface_point).norm());
-		Vec3 ek = (vk - pt) / ((vk - surface_point).norm());
+		//double Bjk = cgogn::geometry::angle((vj - surface_point), (vk - surface_point));
+		//double Bij = cgogn::geometry::angle((vi - surface_point), (vj - surface_point));
+		//double Bki = cgogn::geometry::angle((vk - surface_point), (vi - surface_point)); 
 
-		Vec3 eiej = ei ^ ej;
-		Vec3 ejek = ej ^ ek;
-		Vec3 ekei = ek ^ ei;
+		Vec3 ei = (vi - surface_point).normalized(); 
+		Vec3 ej = (vj - surface_point).normalized();                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+		Vec3 ek = (vk - surface_point).normalized();
 
-		Vec3 nij = eiej / (eiej.norm());
-		Vec3 njk = ejek / (ejek.norm());
-		Vec3 nki = ekei / (ekei.norm());
+		double Bjk = getAngleBetweenUnitVectors(ej, ek);
+		double Bij = getAngleBetweenUnitVectors(ei, ej);
+		double Bki = getAngleBetweenUnitVectors(ek, ei);
 
-		double ui = (Bjk + (Bij * (nij * njk)) + (Bki * (nki * njk))) / (2.f * ei * njk);
+		std::cout << Bjk << " Bjk " << std::endl; 
+		std::cout << Bij << " Bij " << std::endl; 
+		std::cout << Bki << " Bki " << std::endl; 
+
+	
+		Vec3 eiej = ei.cross(ej);
+		Vec3 ejek = ej.cross(ek);
+		Vec3 ekei = ek.cross(ei);
+
+		Vec3 nij = eiej.normalized();
+		Vec3 njk = ejek.normalized();
+		Vec3 nki = ekei.normalized();
+
+		double ui = (Bjk + (Bij * (nij.dot(njk))) + (Bki * (nki.dot(njk)))) / (2.f * ei.dot(njk));
 
 		sumU += ui;
 
-		it = phi<2, 1>(cage, it);
+		std::cout << "ui " << ui << std::endl; 
+		it = phi<2,1>(cage, it);
 	} while (it != vertex);
 
 	return (1.0f / r) * sumU;
-}*/
+}
 
 template <typename MESH>
+
 class CageDeformation : public Module
 {
 	static_assert(mesh_traits<MESH>::dimension == 2, "CageDeformation can only be used with meshes of dimension 2");
@@ -186,8 +209,8 @@ public:
 		return cage;
 	}
 
-	void bind_object( MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
-					 const MESH& cage, const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
+	void bind_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
+					 const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
 	{
 
 		// createWeightedMatrix(const MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
@@ -202,31 +225,74 @@ public:
 			return true;
 		});
 
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index = add_attribute<uint32, Vertex>(cage, "weight_index");
+		uint32 nb_vertices_cage = 0;
+		foreach_cell(cage, [&](Vertex v) -> bool {
+			value<uint32>(cage, cage_vertex_index, v) = nb_vertices_cage++;
+			return true;
+		});
+
+		std::shared_ptr<Attribute<bool>> cage_vertex_marked = add_attribute<bool, Vertex>(cage, "marked_vertex");
+		parallel_foreach_cell(cage, [&](Vertex v) -> bool {
+			value<bool>(cage, cage_vertex_marked, v) = false;
+			return true;
+		});
+
+
 		uint32 nbv_object = nb_cells<Vertex>(object);
 		uint32 nbv_cage = nb_cells<Vertex>(cage);
 
 		p.coords_.resize(nbv_object, nbv_cage);
-
+		
 
 		foreach_cell(object, [&](Vertex v) -> bool {
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
-			// uint32 surface_point_idx = value<uint32>(object, vertex_index, v);
+			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
-			std::cout << v << std::endl;
+			DartMarker dm(cage);
+			float sumMVC = 0.0; 
+			for (Dart d = cage.begin(), end = cage.end(); d != end; d = cage.next(d))
+			{
+				Vertex cage_vertex = CMap2::Vertex(d);
+				bool vc_marked = value<bool>(cage, cage_vertex_marked, cage_vertex);
 
-			/*foreach_cell(cage, [&](Cell c) -> bool {
-				const d = c.dart;
+				if (!dm.is_marked(d) && !vc_marked){
+					
+					const Vec3& cage_point = value<Vec3>(cage, cage_vertex_position, cage_vertex);
+					uint32 cage_point_idx = value<uint32>(cage, cage_vertex_index, cage_vertex);
 
-				std::cout << d << std::endl;
+					float mvc_value = compute_mvc(surface_point, d, cage, cage_point, cage_vertex_position.get());
 
-				// p.coords(surface_point_idx, d.index) = compute_mvc(*object, surface_point, d, *cage,
-				// cage_vertex_position);
+					p.coords_(surface_point_idx, cage_point_idx) =  mvc_value; 
+					dm.mark(d); 
 
+					value<bool>(cage, cage_vertex_marked, cage_vertex) = true;	
+
+					sumMVC += mvc_value;  
+				}
+				//const CELL c(d);
+				
+					
+				}
+
+				float sum_lambda = 0.0; 
+
+				parallel_foreach_cell(cage, [&](Vertex vc) -> bool {
+					uint32 cage_point_idx2 = value<uint32>(cage, cage_vertex_index, vc);
+
+					p.coords_(surface_point_idx, cage_point_idx2) = p.coords_(surface_point_idx, cage_point_idx2) / sumMVC; 
+
+					sum_lambda = p.coords_(surface_point_idx, cage_point_idx2); 
+
+					value<bool>(cage, cage_vertex_marked, vc) = false;
+
+					return true;
+				});
+				
 				return true;
-			});*/
+			});
 
-			return true;
-		});
+			//std::cout << p.coords_ << std::endl; 
 
 		p.cage_attribute_update_connection_ =
 			boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
