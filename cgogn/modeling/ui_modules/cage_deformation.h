@@ -55,30 +55,30 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 		CMap2::Vertex(f1), CMap2::Vertex(phi1(m, f1)), CMap2::Vertex(phi<1, 1>(m, f1)), CMap2::Vertex(phi_1(m, f1)),
 		CMap2::Vertex(f2), CMap2::Vertex(phi1(m, f2)), CMap2::Vertex(phi<1, 1>(m, f2)), CMap2::Vertex(phi_1(m, f2))};
 	value<Vec3>(m, vertex_position, vertices[0]) = bb_min;
-	value<Vec3>(m, vertex_position, vertices[1]) = {bb_max[0], bb_min[1], bb_min[2]};
-	value<Vec3>(m, vertex_position, vertices[2]) = {bb_max[0], bb_max[1], bb_min[2]};
-	value<Vec3>(m, vertex_position, vertices[3]) = {bb_min[0], bb_max[1], bb_min[2]};
-	value<Vec3>(m, vertex_position, vertices[4]) = {bb_max[0], bb_min[1], bb_max[2]};
-	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min[0], bb_min[1], bb_max[2]};
-	value<Vec3>(m, vertex_position, vertices[6]) = {bb_min[0], bb_max[1], bb_max[2]};
-	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0], bb_max[1], bb_max[2]};
+	value<Vec3>(m, vertex_position, vertices[1]) = {bb_max[0]*1.5, bb_min[1] -1.5, bb_min[2]-1.5};
+	value<Vec3>(m, vertex_position, vertices[2]) = {bb_max[0]*1.5, bb_max[1]*1.5, bb_min[2]-1.5};
+	value<Vec3>(m, vertex_position, vertices[3]) = {bb_min[0]-1.5, bb_max[1]*1.5, bb_min[2]-1.5};
+	value<Vec3>(m, vertex_position, vertices[4]) = {bb_max[0]*1.5, bb_min[1]-1.5, bb_max[2]*1.5};
+	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min[0]-1.5, bb_min[1]-1.5, bb_max[2]*1.5};
+	value<Vec3>(m, vertex_position, vertices[6]) = {bb_min[0]-1.5, bb_max[1]*1.5, bb_max[2]*1.5};
+	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0]*1.5, bb_max[1]*1.5, bb_max[2]*1.5};
 }
 
 // Github SuperBoubek QMVC https://github.com/superboubek/QMVC/blob/master/coordinates/mvc/mvc.h
-double getAngleBetweenUnitVectors( const Vec3& a, const Vec3& b ) {
-    return 2.0 * asin( (a - b).norm() / 2.0 );
+double getAngleBetweenUnitVectors(const Vec3& a, const Vec3& b)
+{
+	return 2.0 * asin((a - b).norm() / 2.0);
 }
 
-float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage,
-				  const Vec3& cage_point, CMap2::Attribute<Vec3>* cage_position)
+float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage, const Vec3& cage_point,
+				  CMap2::Attribute<Vec3>* cage_position)
 {
 
 	double r = (cage_point - surface_point).norm();
 
-	std::cout << "dist" << r << std::endl; 
-
-	if (r == 0){
-		std::cerr << "Alert" << std::endl; 
+	if (r == 0)
+	{
+		std::cerr << "Alert" << std::endl;
 	}
 
 	double sumU(0.);
@@ -91,27 +91,21 @@ float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage,
 		Vec3 vj = value<Vec3>(cage, cage_position, CMap2::Vertex(phi1(cage, it)));
 		Vec3 vk = value<Vec3>(cage, cage_position, CMap2::Vertex(phi_1(cage, it)));
 
+		// double Bjk = cgogn::geometry::angle((vj - surface_point), (vk - surface_point));
+		// double Bij = cgogn::geometry::angle((vi - surface_point), (vj - surface_point));
+		// double Bki = cgogn::geometry::angle((vk - surface_point), (vi - surface_point));
 
-		//double Bjk = cgogn::geometry::angle((vj - surface_point), (vk - surface_point));
-		//double Bij = cgogn::geometry::angle((vi - surface_point), (vj - surface_point));
-		//double Bki = cgogn::geometry::angle((vk - surface_point), (vi - surface_point)); 
-
-		Vec3 ei = (vi - surface_point).normalized(); 
-		Vec3 ej = (vj - surface_point).normalized();                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+		Vec3 ei = (vi - surface_point).normalized();
+		Vec3 ej = (vj - surface_point).normalized();
 		Vec3 ek = (vk - surface_point).normalized();
 
 		double Bjk = getAngleBetweenUnitVectors(ej, ek);
-		double Bij = getAngleBetweenUnitVectors(ei, ej);
-		double Bki = getAngleBetweenUnitVectors(ek, ei);
+		double Bij = getAngleBetweenUnitVectors(ei, ek);
+		double Bki = getAngleBetweenUnitVectors(ej, ei);
 
-		std::cout << Bjk << " Bjk " << std::endl; 
-		std::cout << Bij << " Bij " << std::endl; 
-		std::cout << Bki << " Bki " << std::endl; 
-
-	
-		Vec3 eiej = ei.cross(ej);
-		Vec3 ejek = ej.cross(ek);
-		Vec3 ekei = ek.cross(ei);
+		Vec3 eiej = ei.cross(ek);
+		Vec3 ejek = ek.cross(ej);
+		Vec3 ekei = ej.cross(ei);
 
 		Vec3 nij = eiej.normalized();
 		Vec3 njk = ejek.normalized();
@@ -121,8 +115,7 @@ float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage,
 
 		sumU += ui;
 
-		std::cout << "ui " << ui << std::endl; 
-		it = phi<2,1>(cage, it);
+		it = phi<2, 1>(cage, it);
 	} while (it != vertex);
 
 	return (1.0f / r) * sumU;
@@ -238,61 +231,64 @@ public:
 			return true;
 		});
 
-
 		uint32 nbv_object = nb_cells<Vertex>(object);
 		uint32 nbv_cage = nb_cells<Vertex>(cage);
 
 		p.coords_.resize(nbv_object, nbv_cage);
-		
 
 		foreach_cell(object, [&](Vertex v) -> bool {
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
 			DartMarker dm(cage);
-			float sumMVC = 0.0; 
+			float sumMVC = 0.0;
 			for (Dart d = cage.begin(), end = cage.end(); d != end; d = cage.next(d))
 			{
 				Vertex cage_vertex = CMap2::Vertex(d);
 				bool vc_marked = value<bool>(cage, cage_vertex_marked, cage_vertex);
 
-				if (!dm.is_marked(d) && !vc_marked){
-					
+				if (!dm.is_marked(d) && !vc_marked)
+				{
+
 					const Vec3& cage_point = value<Vec3>(cage, cage_vertex_position, cage_vertex);
 					uint32 cage_point_idx = value<uint32>(cage, cage_vertex_index, cage_vertex);
 
 					float mvc_value = compute_mvc(surface_point, d, cage, cage_point, cage_vertex_position.get());
 
-					p.coords_(surface_point_idx, cage_point_idx) =  mvc_value; 
-					dm.mark(d); 
+					p.coords_(surface_point_idx, cage_point_idx) = mvc_value;
+					dm.mark(d);
 
-					value<bool>(cage, cage_vertex_marked, cage_vertex) = true;	
+					value<bool>(cage, cage_vertex_marked, cage_vertex) = true;
 
-					sumMVC += mvc_value;  
+					sumMVC += mvc_value;
 				}
-				//const CELL c(d);
-				
-					
-				}
+				// const CELL c(d);
+			}
 
-				float sum_lambda = 0.0; 
+			//std::cout << "sumMVC " << sumMVC << std::endl; 
 
-				parallel_foreach_cell(cage, [&](Vertex vc) -> bool {
-					uint32 cage_point_idx2 = value<uint32>(cage, cage_vertex_index, vc);
+			float sum_lambda = 0.0;
 
-					p.coords_(surface_point_idx, cage_point_idx2) = p.coords_(surface_point_idx, cage_point_idx2) / sumMVC; 
+			parallel_foreach_cell(cage, [&](Vertex vc) -> bool {
+				uint32 cage_point_idx2 = value<uint32>(cage, cage_vertex_index, vc);
 
-					sum_lambda = p.coords_(surface_point_idx, cage_point_idx2); 
+				p.coords_(surface_point_idx, cage_point_idx2) = p.coords_(surface_point_idx, cage_point_idx2) / sumMVC;
 
-					value<bool>(cage, cage_vertex_marked, vc) = false;
+				sum_lambda += p.coords_(surface_point_idx, cage_point_idx2);
 
-					return true;
-				});
-				
+				//std::cout << "local lambda" << p.coords_(surface_point_idx, cage_point_idx2) << " idx " << cage_point_idx2<< std::endl; 
+
+				value<bool>(cage, cage_vertex_marked, vc) = false;
+
 				return true;
 			});
 
-			//std::cout << p.coords_ << std::endl; 
+			//std::cout << "sum_lambda " << sum_lambda << std::endl; 
+
+			return true;
+		});
+
+		// std::cout << p.coords_ << std::endl;
 
 		p.cage_attribute_update_connection_ =
 			boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
