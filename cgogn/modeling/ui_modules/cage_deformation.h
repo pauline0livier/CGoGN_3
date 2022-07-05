@@ -55,13 +55,13 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 		CMap2::Vertex(f1), CMap2::Vertex(phi1(m, f1)), CMap2::Vertex(phi<1, 1>(m, f1)), CMap2::Vertex(phi_1(m, f1)),
 		CMap2::Vertex(f2), CMap2::Vertex(phi1(m, f2)), CMap2::Vertex(phi<1, 1>(m, f2)), CMap2::Vertex(phi_1(m, f2))};
 	value<Vec3>(m, vertex_position, vertices[0]) = bb_min;
-	value<Vec3>(m, vertex_position, vertices[1]) = {bb_max[0]*1.5, bb_min[1] -1.5, bb_min[2]-1.5};
-	value<Vec3>(m, vertex_position, vertices[2]) = {bb_max[0]*1.5, bb_max[1]*1.5, bb_min[2]-1.5};
-	value<Vec3>(m, vertex_position, vertices[3]) = {bb_min[0]-1.5, bb_max[1]*1.5, bb_min[2]-1.5};
-	value<Vec3>(m, vertex_position, vertices[4]) = {bb_max[0]*1.5, bb_min[1]-1.5, bb_max[2]*1.5};
-	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min[0]-1.5, bb_min[1]-1.5, bb_max[2]*1.5};
-	value<Vec3>(m, vertex_position, vertices[6]) = {bb_min[0]-1.5, bb_max[1]*1.5, bb_max[2]*1.5};
-	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0]*1.5, bb_max[1]*1.5, bb_max[2]*1.5};
+	value<Vec3>(m, vertex_position, vertices[1]) = {bb_max[0] * 1.5, bb_min[1] - 1.5, bb_min[2] - 1.5};
+	value<Vec3>(m, vertex_position, vertices[2]) = {bb_max[0] * 1.5, bb_max[1] * 1.5, bb_min[2] - 1.5};
+	value<Vec3>(m, vertex_position, vertices[3]) = {bb_min[0] - 1.5, bb_max[1] * 1.5, bb_min[2] - 1.5};
+	value<Vec3>(m, vertex_position, vertices[4]) = {bb_max[0] * 1.5, bb_min[1] - 1.5, bb_max[2] * 1.5};
+	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min[0] - 1.5, bb_min[1] - 1.5, bb_max[2] * 1.5};
+	value<Vec3>(m, vertex_position, vertices[6]) = {bb_min[0] - 1.5, bb_max[1] * 1.5, bb_max[2] * 1.5};
+	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0] * 1.5, bb_max[1] * 1.5, bb_max[2] * 1.5};
 }
 
 // Github SuperBoubek QMVC https://github.com/superboubek/QMVC/blob/master/coordinates/mvc/mvc.h
@@ -236,7 +236,7 @@ public:
 
 		p.coords_.resize(nbv_object, nbv_cage);
 
-		foreach_cell(object, [&](Vertex v) -> bool {
+		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
@@ -265,7 +265,7 @@ public:
 				// const CELL c(d);
 			}
 
-			//std::cout << "sumMVC " << sumMVC << std::endl; 
+			// std::cout << "sumMVC " << sumMVC << std::endl;
 
 			float sum_lambda = 0.0;
 
@@ -276,14 +276,15 @@ public:
 
 				sum_lambda += p.coords_(surface_point_idx, cage_point_idx2);
 
-				//std::cout << "local lambda" << p.coords_(surface_point_idx, cage_point_idx2) << " idx " << cage_point_idx2<< std::endl; 
+				// std::cout << "local lambda" << p.coords_(surface_point_idx, cage_point_idx2) << " idx " <<
+				// cage_point_idx2<< std::endl;
 
 				value<bool>(cage, cage_vertex_marked, vc) = false;
 
 				return true;
 			});
 
-			//std::cout << "sum_lambda " << sum_lambda << std::endl; 
+			// std::cout << "sum_lambda " << sum_lambda << std::endl;
 
 			return true;
 		});
@@ -295,16 +296,29 @@ public:
 				&cage, [&](Attribute<Vec3>* attribute) {
 					if (p.cage_vertex_position_.get() == attribute)
 					{
-						std::cout << "recompute object position" << std::endl;
 
-						/*parallel_foreach_cell(object, [&](Vertex v) -> bool {
-							const Vec3& val = value<Vec3>(m, vertex_attribute, v);
-							uint32 vidx = value<uint32>(m, vertex_index, v);
-							vattr(vidx, 0) = val[0];
-							vattr(vidx, 1) = val[1];
-							vattr(vidx, 2) = val[2];
+						std::shared_ptr<Attribute<uint32>> object_vertex_index = cgogn::get_attribute<uint32, Vertex>(object, "weight_index");
+						std::shared_ptr<Attribute<uint32>> cage_vertex_index = cgogn::get_attribute<uint32, Vertex>(cage, "weight_index");
+
+						parallel_foreach_cell(object, [&](Vertex v) -> bool {
+							uint32 vidx = value<uint32>(object, object_vertex_index, v);
+
+							Vec3 new_pos_ = {0.0, 0.0, 0.0};
+
+							foreach_cell(cage, [&](Vertex cv) -> bool {
+								const Vec3& cage_point = value<Vec3>(cage, cage_vertex_position, cv);
+								uint32 cage_point_idx = value<uint32>(cage, cage_vertex_index, cv);
+
+								new_pos_ += p.coords_(vidx, cage_point_idx)*cage_point; 
+								
+								return true;
+							});
+
+								value<Vec3>(object, object_vertex_position, v) = new_pos_;
 							return true;
-						});*/
+						});
+
+						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
 					}
 				});
 	}
