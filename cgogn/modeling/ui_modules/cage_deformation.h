@@ -202,8 +202,8 @@ public:
 		return cage;
 	}
 
-	void bind_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
-					 const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
+	void bind_object_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
+						 const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
 	{
 
 		// createWeightedMatrix(const MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
@@ -297,8 +297,10 @@ public:
 					if (p.cage_vertex_position_.get() == attribute)
 					{
 
-						std::shared_ptr<Attribute<uint32>> object_vertex_index = cgogn::get_attribute<uint32, Vertex>(object, "weight_index");
-						std::shared_ptr<Attribute<uint32>> cage_vertex_index = cgogn::get_attribute<uint32, Vertex>(cage, "weight_index");
+						std::shared_ptr<Attribute<uint32>> object_vertex_index =
+							cgogn::get_attribute<uint32, Vertex>(object, "weight_index");
+						std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+							cgogn::get_attribute<uint32, Vertex>(cage, "weight_index");
 
 						parallel_foreach_cell(object, [&](Vertex v) -> bool {
 							uint32 vidx = value<uint32>(object, object_vertex_index, v);
@@ -309,12 +311,12 @@ public:
 								const Vec3& cage_point = value<Vec3>(cage, cage_vertex_position, cv);
 								uint32 cage_point_idx = value<uint32>(cage, cage_vertex_index, cv);
 
-								new_pos_ += p.coords_(vidx, cage_point_idx)*cage_point; 
-								
+								new_pos_ += p.coords_(vidx, cage_point_idx) * cage_point;
+
 								return true;
 							});
 
-								value<Vec3>(object, object_vertex_position, v) = new_pos_;
+							value<Vec3>(object, object_vertex_position, v) = new_pos_;
 							return true;
 						});
 
@@ -358,10 +360,56 @@ protected:
 					if (ImGui::Button("Generate cage"))
 						generate_cage(*selected_mesh_, p.vertex_position_);
 				}
+
 				else
 				{
+					//inspired from https://github.com/ocornut/imgui/issues/1658
+					const char* items[] = {"MVC", "QHC", "Green"};
+					static const char* current_item = "MVC"; 
+					ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
+
+					ImGuiStyle& style = ImGui::GetStyle();
+					float w = ImGui::CalcItemWidth();
+					float spacing = style.ItemInnerSpacing.x;
+					float button_sz = ImGui::GetFrameHeight();
+					ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
+					if (ImGui::BeginCombo("##custom combo", current_item, ImGuiComboFlags_NoArrowButton))
+					{
+						for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+						{
+							bool is_selected = (current_item == items[n]);
+							if (ImGui::Selectable(items[n], is_selected))
+								current_item = items[n];
+							if (is_selected)
+								ImGui::SetItemDefaultFocus();
+						}
+						ImGui::EndCombo();
+					}
+
+					//valid_choice = current_item; 
+					
 					if (ImGui::Button("Bind object"))
-						bind_object(*selected_mesh_, p.vertex_position_, *p.cage_, p.cage_vertex_position_);
+					{
+						
+						if (current_item == "MVC")
+						{
+							bind_object_mvc(*selected_mesh_, p.vertex_position_, *p.cage_, p.cage_vertex_position_);
+						} 
+						else if (current_item == "QHC")
+						{
+							std::cout << "QHC" << std::endl; 
+						} 
+						else if (current_item == "Green")
+						{
+							std::cout << "green" << std::endl; 
+						}
+						else 
+						{
+							std::cout << "not available yet" << std::endl; 
+						}
+						
+					}
+						
 				}
 			}
 		}
