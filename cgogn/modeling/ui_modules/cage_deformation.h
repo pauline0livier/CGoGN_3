@@ -55,7 +55,6 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 		CMap2::Vertex(f1), CMap2::Vertex(phi1(m, f1)), CMap2::Vertex(phi<1, 1>(m, f1)), CMap2::Vertex(phi_1(m, f1)),
 		CMap2::Vertex(f2), CMap2::Vertex(phi1(m, f2)), CMap2::Vertex(phi<1, 1>(m, f2)), CMap2::Vertex(phi_1(m, f2))};
 
-
 	Vec3 center = (bb_min + bb_max) / Scalar(2);
 	Vec3 bb_min_ = ((bb_min - center) * 1.1) + center;
 	Vec3 bb_max_ = ((bb_max - center) * 1.1) + center;
@@ -64,7 +63,7 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 	value<Vec3>(m, vertex_position, vertices[1]) = {bb_min_[0], bb_max_[1], bb_min_[2]};
 	value<Vec3>(m, vertex_position, vertices[2]) = {bb_max_[0], bb_max_[1], bb_min_[2]};
 	value<Vec3>(m, vertex_position, vertices[3]) = {bb_max_[0], bb_min_[1], bb_min_[2]};
-													
+
 	value<Vec3>(m, vertex_position, vertices[4]) = {bb_min_[0], bb_max_[1], bb_max_[2]};
 	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min_[0], bb_min_[1], bb_max_[2]};
 	value<Vec3>(m, vertex_position, vertices[6]) = {bb_max_[0], bb_min_[1], bb_max_[2]};
@@ -128,6 +127,48 @@ float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage, const Vec
 	return (1.0f / r) * sumU;
 }
 
+const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3& nu)
+{
+	const Vec3 v2_v1 = v2 - v1;
+	const Vec3 p_v1 = p - v1;
+	const Vec3 v1_p = v1 - p;
+	const Vec3 v2_p = v2 - p;
+
+	const Vec3 p_nu = p - nu;
+
+	const double alpha = std::acos((v2_v1.dot(p_v1)) / (v2_v1.norm() * p_v1.norm()));
+	const double beta = std::acos((v1_p.dot(v2_p)) / (v1_p.norm() * v2_p.norm()));
+
+	const double lambda = p_v1.norm() * p_v1.norm() * std::sin(alpha) * std::sin(alpha);
+
+	const double c = p_nu.norm() * p_nu.norm();
+
+	const double sqrt_c = sqrt(c);
+	const double sqrt_lambda = sqrt(lambda);
+
+	const std::array<double, 2> theta = {M_PI - alpha, M_PI - alpha - beta};
+	std::array<double, 2> I;
+
+	for (size_t i = 0; i < 2; ++i)
+	{
+		const double S = std::sin(theta[i]);
+		const double C = std::cos(theta[i]);
+
+		const double SS = S * S;
+
+		const auto sign = S < 0 ? -1.0 : 1.0;
+
+		const auto tan_part = 2 * sqrt_c * std::atan2(sqrt_c * C / sqrt(lambda + SS * c));
+
+		const auto log_part = log((2 * sqrt_lambda * SS / ((1 - C) * (1 - C)) *
+								   (1 - 2 * c * C / (c * (1 + C) + lambda + sqrt(lambda * lambda + lambda * c * SS)))));
+
+		I[i] = (-sign / 2) * (tan_part + sqrt_lambda * log_part);
+	}
+
+	return (-1 / (4 * M_PI)) * abs(I[0] - I[1] - sqrt_c * beta);
+}
+
 template <typename MESH>
 
 class CageDeformation : public Module
@@ -157,6 +198,7 @@ class CageDeformation : public Module
 		std::shared_ptr<Attribute<Vec3>> cage_vertex_position_;
 		// Eigen::MatrixXd coords_;
 		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> coords_;
+		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> n_coords_;
 
 		std::shared_ptr<boost::synapse::connection> cage_attribute_update_connection_;
 	};
@@ -208,7 +250,6 @@ public:
 
 		return cage;
 	}
-	
 
 	void bind_object_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
 						 const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
@@ -235,8 +276,6 @@ public:
 			value<bool>(cage, cage_vertex_marked, v) = false;
 			return true;
 		});
-
-
 
 		uint32 nbv_object = nb_cells<Vertex>(object);
 		uint32 nbv_cage = nb_cells<Vertex>(cage);
@@ -269,7 +308,6 @@ public:
 
 					sumMVC += mvc_value;
 				}
-				
 			}
 
 			float sum_lambda = 0.0;
@@ -286,7 +324,7 @@ public:
 				return true;
 			});
 
-			 //std::cout << "sum_lambda " << sum_lambda << std::endl;
+			// std::cout << "sum_lambda " << sum_lambda << std::endl;
 
 			return true;
 		});
@@ -327,6 +365,97 @@ public:
 				});
 	}
 
+	/*void bind_object_green(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
+						   const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
+	{
+
+		Parameters& p = parameters_[&object];
+
+		std::shared_ptr<Attribute<uint32>> object_vertex_index = add_attribute<uint32, Vertex>(object, "weight_index");
+		uint32 nb_vertices = 0;
+		foreach_cell(object, [&](Vertex v) -> bool {
+			value<uint32>(object, object_vertex_index, v) = nb_vertices++;
+			return true;
+		});
+
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index = add_attribute<uint32, Vertex>(cage, "weight_index");
+		uint32 nb_vertices_cage = 0;
+		foreach_cell(cage, [&](Vertex v) -> bool {
+			value<uint32>(cage, cage_vertex_index, v) = nb_vertices_cage++;
+			return true;
+		});
+
+		std::shared_ptr<Attribute<bool>> cage_vertex_marked = add_attribute<bool, Vertex>(cage, "marked_vertex");
+		parallel_foreach_cell(cage, [&](Vertex v) -> bool {
+			value<bool>(cage, cage_vertex_marked, v) = false;
+			return true;
+		});
+
+		uint32 nbv_object = nb_cells<Vertex>(object);
+		uint32 nbv_cage = nb_cells<Vertex>(cage);
+
+		uint32 nbf_cage = nb_cells<Face>(cage);
+
+		p.coords_.resize(nbv_object, nbv_cage);
+		p.n_coords_.resize(nbv_object, nbf_cage);
+
+		parallel_foreach_cell(object, [&](Vertex v) -> bool {
+			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
+			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
+
+			parallel_foreach_cell(cage, [&](Face fc) -> bool {
+
+			});
+
+			// std::cout << "sum_lambda " << sum_lambda << std::endl;
+
+			return true;
+		});
+
+		p.cage_attribute_update_connection_ =
+			boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
+				&cage, [&](Attribute<Vec3>* attribute) {
+					if (p.cage_vertex_position_.get() == attribute)
+					{
+
+						std::shared_ptr<Attribute<uint32>> object_vertex_index =
+							cgogn::get_attribute<uint32, Vertex>(object, "weight_index");
+						std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+							cgogn::get_attribute<uint32, Vertex>(cage, "weight_index");
+
+						parallel_foreach_cell(object, [&](Vertex v) -> bool {
+							uint32 vidx = value<uint32>(object, object_vertex_index, v);
+
+							Vec3 new_pos_update_ = {0.0, 0.0, 0.0};
+
+							foreach_cell(cage, [&](Vertex cv) -> bool {
+								const Vec3& cage_point = value<Vec3>(cage, cage_vertex_position, cv);
+								uint32 cage_point_idx = value<uint32>(cage, cage_vertex_index, cv);
+
+								new_pos_update_ += p.coords_(vidx, cage_point_idx) * cage_point;
+
+								return true;
+							});
+
+							Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
+							foreach_cell(cage, [&](Face cf) -> bool {
+								uint32 cage_face_idx = value<uint32>(cage, cage_face_index, cf);
+								// sj ? 
+								
+								new_norm_update_ += p.n_coords_(vidx, cage_face_idx) * sj * cage_normal; 
+
+								return true;
+							});
+
+							value<Vec3>(object, object_vertex_position, v) = new_pos_update + new_norm_update_;
+							return true;
+						});
+
+						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+					}
+				});
+	}*/
+
 protected:
 	void init() override
 	{
@@ -365,9 +494,9 @@ protected:
 
 				else
 				{
-					//inspired from https://github.com/ocornut/imgui/issues/1658
+					// inspired from https://github.com/ocornut/imgui/issues/1658
 					const char* items[] = {"MVC", "QHC", "Green"};
-					static const char* current_item = "MVC"; 
+					static const char* current_item = "MVC";
 					ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
 
 					ImGuiStyle& style = ImGui::GetStyle();
@@ -388,30 +517,28 @@ protected:
 						ImGui::EndCombo();
 					}
 
-					//valid_choice = current_item; 
-					
+					// valid_choice = current_item;
+
 					if (ImGui::Button("Bind object"))
 					{
-						
+
 						if (current_item == "MVC")
 						{
 							bind_object_mvc(*selected_mesh_, p.vertex_position_, *p.cage_, p.cage_vertex_position_);
-						} 
+						}
 						else if (current_item == "QHC")
 						{
-							std::cout << "QHC" << std::endl; 
-						} 
+							std::cout << "QHC" << std::endl;
+						}
 						else if (current_item == "Green")
 						{
-							std::cout << "green" << std::endl; 
+							std::cout << "green" << std::endl;
 						}
-						else 
+						else
 						{
-							std::cout << "not available yet" << std::endl; 
+							std::cout << "not available yet" << std::endl;
 						}
-						
 					}
-						
 				}
 			}
 		}
