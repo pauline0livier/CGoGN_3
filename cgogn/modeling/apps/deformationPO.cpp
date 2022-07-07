@@ -99,6 +99,12 @@ int main(int argc, char** argv)
 	Mesh* cage = cd.generate_cage(*m, vertex_position);
 	std::shared_ptr<Attribute<Vec3>> cage_vertex_position = cgogn::get_attribute<Vec3, Vertex>(*cage, "position");
 
+	std::shared_ptr<Attribute<Vec3>> cage_vertex_normal = cgogn::add_attribute<Vec3, Vertex>(*cage, "normal");
+
+	sdp.compute_normal(*cage, cage_vertex_position.get(), cage_vertex_normal.get());
+
+
+
 	sr.set_vertex_position(*v1, *cage, cage_vertex_position);
 	sr.set_render_faces(*v1, *cage, false);
 

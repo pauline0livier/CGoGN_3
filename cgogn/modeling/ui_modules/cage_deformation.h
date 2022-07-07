@@ -54,14 +54,21 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 	std::vector<CMap2::Vertex> vertices = {
 		CMap2::Vertex(f1), CMap2::Vertex(phi1(m, f1)), CMap2::Vertex(phi<1, 1>(m, f1)), CMap2::Vertex(phi_1(m, f1)),
 		CMap2::Vertex(f2), CMap2::Vertex(phi1(m, f2)), CMap2::Vertex(phi<1, 1>(m, f2)), CMap2::Vertex(phi_1(m, f2))};
-	value<Vec3>(m, vertex_position, vertices[0]) = bb_min;
-	value<Vec3>(m, vertex_position, vertices[1]) = {bb_max[0] * 1.5, bb_min[1] - 1.5, bb_min[2] - 1.5};
-	value<Vec3>(m, vertex_position, vertices[2]) = {bb_max[0] * 1.5, bb_max[1] * 1.5, bb_min[2] - 1.5};
-	value<Vec3>(m, vertex_position, vertices[3]) = {bb_min[0] - 1.5, bb_max[1] * 1.5, bb_min[2] - 1.5};
-	value<Vec3>(m, vertex_position, vertices[4]) = {bb_max[0] * 1.5, bb_min[1] - 1.5, bb_max[2] * 1.5};
-	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min[0] - 1.5, bb_min[1] - 1.5, bb_max[2] * 1.5};
-	value<Vec3>(m, vertex_position, vertices[6]) = {bb_min[0] - 1.5, bb_max[1] * 1.5, bb_max[2] * 1.5};
-	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0] * 1.5, bb_max[1] * 1.5, bb_max[2] * 1.5};
+
+
+	Vec3 center = (bb_min + bb_max) / Scalar(2);
+	Vec3 bb_min_ = ((bb_min - center) * 1.1) + center;
+	Vec3 bb_max_ = ((bb_max - center) * 1.1) + center;
+
+	value<Vec3>(m, vertex_position, vertices[0]) = bb_min_;
+	value<Vec3>(m, vertex_position, vertices[1]) = {bb_min_[0], bb_max_[1], bb_min_[2]};
+	value<Vec3>(m, vertex_position, vertices[2]) = {bb_max_[0], bb_max_[1], bb_min_[2]};
+	value<Vec3>(m, vertex_position, vertices[3]) = {bb_max_[0], bb_min_[1], bb_min_[2]};
+													
+	value<Vec3>(m, vertex_position, vertices[4]) = {bb_min_[0], bb_max_[1], bb_max_[2]};
+	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min_[0], bb_min_[1], bb_max_[2]};
+	value<Vec3>(m, vertex_position, vertices[6]) = {bb_max_[0], bb_min_[1], bb_max_[2]};
+	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max_[0], bb_max_[1], bb_max_[2]};
 }
 
 // Github SuperBoubek QMVC https://github.com/superboubek/QMVC/blob/master/coordinates/mvc/mvc.h
@@ -100,12 +107,12 @@ float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage, const Vec
 		Vec3 ek = (vk - surface_point).normalized();
 
 		double Bjk = getAngleBetweenUnitVectors(ej, ek);
-		double Bij = getAngleBetweenUnitVectors(ei, ek);
-		double Bki = getAngleBetweenUnitVectors(ej, ei);
+		double Bij = getAngleBetweenUnitVectors(ei, ej);
+		double Bki = getAngleBetweenUnitVectors(ek, ei);
 
-		Vec3 eiej = ei.cross(ek);
-		Vec3 ejek = ek.cross(ej);
-		Vec3 ekei = ej.cross(ei);
+		Vec3 eiej = ei.cross(ej);
+		Vec3 ejek = ej.cross(ek);
+		Vec3 ekei = ek.cross(ei);
 
 		Vec3 nij = eiej.normalized();
 		Vec3 njk = ejek.normalized();
@@ -201,13 +208,11 @@ public:
 
 		return cage;
 	}
+	
 
 	void bind_object_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
 						 const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
 	{
-
-		// createWeightedMatrix(const MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
-		// const MESH& cage, const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position);
 
 		Parameters& p = parameters_[&object];
 
@@ -230,6 +235,8 @@ public:
 			value<bool>(cage, cage_vertex_marked, v) = false;
 			return true;
 		});
+
+
 
 		uint32 nbv_object = nb_cells<Vertex>(object);
 		uint32 nbv_cage = nb_cells<Vertex>(cage);
@@ -262,10 +269,8 @@ public:
 
 					sumMVC += mvc_value;
 				}
-				// const CELL c(d);
+				
 			}
-
-			// std::cout << "sumMVC " << sumMVC << std::endl;
 
 			float sum_lambda = 0.0;
 
@@ -276,15 +281,12 @@ public:
 
 				sum_lambda += p.coords_(surface_point_idx, cage_point_idx2);
 
-				// std::cout << "local lambda" << p.coords_(surface_point_idx, cage_point_idx2) << " idx " <<
-				// cage_point_idx2<< std::endl;
-
 				value<bool>(cage, cage_vertex_marked, vc) = false;
 
 				return true;
 			});
 
-			// std::cout << "sum_lambda " << sum_lambda << std::endl;
+			 //std::cout << "sum_lambda " << sum_lambda << std::endl;
 
 			return true;
 		});
