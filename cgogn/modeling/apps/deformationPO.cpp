@@ -103,7 +103,7 @@ int main(int argc, char** argv)
 
 	sdp.compute_normal(*cage, cage_vertex_position.get(), cage_vertex_normal.get());
 
-
+	
 
 	sr.set_vertex_position(*v1, *cage, cage_vertex_position);
 	sr.set_render_faces(*v1, *cage, false);

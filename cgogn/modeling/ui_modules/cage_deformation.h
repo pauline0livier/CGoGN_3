@@ -33,6 +33,7 @@
 
 #include <cgogn/geometry/functions/angle.h>
 #include <cgogn/geometry/types/vector_traits.h>
+#include <cgogn/geometry/algos/normal.h>
 
 #include <boost/synapse/connect.hpp>
 
@@ -158,7 +159,7 @@ const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3&
 
 		const auto sign = S < 0 ? -1.0 : 1.0;
 
-		const auto tan_part = 2 * sqrt_c * std::atan2(sqrt_c * C / sqrt(lambda + SS * c));
+		const auto tan_part = 2 * sqrt_c * std::atan2(sqrt_c * C, sqrt(lambda + SS * c));
 
 		const auto log_part = log((2 * sqrt_lambda * SS / ((1 - C) * (1 - C)) *
 								   (1 - 2 * c * C / (c * (1 + C) + lambda + sqrt(lambda * lambda + lambda * c * SS)))));
@@ -177,6 +178,7 @@ class CageDeformation : public Module
 
 	using Vertex = typename mesh_traits<MESH>::Vertex;
 	using Edge = typename mesh_traits<MESH>::Edge;
+	using Face = typename mesh_traits<MESH>::Face;
 
 	template <typename T>
 	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
@@ -365,7 +367,7 @@ public:
 				});
 	}
 
-	/*void bind_object_green(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
+	void bind_object_green(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
 						   const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
 	{
 
@@ -391,24 +393,102 @@ public:
 			return true;
 		});
 
+		std::shared_ptr<Attribute<uint32>> cage_face_index = add_attribute<uint32, Face>(cage, "face_index");
+		uint32 nb_faces_cage = 0;
+		foreach_cell(cage, [&](Face f) -> bool {
+			value<uint32>(cage, cage_face_index, f) = nb_faces_cage++;
+			return true;
+		});
+
 		uint32 nbv_object = nb_cells<Vertex>(object);
 		uint32 nbv_cage = nb_cells<Vertex>(cage);
 
 		uint32 nbf_cage = nb_cells<Face>(cage);
 
 		p.coords_.resize(nbv_object, nbv_cage);
-		p.n_coords_.resize(nbv_object, nbf_cage);
+		p.coords_.setZero(); 
 
-		parallel_foreach_cell(object, [&](Vertex v) -> bool {
+		p.n_coords_.resize(nbv_object, nbf_cage);
+		p.n_coords_.setZero();
+	
+		foreach_cell(object, [&](Vertex v) -> bool {
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
-			parallel_foreach_cell(cage, [&](Face fc) -> bool {
+			foreach_cell(cage, [&](Face fc) -> bool {
+				uint32 cage_face_idx = value<uint32>(cage, cage_face_index, fc);
 
+				Dart d1 = fc.dart; 
+
+				std::vector<CMap2::Vertex> face_vertices_ = {CMap2::Vertex(d1), CMap2::Vertex(phi1(cage,d1)), CMap2::Vertex(phi_1(cage,d1))}; 
+
+				std::vector<Vec3> face_vert_values = {value<Vec3>(cage, cage_vertex_position, face_vertices_[0]), 
+				value<Vec3>(cage, cage_vertex_position, face_vertices_[1]), value<Vec3>(cage, cage_vertex_position, face_vertices_[2])}; 
+
+				Vec3 n = cgogn::geometry::normal(face_vert_values[0], face_vert_values[1],face_vert_values[2]); 
+				n.normalize(); 
+				
+				for (size_t l = 0; l < 3; l++)
+				{
+					face_vert_values[l] -= surface_point; 
+				}
+
+				const Vec3 p_ = (face_vert_values[0].dot(n))*n; 
+
+				std::vector<double> I(3); 
+				std::vector<double> II(3); 
+				std::vector<double> s(3); 
+				std::vector<Vec3> N(3); 
+
+				for (size_t l = 0; l < 3; l++){
+
+					const auto vj = face_vert_values[l]; 
+					const auto vj1 = face_vert_values[(l+1)%3]; 
+
+					const auto vjpt = (vj - p_).cross(vj1 - p_).dot(n); 
+					s[l] = vjpt < 0 ? -1.0 : 1.0;
+					I[l] = GCTriInt(p_, vj, vj1, {0.0f, 0.0f, 0.0f}); 
+					II[l] = GCTriInt({0.0f, 0.0f, 0.0f}, vj1, vj, {0.0f, 0.0f, 0.0f}); 
+					const auto ql = vj1.cross(vj); 
+					N[l] = ql/ql.norm(); 
+				}
+
+				const auto I_ = -abs(s[0]*I[0] + s[1]*I[1] + s[2]*I[2]); 
+
+				p.n_coords_(surface_point_idx, cage_face_idx) = -I_; 
+
+				const auto w = I_*n + N[0]*II[0] + N[1]*II[1] + N[2]*II[2]; 
+				if (w.norm() > DBL_EPSILON){
+					for (size_t l = 0; l < 3; l++)
+					{
+						const uint32 cage_vertex_idx = value<uint32>(cage, cage_vertex_index, face_vertices_[l]);
+
+						const auto Nl1 = N[(l+1)%3]; 
+						const auto num = Nl1.dot(w); 
+						const auto denom = Nl1.dot(face_vert_values[l]); 
+
+						p.coords_(surface_point_idx, cage_vertex_idx) += num/denom; 
+					}
+				}
+				
+				return true;
 			});
 
-			// std::cout << "sum_lambda " << sum_lambda << std::endl;
+			double sum_lambda = 0.0;
+			for (size_t v = 0; v < nbv_cage; v++){
+				sum_lambda += p.coords_(surface_point_idx, v); 
 
+				std::cout << "p_coords " << p.coords_(surface_point_idx, v) << std::endl;
+			}
+
+			std::cout << "sum_lambda " << sum_lambda << std::endl;
+
+			double sum_norm = 0.0;
+			for (size_t f = 0; f < nbf_cage; f++){
+				sum_norm += p.n_coords_(surface_point_idx, f); 
+			}
+
+			std::cout << "sum_norm " << sum_norm << std::endl;
 			return true;
 		});
 
@@ -417,8 +497,8 @@ public:
 				&cage, [&](Attribute<Vec3>* attribute) {
 					if (p.cage_vertex_position_.get() == attribute)
 					{
-
-						std::shared_ptr<Attribute<uint32>> object_vertex_index =
+						std::cout << "update pos object" << std::endl; 
+						/*std::shared_ptr<Attribute<uint32>> object_vertex_index =
 							cgogn::get_attribute<uint32, Vertex>(object, "weight_index");
 						std::shared_ptr<Attribute<uint32>> cage_vertex_index =
 							cgogn::get_attribute<uint32, Vertex>(cage, "weight_index");
@@ -451,10 +531,10 @@ public:
 							return true;
 						});
 
-						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());*/
 					}
 				});
-	}*/
+	}
 
 protected:
 	void init() override
@@ -532,7 +612,7 @@ protected:
 						}
 						else if (current_item == "Green")
 						{
-							std::cout << "green" << std::endl;
+							bind_object_green(*selected_mesh_, p.vertex_position_, *p.cage_, p.cage_vertex_position_);
 						}
 						else
 						{
