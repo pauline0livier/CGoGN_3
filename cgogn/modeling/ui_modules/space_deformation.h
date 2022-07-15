@@ -247,7 +247,7 @@ class SpaceDeformation : public Module
 	struct Parameters
 	{
 		Parameters() : vertex_position_(nullptr), cage_(nullptr), cage_vertex_position_(nullptr), 
-		influence_set_(nullptr), control_set_(nullptr), solver_ready_(false)
+		influence_set_(nullptr), control_set_(nullptr), solver_ready_(false), local_def(false)
 		{
 		}
 
@@ -275,6 +275,7 @@ class SpaceDeformation : public Module
 		
 
 		bool solver_ready_;
+		bool local_def;
 	};
 
 public:
@@ -845,7 +846,13 @@ protected:
 
 					if (p.influence_set_ && p.influence_set_->size() > 0)
 					{ 
+						p.local_def = true; 
 						generate_local_cage(*selected_mesh_, p.vertex_position_);
+						// clear influence area 
+						foreach_cell(*selected_mesh_, [&p](Vertex v) -> bool {
+							p.influence_set_->unselect(v);
+							return true;
+						});
 					}
 
 					/*imgui_combo_cells_set(
@@ -883,7 +890,12 @@ protected:
 
 						if (current_item == "MVC")
 						{
-							bind_object_mvc(*selected_mesh_, p.vertex_position_, *p.cage_, p.cage_vertex_position_);
+							if (!p.local_def){
+								bind_object_mvc(*selected_mesh_, p.vertex_position_, *p.cage_, p.cage_vertex_position_);
+							} else {
+								std::cout << "local def to implement" << std::endl; 
+							}
+							
 						}
 						else if (current_item == "QHC")
 						{
@@ -891,7 +903,12 @@ protected:
 						}
 						else if (current_item == "Green")
 						{
-							bind_object_green(*selected_mesh_, p.vertex_position_, *p.cage_, p.cage_vertex_position_);
+							if (!p.local_def){
+								bind_object_green(*selected_mesh_, p.vertex_position_, *p.cage_, p.cage_vertex_position_);
+							} else {
+								std::cout << "local def to implement" << std::endl; 
+							}
+							
 						}
 						else
 						{
