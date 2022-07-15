@@ -30,7 +30,7 @@
 #include <cgogn/geometry/ui_modules/surface_differential_properties.h>
 #include <cgogn/geometry/ui_modules/surface_selection.h>
 #include <cgogn/modeling/ui_modules/surface_deformation.h>
-#include <cgogn/modeling/ui_modules/cage_deformation.h>
+#include <cgogn/modeling/ui_modules/space_deformation.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
 
 #define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_DATA_PATH) "/meshes/"
@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 	cgogn::thread_start();
 
 	cgogn::ui::App app;
-	app.set_window_title("DeformationPO");
+	app.set_window_title("Deformation Global Cage");
 	app.set_window_size(1000, 800);
 
 	cgogn::ui::MeshProvider<Mesh> mp(app);
@@ -67,7 +67,7 @@ int main(int argc, char** argv)
 	cgogn::ui::SurfaceDifferentialProperties<Mesh> sdp(app);
 	cgogn::ui::SurfaceDeformation<Mesh> sd(app);
 	cgogn::ui::SurfaceSelection<Mesh> ss(app);
-	cgogn::ui::CageDeformation<Mesh> cd(app);
+	cgogn::ui::SpaceDeformation<Mesh> sd2(app);
 
 	app.init_modules();
 
@@ -96,7 +96,7 @@ int main(int argc, char** argv)
 
 	ss.set_vertex_position(*m, vertex_position);
 
-	Mesh* cage = cd.generate_cage(*m, vertex_position);
+	/*Mesh* cage = cd.generate_cage(*m, vertex_position);
 	std::shared_ptr<Attribute<Vec3>> cage_vertex_position = cgogn::get_attribute<Vec3, Vertex>(*cage, "position");
 
 	std::shared_ptr<Attribute<Vec3>> cage_vertex_normal = cgogn::add_attribute<Vec3, Vertex>(*cage, "normal");
@@ -115,7 +115,7 @@ int main(int argc, char** argv)
 
 	sd.set_selected_mesh(*cage);
 	sd.set_vertex_position(*cage, cage_vertex_position);
-	sd.set_selected_handle_vertices_set(*cage, &set);
+	sd.set_selected_handle_vertices_set(*cage, &set);*/
 
 	return app.launch();
 }

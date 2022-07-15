@@ -42,6 +42,7 @@ target_sources(${PROJECT_NAME}	PRIVATE
 		"${CMAKE_CURRENT_LIST_DIR}/algos/volume_utils.cpp"
 
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/cage_deformation.h"
+		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/space_deformation.h"
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/surface_modeling.h"
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/surface_deformation.h"
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/skeleton_extractor_module.h"

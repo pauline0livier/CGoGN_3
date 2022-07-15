@@ -41,8 +41,18 @@ target_link_libraries(deformation
 	${CMAKE_DL_LIBS}
 )
 
-add_executable(deformationPO deformationPO.cpp)
-target_link_libraries(deformationPO
+add_executable(def_global_cage_PO def_global_cage_PO.cpp)
+target_link_libraries(def_global_cage_PO
+	cgogn::core
+	cgogn::ui
+	cgogn::io
+	cgogn::rendering
+	cgogn::modeling
+	${CMAKE_DL_LIBS}
+)
+
+add_executable(def_local_tool_PO def_local_tool_PO.cpp)
+target_link_libraries(def_local_tool_PO
 	cgogn::core
 	cgogn::ui
 	cgogn::io
@@ -86,7 +96,11 @@ if(APPLE)
 		${CORE_FOUNDATION}
 		${CARBON}
 	)
-	target_link_libraries(deformationPO
+	target_link_libraries(def_global_cage_PO
+		${CORE_FOUNDATION}
+		${CARBON}
+	)
+	target_link_libraries(def_local_tool_PO
 		${CORE_FOUNDATION}
 		${CARBON}
 	)

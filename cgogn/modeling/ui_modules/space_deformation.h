@@ -25,6 +25,7 @@
 #define CGOGN_MODULE_CAGE_DEFORMATION_H_
 
 #include <cgogn/core/ui_modules/mesh_provider.h>
+#include <cgogn/rendering/ui_modules/surface_render.h>
 #include <cgogn/ui/app.h>
 #include <cgogn/ui/imgui_helpers.h>
 #include <cgogn/ui/module.h>
@@ -227,9 +228,9 @@ const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2)
 
 template <typename MESH>
 
-class CageDeformation : public Module
+class SpaceDeformation : public Module
 {
-	static_assert(mesh_traits<MESH>::dimension == 2, "CageDeformation can only be used with meshes of dimension 2");
+	static_assert(mesh_traits<MESH>::dimension == 2, "SpaceDeformation can only be used with meshes of dimension 2");
 
 	using Vertex = typename mesh_traits<MESH>::Vertex;
 	using Edge = typename mesh_traits<MESH>::Edge;
@@ -261,11 +262,11 @@ class CageDeformation : public Module
 	};
 
 public:
-	CageDeformation(const App& app)
-		: Module(app, "CageDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), selected_mesh_(nullptr)
+	SpaceDeformation(const App& app)
+		: Module(app, "SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), selected_mesh_(nullptr)
 	{
 	}
-	~CageDeformation()
+	~SpaceDeformation()
 	{
 	}
 
@@ -304,6 +305,11 @@ public:
 		Parameters& p = parameters_[&m];
 		p.cage_ = cage;
 		p.cage_vertex_position_ = cage_vertex_position;
+
+		ui::View* v1 = app_.current_view();
+
+		surface_render_->set_vertex_position(*v1, *cage, cage_vertex_position);
+		surface_render_->set_render_faces(*v1, *cage, false);
 
 		return cage;
 	}
@@ -691,7 +697,10 @@ protected:
 			app_.module("MeshProvider (" + std::string{mesh_traits<MESH>::name} + ")"));
 		mesh_provider_->foreach_mesh([this](MESH& m, const std::string&) { init_mesh(&m); });
 		connections_.push_back(boost::synapse::connect<typename MeshProvider<MESH>::mesh_added>(
-			mesh_provider_, this, &CageDeformation<MESH>::init_mesh));
+			mesh_provider_, this, &SpaceDeformation<MESH>::init_mesh));
+		
+		surface_render_ = static_cast<ui::SurfaceRender<MESH>*>(
+			app_.module("SurfaceRender (" + std::string{mesh_traits<MESH>::name} + ")"));
 	}
 
 	void left_panel() override
@@ -718,6 +727,8 @@ protected:
 				{
 					if (ImGui::Button("Generate cage"))
 						generate_cage(*selected_mesh_, p.vertex_position_);
+
+						
 				}
 
 				else
@@ -744,8 +755,6 @@ protected:
 						}
 						ImGui::EndCombo();
 					}
-
-					// valid_choice = current_item;
 
 					if (ImGui::Button("Bind object"))
 					{
@@ -777,6 +786,7 @@ private:
 	std::unordered_map<const MESH*, Parameters> parameters_;
 	std::vector<std::shared_ptr<boost::synapse::connection>> connections_;
 	MeshProvider<MESH>* mesh_provider_;
+	SurfaceRender<MESH>* surface_render_; 
 };
 
 } // namespace ui

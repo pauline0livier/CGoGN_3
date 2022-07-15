@@ -224,13 +224,14 @@ public:
 private:
 	void init_mesh(MESH* m)
 	{
+		
 		for (View* v : linked_views_)
 		{
 			parameters_[v][m];
 			std::shared_ptr<Attribute<Vec3>> vertex_position = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
 			if (vertex_position)
 				set_vertex_position(*v, *m, vertex_position);
-
+				
 			mesh_connections_[m].push_back(
 				boost::synapse::connect<typename MeshProvider<MESH>::connectivity_changed>(m, [this, v, m]() {
 					Parameters& p = parameters_[v][m];
@@ -275,6 +276,7 @@ private:
 public:
 	void set_vertex_position(View& v, const MESH& m, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
+
 		Parameters& p = parameters_[&v][&m];
 		if (p.vertex_position_ == vertex_position)
 			return;
