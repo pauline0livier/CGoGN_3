@@ -44,6 +44,9 @@
 
 #include <unordered_map>
 
+#undef near
+#undef far
+
 namespace cgogn
 {
 
@@ -53,7 +56,7 @@ namespace ui
 template <typename MESH>
 class SurfaceSelectionPO : public ViewModule
 {
-	static_assert(mesh_traits<MESH>::dimension >= 2, "SurfaceSelection can only be used with meshes of dimension >= 2");
+	static_assert(mesh_traits<MESH>::dimension >= 2, "SurfaceSelectionPO can only be used with meshes of dimension >= 2");
 
 	template <typename T>
 	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
@@ -61,6 +64,7 @@ class SurfaceSelectionPO : public ViewModule
 	using Vertex = typename mesh_traits<MESH>::Vertex;
 	using Edge = typename mesh_traits<MESH>::Edge;
 	using Face = typename mesh_traits<MESH>::Face;
+	using Volume = typename mesh_traits<MESH>::Volume;
 
 	enum SelectingCell
 	{
@@ -72,7 +76,8 @@ class SurfaceSelectionPO : public ViewModule
 	enum SelectionMethod
 	{
 		SingleCell = 0,
-		WithinSphere
+		WithinSphere,
+		ConnectedComponent
 	};
 
 	using Vec3 = geometry::Vec3;
@@ -254,6 +259,32 @@ public:
 			v->request_update();
 	}
 
+	void set_selected_mesh(MESH& m)
+	{
+		selected_mesh_ = &m;
+	}
+
+	template <typename CELL>
+	void set_selected_cells_set(const MESH& m, CellsSet<MESH, CELL>* cs)
+	{
+		Parameters& p = parameters_[&m];
+		if constexpr (std::is_same_v<CELL, Vertex>)
+		{
+			p.selected_vertices_set_ = cs;
+			p.update_selected_vertices_vbo();
+		}
+		if constexpr (std::is_same_v<CELL, Edge>)
+		{
+			p.selected_edges_set_ = cs;
+			p.update_selected_edges_vbo();
+		}
+		if constexpr (std::is_same_v<CELL, Face>)
+		{
+			p.selected_faces_set_ = cs;
+			p.update_selected_faces_vbo();
+		}
+	}
+
 protected:
 	void init() override
 	{
@@ -273,15 +304,10 @@ protected:
 
 			if (p.vertex_position_)
 			{
-				//ImGui::SetMouseCursor(ImGuiMouseCursor_None);
-				//ImGui::GetForegroundDrawList()->AddCircle(ImVec2(100, 100), 5.0,IM_COL32(0, 255, 0, 255), 32); 
-				//ImGui::SetCursor(io.MouseDrawCursor ? NULL : LoadCursor(NULL, IDC_ARROW));
-				ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-				
 				rendering::GLVec3d near = view->unproject(x, y, 0.0);
-				rendering::GLVec3d far = view->unproject(x, y, 1.0);
+				rendering::GLVec3d far_d = view->unproject(x, y, 1.0);
 				Vec3 A{near.x(), near.y(), near.z()};
-				Vec3 B{far.x(), far.y(), far.z()};
+				Vec3 B{far_d.x(), far_d.y(), far_d.z()};
 
 				switch (p.selection_method_)
 				{
@@ -356,9 +382,13 @@ protected:
 					cgogn::geometry::picking(*selected_mesh_, p.vertex_position_.get(), A, B, picked);
 					if (!picked.empty())
 					{
+						
 						CellCache<MESH> cache = geometry::within_sphere(*selected_mesh_, picked[0],
 																		p.vertex_base_size_ * p.sphere_scale_factor_,
 																		p.vertex_position_.get());
+																	
+						bool back_side = (picked.size() > 1); 
+						 
 						switch (p.selecting_cell_)
 						{
 						case VertexSelect:
@@ -371,6 +401,7 @@ protected:
 										p.selected_vertices_set_->select(v);
 										return true;
 									});
+
 									break;
 								case 1:
 									foreach_cell(cache, [&p](Vertex v) -> bool {
@@ -379,7 +410,10 @@ protected:
 									});
 									break;
 								}
-								mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_vertices_set_);
+								if (!back_side){
+									mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_vertices_set_);
+								}
+								
 							}
 							break;
 						case EdgeSelect:
@@ -425,7 +459,127 @@ protected:
 							}
 							break;
 						}
+
+						if (back_side){
+						
+	
+							CellCache<MESH> cache_back_ = geometry::within_sphere(*selected_mesh_, picked[1],
+																		p.vertex_base_size_ * p.sphere_scale_factor_,
+																		p.vertex_position_.get());
+							
+							if (p.selecting_cell_ == VertexSelect){
+								if (p.selected_vertices_set_)
+								{
+									switch (button)
+									{
+										case 0:
+											foreach_cell(cache_back_, [&p](Vertex v) -> bool {
+												p.selected_vertices_set_->select(v);
+												return true;
+											});
+
+										break;
+
+										case 1:
+											foreach_cell(cache_back_, [&p](Vertex v) -> bool {
+											p.selected_vertices_set_->unselect(v);
+											return true;
+											});
+										break;
+								}
+								mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_vertices_set_);
+								}
+							}
+						} 	 
 					}
+					break;
+				}
+				case ConnectedComponent: {
+					switch (p.selecting_cell_)
+					{
+					case VertexSelect:
+						if (p.selected_vertices_set_)
+						{
+							std::vector<Vertex> picked;
+							cgogn::geometry::picking(*selected_mesh_, p.vertex_position_.get(), A, B, picked);
+							if (!picked.empty())
+							{
+								Volume vol = incident_volumes(*selected_mesh_, picked[0])[0];
+								switch (button)
+								{
+								case 0:
+									foreach_incident_vertex(*selected_mesh_, vol, [&](Vertex v) -> bool {
+										p.selected_vertices_set_->select(v);
+										return true;
+									});
+									break;
+								case 1:
+									foreach_incident_vertex(*selected_mesh_, vol, [&](Vertex v) -> bool {
+										p.selected_vertices_set_->unselect(v);
+										return true;
+									});
+									break;
+								}
+								mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_vertices_set_);
+							}
+						}
+						break;
+					case EdgeSelect:
+						if (p.selected_edges_set_)
+						{
+							std::vector<Edge> picked;
+							cgogn::geometry::picking(*selected_mesh_, p.vertex_position_.get(), A, B, picked);
+							if (!picked.empty())
+							{
+								Volume vol = incident_volumes(*selected_mesh_, picked[0])[0];
+								switch (button)
+								{
+								case 0:
+									foreach_incident_edge(*selected_mesh_, vol, [&](Edge e) -> bool {
+										p.selected_edges_set_->select(e);
+										return true;
+									});
+									break;
+								case 1:
+									foreach_incident_edge(*selected_mesh_, vol, [&](Edge e) -> bool {
+										p.selected_edges_set_->unselect(e);
+										return true;
+									});
+									break;
+								}
+								mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_edges_set_);
+							}
+						}
+						break;
+					case FaceSelect:
+						if (p.selected_faces_set_)
+						{
+							std::vector<Face> picked;
+							cgogn::geometry::picking(*selected_mesh_, p.vertex_position_.get(), A, B, picked);
+							if (!picked.empty())
+							{
+								Volume vol = incident_volumes(*selected_mesh_, picked[0])[0];
+								switch (button)
+								{
+								case 0:
+									foreach_incident_face(*selected_mesh_, vol, [&](Face f) -> bool {
+										p.selected_faces_set_->select(f);
+										return true;
+									});
+									break;
+								case 1:
+									foreach_incident_face(*selected_mesh_, vol, [&](Face f) -> bool {
+										p.selected_faces_set_->unselect(f);
+										return true;
+									});
+									break;
+								}
+								mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_faces_set_);
+							}
+						}
+						break;
+					}
+					break;
 				}
 				}
 			}
@@ -464,7 +618,7 @@ protected:
 		}
 	}
 
-	void interface() override
+	void left_panel() override
 	{
 		bool need_update = false;
 
@@ -475,7 +629,7 @@ protected:
 
 		if (selected_mesh_)
 		{
-			//float X_button_width = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2;
+			// float X_button_width = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2;
 			Parameters& p = parameters_[selected_mesh_];
 
 			imgui_combo_attribute<Vertex, Vec3>(*selected_mesh_, p.vertex_position_, "Position",
@@ -496,6 +650,8 @@ protected:
 				ImGui::RadioButton("Single", reinterpret_cast<int*>(&p.selection_method_), SingleCell);
 				ImGui::SameLine();
 				ImGui::RadioButton("Sphere", reinterpret_cast<int*>(&p.selection_method_), WithinSphere);
+				ImGui::SameLine();
+				ImGui::RadioButton("CC", reinterpret_cast<int*>(&p.selection_method_), ConnectedComponent);
 
 				if (p.selection_method_ == WithinSphere)
 					ImGui::SliderFloat("Sphere radius", &(p.sphere_scale_factor_), 10.0f, 100.0f);
@@ -504,15 +660,22 @@ protected:
 
 				if (p.selecting_cell_ == VertexSelect)
 				{
+					if (ImGui::Button("Create set##vertices_set"))
+						md.template add_cells_set<Vertex>();
 					imgui_combo_cells_set(md, p.selected_vertices_set_, "Sets", [&](CellsSet<MESH, Vertex>* cs) {
 						p.selected_vertices_set_ = cs;
 						p.update_selected_vertices_vbo();
 						need_update = true;
 					});
 					if (p.selected_vertices_set_)
+					{
 						ImGui::Text("(nb elements: %d)", p.selected_vertices_set_->size());
-					if (ImGui::Button("Create set##vertices_set"))
-						md.template add_cells_set<Vertex>();
+						if (ImGui::Button("Clear##vertices_set"))
+						{
+							p.selected_vertices_set_->clear();
+							mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_vertices_set_);
+						}
+					}
 					ImGui::TextUnformatted("Drawing parameters");
 					need_update |= ImGui::ColorEdit3("color##vertices", p.param_point_sprite_->color_.data(),
 													 ImGuiColorEditFlags_NoInputs);
@@ -520,15 +683,22 @@ protected:
 				}
 				else if (p.selecting_cell_ == EdgeSelect)
 				{
+					if (ImGui::Button("Create set##edges_set"))
+						md.template add_cells_set<Edge>();
 					imgui_combo_cells_set(md, p.selected_edges_set_, "Sets", [&](CellsSet<MESH, Edge>* cs) {
 						p.selected_edges_set_ = cs;
 						p.update_selected_edges_vbo();
 						need_update = true;
 					});
 					if (p.selected_edges_set_)
+					{
 						ImGui::Text("(nb elements: %d)", p.selected_edges_set_->size());
-					if (ImGui::Button("Create set##edges_set"))
-						md.template add_cells_set<Edge>();
+						if (ImGui::Button("Clear##edges_set"))
+						{
+							p.selected_vertices_set_->clear();
+							mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_edges_set_);
+						}
+					}
 					ImGui::TextUnformatted("Drawing parameters");
 					need_update |=
 						ImGui::ColorEdit3("color##edges", p.param_edge_->color_.data(), ImGuiColorEditFlags_NoInputs);
@@ -536,15 +706,22 @@ protected:
 				}
 				else if (p.selecting_cell_ == FaceSelect)
 				{
+					if (ImGui::Button("Create set##faces_set"))
+						md.template add_cells_set<Face>();
 					imgui_combo_cells_set(md, p.selected_faces_set_, "Sets", [&](CellsSet<MESH, Face>* cs) {
 						p.selected_faces_set_ = cs;
 						p.update_selected_faces_vbo();
 						need_update = true;
 					});
 					if (p.selected_faces_set_)
+					{
 						ImGui::Text("(nb elements: %d)", p.selected_faces_set_->size());
-					if (ImGui::Button("Create set##faces_set"))
-						md.template add_cells_set<Face>();
+						if (ImGui::Button("Clear##faces_set"))
+						{
+							p.selected_vertices_set_->clear();
+							mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_faces_set_);
+						}
+					}
 					ImGui::TextUnformatted("Drawing parameters");
 					need_update |= ImGui::ColorEdit3("front color##flat", p.param_flat_->front_color_.data(),
 													 ImGuiColorEditFlags_NoInputs);

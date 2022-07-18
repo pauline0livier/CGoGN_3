@@ -28,7 +28,7 @@
 
 #include <cgogn/core/ui_modules/mesh_provider.h>
 #include <cgogn/geometry/ui_modules/surface_differential_properties.h>
-#include <cgogn/geometry/ui_modules/surface_selection.h>
+#include <cgogn/geometry/ui_modules/surface_selectionPO.h>
 #include <cgogn/modeling/ui_modules/surface_deformation.h>
 #include <cgogn/modeling/ui_modules/space_deformation.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
@@ -66,7 +66,7 @@ int main(int argc, char** argv)
 	cgogn::ui::SurfaceRender<Mesh> sr(app);
 	cgogn::ui::SurfaceDifferentialProperties<Mesh> sdp(app);
 	cgogn::ui::SurfaceDeformation<Mesh> sd(app);
-	cgogn::ui::SurfaceSelection<Mesh> ss(app);
+	cgogn::ui::SurfaceSelectionPO<Mesh> ss(app);
 	cgogn::ui::SpaceDeformation<Mesh> sd2(app);
 
 	app.init_modules();
