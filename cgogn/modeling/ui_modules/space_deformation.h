@@ -27,7 +27,7 @@
 #include <cgogn/core/ui_modules/mesh_provider.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
 #include <cgogn/geometry/ui_modules/surface_differential_properties.h>
-#include <cgogn/geometry/ui_modules/surface_selection.h>
+#include <cgogn/geometry/ui_modules/surface_selectionPO.h>
 #include <cgogn/modeling/ui_modules/surface_deformation.h>
 #include <cgogn/ui/app.h>
 #include <cgogn/ui/imgui_helpers.h>
@@ -535,7 +535,7 @@ public:
 				});
 	}
 
-	void bind_object_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
+	void bind_local_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
 						 const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position, CellsSet<MESH, Vertex>* influence_set)
 	{
 
@@ -566,7 +566,8 @@ public:
 
 		p.coords_.resize(nbv_object, nbv_cage);
 
-		parallel_foreach_cell(object, [&](Vertex v) -> bool {
+		p.influence_set_->foreach_cell(
+					[&](Vertex v) {  
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
@@ -609,9 +610,9 @@ public:
 			});
 
 			// std::cout << "sum_lambda " << sum_lambda << std::endl;
-
-			return true;
 		});
+
+
 
 		// std::cout << p.coords_ << std::endl;
 
@@ -620,13 +621,16 @@ public:
 				&cage, [&](Attribute<Vec3>* attribute) {
 					if (p.cage_vertex_position_.get() == attribute)
 					{
-
+						
 						std::shared_ptr<Attribute<uint32>> object_vertex_index =
 							cgogn::get_attribute<uint32, Vertex>(object, "weight_index");
+							
+
 						std::shared_ptr<Attribute<uint32>> cage_vertex_index =
 							cgogn::get_attribute<uint32, Vertex>(cage, "weight_index");
+							
 
-						parallel_foreach_cell(object, [&](Vertex v) -> bool {
+						p.influence_set_->foreach_cell([&](Vertex v) -> bool {
 							uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
 							Vec3 new_pos_ = {0.0, 0.0, 0.0};
@@ -942,8 +946,8 @@ protected:
 		surface_diff_pptes_ = static_cast<ui::SurfaceDifferentialProperties<MESH>*>(
 			app_.module("SurfaceDifferentialProperties (" + std::string{mesh_traits<MESH>::name} + ")"));
 
-		surface_selection_ = static_cast<ui::SurfaceSelection<MESH>*>(
-			app_.module("SurfaceSelection (" + std::string{mesh_traits<MESH>::name} + ")"));
+		surface_selection_ = static_cast<ui::SurfaceSelectionPO<MESH>*>(
+			app_.module("SurfaceSelectionPO (" + std::string{mesh_traits<MESH>::name} + ")"));
 
 		surface_deformation_ = static_cast<ui::SurfaceDeformation<MESH>*>(
 			app_.module("SurfaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
@@ -985,10 +989,10 @@ protected:
 						generate_local_cage(*selected_mesh_, p.vertex_position_);
 
 						// clear influence area
-						foreach_cell(*selected_mesh_, [&p](Vertex v) -> bool {
+						/*foreach_cell(*selected_mesh_, [&p](Vertex v) -> bool {
 							p.influence_set_->unselect(v);
 							return true;
-						});
+						});*/
 
 					}
 
@@ -1069,7 +1073,7 @@ private:
 	MeshProvider<MESH>* mesh_provider_;
 	SurfaceRender<MESH>* surface_render_;
 	SurfaceDifferentialProperties<MESH>* surface_diff_pptes_;
-	SurfaceSelection<MESH>* surface_selection_;
+	SurfaceSelectionPO<MESH>* surface_selection_;
 	SurfaceDeformation<MESH>* surface_deformation_;
 };
 
