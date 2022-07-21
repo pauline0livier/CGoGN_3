@@ -256,7 +256,7 @@ class SpaceDeformation : public Module
 	struct Cage_data{
 
 		Cage_data()
-			: cage_vertex_position_(nullptr)
+			: cage_vertex_position_(nullptr), influence_set_(nullptr),control_set_(nullptr), local_def(false)
 		{
 		}
 
@@ -271,6 +271,11 @@ class SpaceDeformation : public Module
 
 		std::shared_ptr<Attribute<Vec3>> cage_vertex_position_;
 
+		CellsSet<MESH, Vertex>* influence_set_;
+		CellsSet<MESH, Vertex>* control_set_;
+
+		bool local_def; 
+
 		std::shared_ptr<boost::synapse::connection> cage_attribute_update_connection_;
 
 	}; 
@@ -278,9 +283,7 @@ class SpaceDeformation : public Module
 	struct Parameters
 	{
 		Parameters()
-			: vertex_position_(nullptr), list_cage_(100, nullptr),
-			  list_influence_set_(100, nullptr), control_set_(nullptr), solver_ready_(false),
-			  list_local_def(100, false), nb_cage(0)
+			: vertex_position_(nullptr), list_cage_(100, nullptr), solver_ready_(false), nb_cage(0)
 		{
 		}
 
@@ -303,13 +306,12 @@ class SpaceDeformation : public Module
 
 		std::unique_ptr<CellCache<MESH>> working_cells_;
 
-		std::vector<CellsSet<MESH, Vertex>*> list_influence_set_;
-		CellsSet<MESH, Vertex>* control_set_;
+		//std::vector<CellsSet<MESH, Vertex>*> list_influence_set_;
+		
 
 		std::shared_ptr<boost::synapse::connection> cells_set_connection_;
 
 		bool solver_ready_;
-		std::vector<bool> list_local_def;
 
 		int nb_cage;
 	};
@@ -354,7 +356,7 @@ public:
 		p.vertex_position_ = vertex_position;
 	}
 
-	void set_influence_set_i(const MESH& m, CellsSet<MESH, Vertex>* set, int i)
+	/*void set_influence_set_i(const MESH& m, CellsSet<MESH, Vertex>* set, int i)
 	{
 		Parameters& p = parameters_[&m];
 		p.list_influence_set_[i] = set;
@@ -364,7 +366,7 @@ public:
 	{
 		Parameters& p = parameters_[&m];
 		p.control_set_ = set;
-	}
+	}*/
 
 	MESH* generate_global_cage(const MESH& m, const std::shared_ptr<Attribute<Vec3>>& vertex_position, int i)
 	{
@@ -395,7 +397,7 @@ public:
 		return cage;
 	}
 
-	MESH* generate_local_cage(const MESH& m, const std::shared_ptr<Attribute<Vec3>>& vertex_position, int i)
+	MESH* generate_local_cage(const MESH& m, const std::shared_ptr<Attribute<Vec3>>& vertex_position, CellsSet<MESH, Vertex>* influence_set, int i)
 	{
 		
 
@@ -414,7 +416,7 @@ public:
 
 		Parameters& p = parameters_[&m];
 
-		p.list_influence_set_[i]->foreach_cell([&](Vertex v) {
+		influence_set->foreach_cell([&](Vertex v) {
 			const Vec3& pos = value<Vec3>(m, vertex_position, v);
 
 			for (size_t j = 0; j < 3; j++)
@@ -441,6 +443,8 @@ public:
 		p.list_cage_[i] = l_cage;
 		//p.list_weights_.push_back(Weights());
 		cd.cage_vertex_position_ = l_cage_vertex_position;
+		cd.local_def = true; 
+		cd.influence_set_ = influence_set; 
 
 		View* v1 = app_.current_view();
 
@@ -455,10 +459,9 @@ public:
 	}
 
 	void bind_object_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
-						 const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position, const int i)
+						 const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
 	{
 
-		
 		std::shared_ptr<Attribute<uint32>> object_vertex_index = add_attribute<uint32, Vertex>(object, "weight_index");
 		uint32 nb_vertices = 0;
 		foreach_cell(object, [&](Vertex v) -> bool {
@@ -481,7 +484,6 @@ public:
 
 		Parameters& p = parameters_[&object];
 		Cage_data& cd = cage_data_[&cage];
-
 
 		uint32 nbv_object = nb_cells<Vertex>(object);
 		uint32 nbv_cage = nb_cells<Vertex>(cage);
@@ -544,7 +546,6 @@ public:
 					if (cd.cage_vertex_position_.get() == attribute)
 					{
 
-						//std::cout << "check i" << i << std::endl; // Warning i = 21846
 						std::shared_ptr<Attribute<uint32>> object_vertex_index =
 							cgogn::get_attribute<uint32, Vertex>(object, "weight_index");
 						std::shared_ptr<Attribute<uint32>> cage_vertex_index =
@@ -611,7 +612,7 @@ public:
 
 		cd.coords_.resize(nbv_object, nbv_cage);
 
-		p.list_influence_set_[i]->foreach_cell(
+		cd.influence_set_->foreach_cell(
 					[&](Vertex v) {
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
@@ -645,8 +646,7 @@ public:
 			parallel_foreach_cell(cage, [&](Vertex vc) -> bool {
 				uint32 cage_point_idx2 = value<uint32>(cage, cage_vertex_index, vc);
 
-				cd.coords_(surface_point_idx, cage_point_idx2) = cd.coords_(surface_point_idx,
-		cage_point_idx2) / sumMVC;
+				cd.coords_(surface_point_idx, cage_point_idx2) = cd.coords_(surface_point_idx, cage_point_idx2) / sumMVC;
 
 				// sum_lambda += p.list_weights_[i].coords_(surface_point_idx, cage_point_idx2);
 
@@ -672,7 +672,7 @@ public:
 							cgogn::get_attribute<uint32, Vertex>(cage, "weight_index");
 
 
-						p.list_influence_set_[i]->foreach_cell([&](Vertex v) -> bool {
+						cd.influence_set_->foreach_cell([&](Vertex v) -> bool {
 							uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
 							Vec3 new_pos_ = {0.0, 0.0, 0.0};
@@ -701,7 +701,7 @@ public:
 	}
 
 	void bind_object_green(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
-						   const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position, const int i)
+						   const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
 	{
 
 		std::shared_ptr<Attribute<uint32>> object_vertex_index = add_attribute<uint32, Vertex>(object, "weight_index");
@@ -980,12 +980,17 @@ public:
 						  const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position, const int i)
 	{
 
-		std::shared_ptr<Attribute<uint32>> object_vertex_index = add_attribute<uint32, Vertex>(object, "weight_index");
-		uint32 nb_vertices = 0;
-		foreach_cell(object, [&](Vertex v) -> bool {
-			value<uint32>(object, object_vertex_index, v) = nb_vertices++;
+		std::shared_ptr<Attribute<uint32>> object_vertex_index; 
+		if (i == 0){
+			object_vertex_index = add_attribute<uint32, Vertex>(object, "weight_index");
+			uint32 nb_vertices = 0;
+			foreach_cell(object, [&](Vertex v) -> bool {
+				value<uint32>(object, object_vertex_index, v) = nb_vertices++;
 			return true;
-		});
+			});
+		} else {
+			object_vertex_index = get_attribute<uint32, Vertex>(object, "weight_index");
+		}
 
 		std::shared_ptr<Attribute<uint32>> cage_vertex_index = add_attribute<uint32, Vertex>(cage, "weight_index");
 		uint32 nb_vertices_cage = 0;
@@ -1021,7 +1026,7 @@ public:
 		cd.n_coords_.resize(nbv_object, nbf_cage);
 		cd.n_coords_.setZero();
 
-		p.list_influence_set_[i]->foreach_cell([&](Vertex v) {
+		cd.influence_set_->foreach_cell([&](Vertex v) {
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
@@ -1171,7 +1176,7 @@ public:
 						std::shared_ptr<Attribute<std::vector<Vec3>>> cage_face_edge =
 							cgogn::get_attribute<std::vector<Vec3>, Face>(cage, "face_edge");
 
-						p.list_influence_set_[i]->foreach_cell([&](Vertex v) {
+						cd.influence_set_->foreach_cell([&](Vertex v) {
 							uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
 							Vec3 new_pos_update_ = {0.0, 0.0, 0.0};
@@ -1300,14 +1305,18 @@ protected:
 					p.nb_cage++;
 				}
 
-				imgui_combo_cells_set(
-					md, p.list_influence_set_[p.nb_cage], "Influence area",
-					[&](CellsSet<MESH, Vertex>* cs) { set_influence_set_i(*selected_mesh_, cs, p.nb_cage); });
+				CellsSet<MESH, Vertex>* influence_set = nullptr; 
 
-				if (p.list_influence_set_[p.nb_cage] && p.list_influence_set_[p.nb_cage]->size() > 0)
+				/*imgui_combo_cells_set(
+					md, p.list_influence_set_[p.nb_cage], "Influence area",
+					[&](CellsSet<MESH, Vertex>* cs) { set_influence_set_i(*selected_mesh_, cs, p.nb_cage); });*/
+				imgui_combo_cells_set(
+					md, influence_set, "Influence area",
+					[&](CellsSet<MESH, Vertex>* cs) { influence_set = cs; });
+
+				if (influence_set && influence_set->size() > 0)
 				{
-					p.list_local_def[p.nb_cage] = true;
-					generate_local_cage(*selected_mesh_, p.vertex_position_, p.nb_cage);
+					generate_local_cage(*selected_mesh_, p.vertex_position_, influence_set, p.nb_cage);
 					p.nb_cage++;
 
 					// clear influence area
@@ -1316,10 +1325,6 @@ protected:
 						return true;
 					});*/
 				}
-
-				/*imgui_combo_cells_set(
-					md, p.selected_control_set_, "Control area",
-					[&](CellsSet<MESH, Vertex>* cs) { set_control_set(*selected_mesh_, cs); });*/
 
 				if (p.list_cage_.size() > 1)
 				{
@@ -1330,11 +1335,11 @@ protected:
 
 					Cage_data& cd = cage_data_[selected_cage_];
 
-
 					const std::string& cage_name = mesh_provider_->mesh_name(*selected_cage_);
 
 					if (cage_name.length() > 0)
 					{
+
 						std::string c_name = cage_name.substr(4, cage_name.length());
 
 						const int selected_index = std::stoi(c_name);
@@ -1367,10 +1372,10 @@ protected:
 
 							if (current_item == "MVC")
 							{
-								if (!p.list_local_def[selected_index])
+								if (!cd.local_def)
 								{
 									bind_object_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_,
-													cd.cage_vertex_position_, selected_index);
+													cd.cage_vertex_position_);
 								}
 								else
 								{
@@ -1384,10 +1389,10 @@ protected:
 							}
 							else if (current_item == "Green")
 							{
-								if (!p.list_local_def[selected_index])
+								if (!cd.local_def)
 								{
 									bind_object_green(*selected_mesh_, p.vertex_position_, *selected_cage_,
-													  cd.cage_vertex_position_, selected_index);
+													  cd.cage_vertex_position_);
 								}
 								else
 								{
