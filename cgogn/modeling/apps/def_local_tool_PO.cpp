@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 	cgogn::thread_start();
 
 	cgogn::ui::App app;
-	app.set_window_title("Deformation Global Cage");
+	app.set_window_title("Deformation Local Cage");
 	app.set_window_size(1000, 800);
 
 	cgogn::ui::MeshProvider<Mesh> mp(app);
@@ -95,6 +95,13 @@ int main(int argc, char** argv)
 	sr.set_render_edges(*v1, *m, false);
 
 	ss.set_vertex_position(*m, vertex_position);
+
+	std::shared_ptr<Attribute<uint32>> object_vertex_index = cgogn::add_attribute<uint32, Vertex>(*m, "weight_index");
+	uint32 nb_vertices = 0;
+		foreach_cell(*m, [&](Vertex v) -> bool {
+			cgogn::value<uint32>(*m, object_vertex_index, v) = nb_vertices++;
+			return true;
+		}); 
 
 	/*Mesh* cage = cd.generate_cage(*m, vertex_position);
 	std::shared_ptr<Attribute<Vec3>> cage_vertex_position = cgogn::get_attribute<Vec3, Vertex>(*cage, "position");
