@@ -283,7 +283,7 @@ class SpaceDeformation : public Module
 	struct Parameters
 	{
 		Parameters()
-			: vertex_position_(nullptr), list_cage_(100, nullptr), solver_ready_(false), nb_cage(0), last_influence_set_(nullptr)
+			: vertex_position_(nullptr), list_cage_(100, nullptr), new_cage_(false), nb_cage(0), last_influence_set_(nullptr)
 		{
 		}
 
@@ -300,9 +300,9 @@ class SpaceDeformation : public Module
 
 		CellsSet<MESH, Vertex>* last_influence_set_; 
 
-		std::shared_ptr<boost::synapse::connection> cells_set_connection_;
+		bool new_cage_; 
 
-		bool solver_ready_;
+		std::shared_ptr<boost::synapse::connection> cells_set_connection_;
 
 		int nb_cage;
 	};
@@ -644,9 +644,6 @@ public:
 								const Vec3& cage_point = value<Vec3>(cage, cage_vertex_position, cv);
 								uint32 cage_point_idx = value<uint32>(cage, cage_vertex_index, cv);
 
-								std::cout << cage_point << std::endl; 
-								std::cout << cage_point_idx << std::endl; 
-
 								new_pos_ += cd.coords_(vidx, cage_point_idx) * cage_point;
 
 								return true;
@@ -935,7 +932,6 @@ public:
 	void bind_local_green(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
 						  const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
 	{
-		std::cout << "ok ici" << std::endl; 
 
 		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "weight_index");
 
@@ -959,8 +955,6 @@ public:
 		std::shared_ptr<Attribute<std::vector<Vec3>>> cage_face_edge =
 			add_attribute<std::vector<Vec3>, Face>(cage, "face_edge");
 
-		std::cout << "ok ici 2" << std::endl; 
-
 		Parameters& p = parameters_[&object];
 		Cage_data& cd = cage_data_[&cage];
 
@@ -975,8 +969,6 @@ public:
 		cd.n_coords_.resize(nbv_object, nbf_cage);
 		cd.n_coords_.setZero();
 
-		std::cout << "ok ici 3" << std::endl; 
-
 		cd.influence_set_->foreach_cell([&](Vertex v) {
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
@@ -988,9 +980,6 @@ public:
 
 				std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(cage, fc);
 
-				// triangle 1
-				// const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[0], face_vertices_[3],
-				// face_vertices_[1]};
 				const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[1], face_vertices_[3], face_vertices_[0]};
 				const std::vector<Vec3> t1_values = {value<Vec3>(cage, cage_vertex_position, triangle1[0]),
 													 value<Vec3>(cage, cage_vertex_position, triangle1[1]),
@@ -998,8 +987,7 @@ public:
 
 				Vec3 t1_normal = (cgogn::geometry::normal(t1_values[0], t1_values[1], t1_values[2])).normalized();
 
-				// const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[3], face_vertices_[2],
-				// face_vertices_[1]};
+
 				const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[1], face_vertices_[2], face_vertices_[3]};
 				const std::vector<Vec3> t2_values = {value<Vec3>(cage, cage_vertex_position, triangle2[0]),
 													 value<Vec3>(cage, cage_vertex_position, triangle2[1]),
@@ -1271,13 +1259,26 @@ protected:
 				bool newCage = false; 
 
 				if (influence_set && influence_set -> size() > 0){
-					p.last_influence_set_ = influence_set; 
+					
+
+					if (p.new_cage_){
+						MESH* l_cage = p.list_cage_[p.nb_cage-1]; 
+
+						Cage_data& cd = cage_data_[l_cage];
+						cd.influence_set_ = influence_set; 
+
+						p.new_cage_ = false; 
+					} else {
+						p.last_influence_set_ = influence_set; 
+					}
 				}
 
 				if (control_set && control_set->size() > 0)
 				{
 					MESH* l_cage = generate_local_cage(*selected_mesh_, p.vertex_position_, control_set, p.nb_cage);
 					p.nb_cage++;
+
+					p.new_cage_ = true; 
 					
 					if (p.last_influence_set_ && p.last_influence_set_->size() > 0){
 						Cage_data& cd = cage_data_[l_cage];
