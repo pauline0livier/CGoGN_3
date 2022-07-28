@@ -113,3 +113,6 @@ if(APPLE)
 		${CARBON}
 	)
 endif()
+
+set_target_properties(def_global_cage_PO PROPERTIES FOLDER pauline)
+set_target_properties(def_local_tool_PO PROPERTIES FOLDER pauline)
