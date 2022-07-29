@@ -244,12 +244,13 @@ class SpaceDeformation : public Module
 {
 	static_assert(mesh_traits<MESH>::dimension == 2, "SpaceDeformation can only be used with meshes of dimension 2");
 
+	template <typename T>
+	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
 	using Vertex = typename mesh_traits<MESH>::Vertex;
 	using Edge = typename mesh_traits<MESH>::Edge;
 	using Face = typename mesh_traits<MESH>::Face;
 
-	template <typename T>
-	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
+	
 
 	struct Cage_data
 	{
@@ -270,6 +271,7 @@ class SpaceDeformation : public Module
 		std::shared_ptr<Attribute<Vec3>> cage_vertex_position_;
 
 		CellsSet<MESH, Vertex>* influence_set_;
+		//std::vector<Vertex> influence_set_; 
 		CellsSet<MESH, Vertex>* control_set_;
 
 		MESH* influence_cage_;
@@ -430,11 +432,22 @@ public:
 
 		cd.influence_cage_ = i_cage;
 
-		// surface_render_->set_vertex_position(*v1, *i_cage, i_cage_vertex_position);
-		// surface_render_->set_render_faces(*v1, *i_cage, false);
+		surface_render_->set_vertex_position(*v1, *i_cage, i_cage_vertex_position);
+		surface_render_->set_render_faces(*v1, *i_cage, false);
 
-		MeshData<Mesh>& i_md = mesh_provider_->mesh_data(*i_cage);
-		CellsSet<Mesh, Vertex>& i_set = i_md.add_cells_set<Vertex>();
+		CellsSet<MESH, Vertex>& i_set = md.template add_cells_set<Vertex>();
+
+		cd.influence_set_ = &i_set; 
+
+		/*int nbCells = 0; 
+		
+		md.template foreach_cells_set<Vertex>([&](CellsSet<MESH, Vertex>& cs) {
+			nbCells ++; 
+		});  */
+
+		//std::cout << "nbCells " << nbCells << std::endl; 
+
+		//std::vector<Vertex> i_set; 
 
 		std::shared_ptr<Attribute<uint32>> i_cage_vertex_index =
 			cgogn::add_attribute<uint32, Vertex>(*i_cage, "weight_index");
@@ -452,19 +465,20 @@ public:
 
 		std::shared_ptr<Attribute<Vec3>> m_vertex_position = p.vertex_position_; 
 
-		parallel_foreach_cell(m, [&](Vertex v) -> bool {
+		foreach_cell(m, [&](Vertex v) -> bool {
 			const Vec3& surface_point = value<Vec3>(m, m_vertex_position, v);
 			
 			bool inside_cage = local_mvc_pt_surface(surface_point, *i_cage, i_cage_vertex_position ); 
+			
 			if (inside_cage)
 			{
-				i_set.select(v); 
+				cd.influence_set_->select(v); 
 			}
 
 			return true; 
 		});  
 
-		//cd.influence_set_ = &i_set; 
+		mesh_provider_->emit_cells_set_changed(m, cd.influence_set_);
 
 		return l_cage;
 	}
@@ -693,7 +707,6 @@ public:
 		std::shared_ptr<Attribute<bool>> cage_vertex_marked = get_attribute<bool, Vertex>(cage, "marked_vertex");
 
 		DartMarker dm(cage);
-		float sumMVC = 0.0;
 
 		bool checked = true; 
 		for (Dart d = cage.begin(), end = cage.end(); d != end; d = cage.next(d))
@@ -708,15 +721,15 @@ public:
 
 				float mvc_value = compute_mvc(pt, d, cage, cage_point, cage_vertex_position.get());
 
+				dm.mark(d);
+
+				value<bool>(cage, cage_vertex_marked, cage_vertex) = true;
+
 				if (mvc_value < 0)
 				{
 					checked = false;
 					break;
 				}
-
-				dm.mark(d);
-
-				value<bool>(cage, cage_vertex_marked, cage_vertex) = true;
 			}
 		}
 
@@ -726,6 +739,7 @@ public:
 			}); 
 
 			return checked;
+
 		}
 
 		void bind_object_green(MESH & object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
@@ -1351,9 +1365,11 @@ public:
 					if (control_set && control_set->size() > 0)
 					{
 						MESH* l_cage = generate_local_cage(*selected_mesh_, p.vertex_position_, control_set, p.nb_cage);
+					 	
 						p.nb_cage++;
 
 						p.new_cage_ = true;
+						std::cout << "arrive here" << std::endl; 
 
 						/* if (p.last_influence_set_ && p.last_influence_set_->size() > 0)
 						{

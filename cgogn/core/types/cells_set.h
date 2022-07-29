@@ -63,9 +63,12 @@ public:
 	inline void select(CELL c)
 	{
 		if (!marker_.is_marked(c))
-		{
+		{ 
+			std::cout << "before mark" << std::endl; 
 			marker_.mark(c);
+			std::cout << "between" << std::endl; 
 			cells_.emplace(index_of(m_, c), c);
+			std::cout << "after" << std::endl;  
 		}
 	}
 
