@@ -437,17 +437,7 @@ public:
 
 		CellsSet<MESH, Vertex>& i_set = md.template add_cells_set<Vertex>();
 
-		cd.influence_set_ = &i_set; 
-
-		/*int nbCells = 0; 
-		
-		md.template foreach_cells_set<Vertex>([&](CellsSet<MESH, Vertex>& cs) {
-			nbCells ++; 
-		});  */
-
-		//std::cout << "nbCells " << nbCells << std::endl; 
-
-		//std::vector<Vertex> i_set; 
+		cd.influence_set_ = &i_set;  
 
 		std::shared_ptr<Attribute<uint32>> i_cage_vertex_index =
 			cgogn::add_attribute<uint32, Vertex>(*i_cage, "weight_index");
@@ -1336,31 +1326,11 @@ public:
 					ImGui::Separator();
 					ImGui::Text("Local");
 					CellsSet<MESH, Vertex>* control_set = nullptr;
-					// CellsSet<MESH, Vertex>* influence_set = nullptr;
 
 					imgui_combo_cells_set(md, control_set, "Control ",
 										  [&](CellsSet<MESH, Vertex>* cs) { control_set = cs; });
 
-					/* imgui_combo_cells_set(md, influence_set, "Influence ",
-											[&](CellsSet<MESH, Vertex>* cs) { influence_set = cs; });*/
-
 					bool newCage = false;
-
-					/* if (influence_set && influence_set->size() > 0)
-					{
-
-
-						if (p.new_cage_){
-							MESH* l_cage = p.list_cage_[p.nb_cage-1];
-
-							Cage_data& cd = cage_data_[l_cage];
-							cd.influence_set_ = influence_set;
-
-							p.new_cage_ = false;
-						} else {
-							p.last_influence_set_ = influence_set;
-						}
-					}*/
 
 					if (control_set && control_set->size() > 0)
 					{
@@ -1368,34 +1338,8 @@ public:
 					 	
 						p.nb_cage++;
 
-						p.new_cage_ = true;
-						std::cout << "arrive here" << std::endl; 
-
-						/* if (p.last_influence_set_ && p.last_influence_set_->size() > 0)
-						{
-							Cage_data& cd = cage_data_[l_cage];
-							cd.influence_set_ = p.last_influence_set_;
-						}*/
+						p.new_cage_ = true; 
 					}
-
-					/*CellsSet<MESH, Vertex>* influence_set = nullptr;
-
-					imgui_combo_cells_set(md, influence_set, "Influence ",
-											[&](CellsSet<MESH, Vertex>* cs) { influence_set = cs; });
-
-					if (influence_set && influence_set->size() > 0){
-						std::cout << "ici " << newCage << std::endl;
-						if (newCage){
-							std::cout << "check new cage" << std::endl;
-
-
-							cd.influence_set_ = influence_set;
-
-						} else {
-							p.last_influence_set_ = influence_set;
-						}
-
-					}*/
 
 					ImGui::Separator();
 					ImGui::Text("Binding");
@@ -1455,7 +1399,6 @@ public:
 										bind_local_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_,
 													   cd.cage_vertex_position_);
 
-										// p.last_influence_set_ = nullptr;
 									}
 								}
 
@@ -1471,7 +1414,6 @@ public:
 										bind_local_green(*selected_mesh_, p.vertex_position_, *selected_cage_,
 														 cd.cage_vertex_position_);
 
-										// p.last_influence_set_ = nullptr;
 									}
 								}
 								else
