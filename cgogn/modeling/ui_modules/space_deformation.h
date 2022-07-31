@@ -137,6 +137,8 @@ float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage, const Vec
 	return (1.0f / r) * sumU;
 }
 
+
+
 const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3& nu)
 {
 	const Vec3 v2_v1 = v2 - v1;
@@ -268,6 +270,8 @@ class SpaceDeformation : public Module
 		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> coords_;
 		Eigen::Matrix<Vec2, Eigen::Dynamic, Eigen::Dynamic> n_coords_;
 
+		Eigen::Vector<float, Eigen::Dynamic> attenuation_;
+
 		std::shared_ptr<Attribute<Vec3>> cage_vertex_position_;
 
 		CellsSet<MESH, Vertex>* influence_set_;
@@ -276,9 +280,15 @@ class SpaceDeformation : public Module
 
 		MESH* influence_cage_;
 
+		float smoothing_factor_; 
+
 		bool local_def;
 
 		std::shared_ptr<boost::synapse::connection> cage_attribute_update_connection_;
+
+		compute_smoothing_factor() {
+
+		}
 	};
 
 	struct Parameters
@@ -320,6 +330,78 @@ private:
 	void init_mesh(MESH* m)
 	{
 		Parameters& p = parameters_[m];
+	}
+
+	float cageInfluenceDistance(const int& i, const MESH& cage)
+	{
+		Cage_data& cd = cage_data_[cage];
+
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index = get_attribute<uint32, Vertex>(cage, "weight_index");
+		std::shared_ptr<Attribute<uint32>> cage_face_index = add_attribute<uint32, Face>(cage, "face_index");
+		uint32 nb_faces_cage = 0;
+		foreach_cell(cage, [&](Face f) -> bool {
+			value<uint32>(cage, cage_face_index, f) = nb_faces_cage++;
+			return true;
+		});
+
+		uint32 nbf_cage = 2*nb_cells<Face>(cage);
+		uint32 nbv_cage = nb_cells<Vertex>(cage);
+
+		float r = 1.0; 
+		foreach_cell(cage, [&](Face fc) -> bool {
+			uint32 cage_face_idx = value<uint32>(cage, cage_face_index, fc);
+
+			std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(cage, fc);
+
+			// triangle 1
+			const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[1], face_vertices_[3], face_vertices_[0]};
+			const std::vector<uint32> t1_index = {value<uint32>(cage, cage_vertex_index, triangle1[0]),
+												 value<uint32>(cage, cage_vertex_index, triangle1[1]),
+												 value<uint32>(cage, cage_vertex_index, triangle1[2])};
+
+			uint32 cage_point_idx = value<uint32>(cage, cage_vertex_index, cage_vertex);
+
+
+			const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[1], face_vertices_[2], face_vertices_[3]};
+			const std::vector<uint32> t2_values = {value<uint32>(cage, cage_vertex_index, triangle2[0]),
+												 value<uint32>(cage, cage_vertex_index, triangle2[1]),
+												 value<uint32>(cage, cage_vertex_index, triangle2[2])};
+
+
+			r *= (1.f - (cd.coords_(i, t1_index[0]) +
+						 cd.coords_(i, t1_index[1] ) +
+						 cd.coords_(i, t1_index[2]));
+
+			r *= (1.f - (cd.coords_(i, t2_index[0]) +
+						 cd.coords_(i, t2_index[1] ) +
+						 cd.coords_(i, t2_index[2]));
+			
+
+
+			return true;
+		});
+
+		r /= std::pow((1.0 - (3.0 / nbv_cage)), nbf_cage);
+
+		if (r > 1.0f)
+		{
+			r = 1.0f;
+		}
+
+		return r; 
+	}
+
+	float compute_attenuation_(const int surface_index, const Mesh& cage)
+	{
+
+		Cage_data& cd = cage_data_[cage];
+		const h = cd.smoothing_factor_; 
+		assert((h <= 1.0f && h >= 0.0f) || !"Cage's attenuation factor must be computed!");
+
+		float v = cageInfluenceDistance(surface_index, cage); 
+		return (v < h) ? (0.5f * ((float)sin(M_PI * ((v / h) - 0.5f))) + 0.5f) : 1.0f;
+
+		// return smoothing(cageInfluenceDistance(p), );
 	}
 
 public:
@@ -438,6 +520,7 @@ public:
 		CellsSet<MESH, Vertex>& i_set = md.template add_cells_set<Vertex>();
 
 		cd.influence_set_ = &i_set;  
+		cd.smoothing_factor_ = 0.5; 
 
 		std::shared_ptr<Attribute<uint32>> i_cage_vertex_index =
 			cgogn::add_attribute<uint32, Vertex>(*i_cage, "weight_index");
@@ -732,9 +815,129 @@ public:
 
 		}
 
-		void bind_object_green(MESH & object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
+	void bind_influence_cage_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
+		MESH& cage, const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
+	{
+		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "weight_index");
+
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index = add_attribute<uint32, Vertex>(cage, "weight_index");
+		uint32 nb_vertices_cage = 0;
+		foreach_cell(cage, [&](Vertex v) -> bool {
+			value<uint32>(cage, cage_vertex_index, v) = nb_vertices_cage++;
+			return true;
+		});
+
+		std::shared_ptr<Attribute<bool>> cage_vertex_marked = add_attribute<bool, Vertex>(cage, "marked_vertex");
+		parallel_foreach_cell(cage, [&](Vertex v) -> bool {
+			value<bool>(cage, cage_vertex_marked, v) = false;
+			return true;
+		});
+
+		uint32 nbv_object = nb_cells<Vertex>(object);
+		uint32 nbv_cage = nb_cells<Vertex>(cage);
+
+		Parameters& p = parameters_[&object];
+		Cage_data& cd = cage_data_[&cage];
+
+		cd.coords_.resize(nbv_object, nbv_cage);
+
+		cd.attenutation_.resize(nbv_object);
+		cd.attenuation_.setZero();
+
+		cd.influence_set_->foreach_cell([&](Vertex v) {
+			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
+			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
+
+			DartMarker dm(cage);
+			float sumMVC = 0.0;
+			for (Dart d = cage.begin(), end = cage.end(); d != end; d = cage.next(d))
+			{
+				Vertex cage_vertex = CMap2::Vertex(d);
+				bool vc_marked = value<bool>(cage, cage_vertex_marked, cage_vertex);
+
+				if (!dm.is_marked(d) && !vc_marked)
+				{
+
+					const Vec3& cage_point = value<Vec3>(cage, cage_vertex_position, cage_vertex);
+					uint32 cage_point_idx = value<uint32>(cage, cage_vertex_index, cage_vertex);
+
+					float mvc_value = compute_mvc(surface_point, d, cage, cage_point, cage_vertex_position.get());
+
+					cd.coords_(surface_point_idx, cage_point_idx) = mvc_value;
+
+					//cd.attenuation_(surface_point_idx) = compute_attenuation(surface_point, d); 
+
+					dm.mark(d);
+
+					value<bool>(cage, cage_vertex_marked, cage_vertex) = true;
+
+					sumMVC += mvc_value;
+				}
+			}
+
+			//float sum_lambda = 0.0;
+
+			parallel_foreach_cell(cage, [&](Vertex vc) -> bool {
+				uint32 cage_point_idx2 = value<uint32>(cage, cage_vertex_index, vc);
+
+				cd.coords_(surface_point_idx, cage_point_idx2) =
+					cd.coords_(surface_point_idx, cage_point_idx2) / sumMVC;
+
+				value<bool>(cage, cage_vertex_marked, vc) = false;
+
+				return true;
+			});
+		});
+
+		cd.influence_set_->foreach_cell([&](Vertex v) {
+			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
+
+			cd.attenuation_(surface_point_idx) = compute_attenuation(surface_point_idx, cage);
+
+		});
+
+		cd.cage_attribute_update_connection_ =
+			boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
+				&cage, [&](Attribute<Vec3>* attribute) {
+					if (cd.cage_vertex_position_.get() == attribute)
+					{
+						std::shared_ptr<Attribute<uint32>> object_vertex_index =
+							cgogn::get_attribute<uint32, Vertex>(object, "weight_index");
+
+						std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+							cgogn::get_attribute<uint32, Vertex>(cage, "weight_index");
+
+						cd.influence_set_->foreach_cell([&](Vertex v) -> bool {
+							uint32 vidx = value<uint32>(object, object_vertex_index, v);
+
+							float current_attenuation = cd.attenuation_(vidx); 
+
+							Vec3 new_pos_ = {0.0, 0.0, 0.0};
+
+							foreach_cell(cage, [&](Vertex cv) -> bool {
+								const Vec3& cage_point = value<Vec3>(cage, cage_vertex_position, cv);
+								uint32 cage_point_idx = value<uint32>(cage, cage_vertex_index, cv);
+
+								new_pos_ += current_attenutation*(cd.coords_(vidx, cage_point_idx) * cage_point ;
+
+								return true;
+							});
+								
+							const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
+							new_pos_ += (1.0 - current_attenuation)*surface_point; 
+
+							value<Vec3>(object, object_vertex_position, v) = new_pos_;
+							return true;
+						});
+
+						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+					}
+				});
+	}
+
+	void bind_object_green(MESH & object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
 							   MESH& cage, const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
-		{
+	{
 
 			std::shared_ptr<Attribute<uint32>> object_vertex_index =
 				get_attribute<uint32, Vertex>(object, "weight_index");
@@ -1006,7 +1209,7 @@ public:
 					});
 		}
 
-		void bind_local_green(MESH & object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
+	void bind_local_green(MESH & object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, MESH& cage,
 							  const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
 		{
 
@@ -1396,9 +1599,10 @@ public:
 									}
 									else
 									{
-										bind_local_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_,
+										/* bind_local_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_,
+													   cd.cage_vertex_position_);*/
+										bind_influence_cage_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_,
 													   cd.cage_vertex_position_);
-
 									}
 								}
 
