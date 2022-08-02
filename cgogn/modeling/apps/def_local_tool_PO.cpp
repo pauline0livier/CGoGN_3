@@ -104,6 +104,8 @@ int main(int argc, char** argv)
 			return true;
 		}); 
 
+	
+
 	/*Mesh* cage = cd.generate_cage(*m, vertex_position);
 	std::shared_ptr<Attribute<Vec3>> cage_vertex_position = cgogn::get_attribute<Vec3, Vertex>(*cage, "position");
 
