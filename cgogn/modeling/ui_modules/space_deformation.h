@@ -346,73 +346,80 @@ private:
 		Parameters& p = parameters_[m];
 	}
 
-	float cageInfluenceDistance(const int& i, MESH& ctrl_cage, MESH& cage, const int& nbf_cage, const int& nbv_cage)
+	float cageInfluenceDistance(const int object_point_idx, Cage_data& cd, const int& nbf_cage, const int& nbv_cage)
 	{
-		Cage_data& cd = cage_data_[&ctrl_cage];
 
-		std::shared_ptr<Attribute<uint32>> cage_vertex_index = get_attribute<uint32, Vertex>(cage, "weight_index");
+		MESH* i_cage = cd.influence_cage_; 
 
-		std::shared_ptr<Attribute<uint32>> cage_face_index = get_attribute<uint32, Face>(cage, "face_index");
+		std::shared_ptr<Attribute<uint32>> i_cage_vertex_index = get_attribute<uint32, Vertex>(*i_cage, "weight_index");
+
+		std::shared_ptr<Attribute<uint32>> i_cage_face_index = get_attribute<uint32, Face>(*i_cage, "face_index");
 
 		float r = 1.0;
-		foreach_cell(cage, [&](Face fc) -> bool {
-			uint32 cage_face_idx = value<uint32>(cage, cage_face_index, fc);
+		foreach_cell(*i_cage, [&](Face fc) -> bool {
+			uint32 i_cage_face_idx = value<uint32>(*i_cage, i_cage_face_index, fc);
 
-			std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(cage, fc);
+			std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(*i_cage, fc);
 
 			// triangle 1
 			const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[1], face_vertices_[3], face_vertices_[0]};
-			const std::vector<uint32> t1_index = {value<uint32>(cage, cage_vertex_index, triangle1[0]),
-												  value<uint32>(cage, cage_vertex_index, triangle1[1]),
-												  value<uint32>(cage, cage_vertex_index, triangle1[2])};
+			const std::vector<uint32> t1_index = {value<uint32>(*i_cage, i_cage_vertex_index, triangle1[0]),
+												  value<uint32>(*i_cage, i_cage_vertex_index, triangle1[1]),
+												  value<uint32>(*i_cage, i_cage_vertex_index, triangle1[2])};
 
 			const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[1], face_vertices_[2], face_vertices_[3]};
-			const std::vector<uint32> t2_index = {value<uint32>(cage, cage_vertex_index, triangle2[0]),
-												  value<uint32>(cage, cage_vertex_index, triangle2[1]),
-												  value<uint32>(cage, cage_vertex_index, triangle2[2])};
+			const std::vector<uint32> t2_index = {value<uint32>(*i_cage, i_cage_vertex_index, triangle2[0]),
+												  value<uint32>(*i_cage, i_cage_vertex_index, triangle2[1]),
+												  value<uint32>(*i_cage, i_cage_vertex_index, triangle2[2])};
 
-			r *= (1.f - (cd.coords_(i, t1_index[0]) + cd.coords_(i, t1_index[1]) + cd.coords_(i, t1_index[2])));
+			r *= (1.f - (cd.coords_(object_point_idx, t1_index[0]) + cd.coords_(object_point_idx, t1_index[1]) + cd.coords_(object_point_idx, t1_index[2])));
 
-			r *= (1.f - (cd.coords_(i, t2_index[0]) + cd.coords_(i, t2_index[1]) + cd.coords_(i, t2_index[2])));
+			r *= (1.f - (cd.coords_(object_point_idx, t2_index[0]) + cd.coords_(object_point_idx, t2_index[1]) + cd.coords_(object_point_idx, t2_index[2])));
+
+			//r*= (1.f - ( cd.coords_(object_point_idx, t1_index[2]) + cd.coords_( object_point_idx, t2_index[0]) + cd.coords_(object_point_idx, t2_index[1]) + cd.coords_(object_point_idx, t2_index[2])));*/
 
 			return true;
 		});
 
 		r /= std::pow((1.0 - (3.0 / nbv_cage)), nbf_cage);
+		//r /= std::pow((1.0 - (3.0 / nbv_cage)), nbf_cage/2);
 
 		if (r > 1.0f)
 		{
 			r = 1.0f;
 		}
-
+		 
 		return r;
 	}
 
-	void compute_attenuation(MESH& object, MESH& ctrl_cage, MESH& cage)
+	void compute_attenuation(MESH& object, Cage_data& cd)
 	{
-		Cage_data& cd = cage_data_[&ctrl_cage];
+
+		MESH* i_cage = cd.influence_cage_; 
+
 		const float h = cd.smoothing_factor_;
 		assert((h <= 1.0f && h >= 0.0f) || !"Cage's attenuation factor must be computed!");
 
-		std::shared_ptr<Attribute<uint32>> cage_face_index = add_attribute<uint32, Face>(cage, "face_index");
+		std::shared_ptr<Attribute<uint32>> i_cage_face_index = add_attribute<uint32, Face>(*i_cage, "face_index");
 		uint32 nb_faces_cage = 0;
-		foreach_cell(cage, [&](Face f) -> bool {
-			value<uint32>(cage, cage_face_index, f) = nb_faces_cage++;
+		foreach_cell(*i_cage, [&](Face f) -> bool {
+			value<uint32>(*i_cage, i_cage_face_index, f) = nb_faces_cage++;
 			return true;
 		});
 
 		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "weight_index");
 
-		uint32 nbf_cage = 2 * nb_cells<Face>(cage);
-		uint32 nbv_cage = nb_cells<Vertex>(cage);
+		uint32 nbf_cage = 2 * nb_cells<Face>(*i_cage);
+		uint32 nbv_cage = nb_cells<Vertex>(*i_cage);
 
 		cd.influence_set_->foreach_cell([&](Vertex v) {
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
-			float i_dist = cageInfluenceDistance(surface_point_idx, ctrl_cage, cage, nbf_cage, nbv_cage);
+			float i_dist = cageInfluenceDistance(surface_point_idx, cd, nbf_cage, nbv_cage);
 
 			cd.attenuation_(surface_point_idx) =
 				(i_dist < h) ? (0.5f * ((float)sin(M_PI * ((i_dist / h) - 0.5f))) + 0.5f) : 1.0f;
+
 		});
 	}
 
@@ -442,7 +449,7 @@ private:
 			}
 
 			Vec3 color;
-			if (gamma_value < 0.f)
+			if (gamma_value <= 0.f)
 				color = {0.f, 0.f, 0.f};
 			else
 			{
@@ -762,6 +769,11 @@ private:
 		}*/
 
 	public:
+		void set_selected_mesh(MESH& m)
+		{
+			selected_mesh_ = &m;
+		}
+
 		void set_vertex_position(const MESH& m, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 		{
 			Parameters& p = parameters_[&m];
@@ -782,6 +794,36 @@ private:
 
 			
 		}
+
+		/*MESH* generate_handle(const MESH& m, const std::shared_ptr<Attribute<Vec3>>& vertex_position, int i)
+		{
+	
+			Parameters& p = parameters_[&m];
+
+			MESH* handle = mesh_provider_->add_mesh("hanlde");  //+ std::to_string(i)); // (m_name + "_cage");
+			std::shared_ptr<Attribute<Vec3>> cage_vertex_position =
+				cgogn::add_attribute<Vec3, Vertex>(*cage, "position");
+			mesh_provider_->set_mesh_bb_vertex_position(*cage, cage_vertex_position);
+
+			MeshData<MESH>& md = mesh_provider_->mesh_data(m);
+			create_box(*cage, cage_vertex_position.get(), md.bb_min_, md.bb_max_);
+
+			mesh_provider_->emit_connectivity_changed(*cage);
+			mesh_provider_->emit_attribute_changed(*cage, cage_vertex_position.get());
+
+			Cage_data& cd = cage_data_[cage];
+
+			p.list_cage_.push_back(cage);
+			// p.list_weights_.push_back(Weights());
+			cd.cage_vertex_position_ = cage_vertex_position;
+
+			ui::View* v1 = app_.current_view();
+
+			surface_render_->set_vertex_position(*v1, *cage, cage_vertex_position);
+			surface_render_->set_render_faces(*v1, *cage, false);
+
+			return cage;
+		}*/
 
 		MESH* generate_global_cage(const MESH& m, const std::shared_ptr<Attribute<Vec3>>& vertex_position, int i)
 		{
@@ -873,13 +915,15 @@ private:
 			surface_diff_pptes_->compute_normal(*l_cage, l_cage_vertex_position.get(), l_cage_vertex_normal.get());
 
 			MESH* i_cage = mesh_provider_->add_mesh("i_cage" + std::to_string(i));
+
 			std::shared_ptr<Attribute<Vec3>> i_cage_vertex_position =
 				cgogn::add_attribute<Vec3, Vertex>(*i_cage, "position");
+
 			mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
 
 			Vec3 i_center = (l_min + l_max) / Scalar(2);
-			Vec3 bb_min_ = ((l_min - i_center) * 1.5) + i_center;
-			Vec3 bb_max_ = ((l_max - i_center) * 1.5) + i_center;
+			Vec3 bb_min_ = ((l_min - i_center) * 2.0f) + i_center;
+			Vec3 bb_max_ = ((l_max - i_center) * 2.0f) + i_center;
 
 			cd.center_ctrl_cage_ = i_center;
 
@@ -897,15 +941,15 @@ private:
 			CellsSet<MESH, Vertex>& i_set = md.template add_cells_set<Vertex>();
 
 			cd.influence_set_ = &i_set;
-			cd.smoothing_factor_ = 0.9;
+			cd.smoothing_factor_ = 1.0; 
 
-			std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+			/*std::shared_ptr<Attribute<uint32>> cage_vertex_index =
 				cgogn::add_attribute<uint32, Vertex>(*l_cage, "weight_index");
 			uint32 nb_vertices_ctrl_cage = 0;
 			foreach_cell(*l_cage, [&](Vertex v) -> bool {
 				value<uint32>(*l_cage, cage_vertex_index, v) = nb_vertices_ctrl_cage++;
 				return true;
-			});
+			});*/
 
 			std::shared_ptr<Attribute<uint32>> i_cage_vertex_index =
 				cgogn::add_attribute<uint32, Vertex>(*i_cage, "weight_index");
@@ -1207,7 +1251,7 @@ private:
 		}
 
 		void bind_influence_cage_mvc(MESH & object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
-									 MESH& ctrl_cage, const std::shared_ptr<Attribute<Vec3>>& cage_vertex_position)
+									 MESH& ctrl_cage)
 		{
 
 			std::shared_ptr<Attribute<uint32>> object_vertex_index =
@@ -1230,10 +1274,8 @@ private:
 			Parameters& p = parameters_[&object];
 
 			cd.coords_.resize(nbv_object, nbv_cage);
-
-			cd.attenuation_.resize(nbv_object);
-			cd.attenuation_.setZero();
-
+			cd.coords_.setZero();
+		
 			cd.influence_set_->foreach_cell([&](Vertex v) {
 				const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
 				uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
@@ -1264,8 +1306,6 @@ private:
 					}
 				}
 
-				// float sum_lambda = 0.0;
-
 				parallel_foreach_cell(*i_cage, [&](Vertex vc) -> bool {
 					uint32 cage_point_idx2 = value<uint32>(*i_cage, i_cage_vertex_index, vc);
 
@@ -1276,9 +1316,13 @@ private:
 
 					return true;
 				});
+				
 			});
 
-			compute_attenuation(object, ctrl_cage, *i_cage);
+			cd.attenuation_.resize(nbv_object);
+			cd.attenuation_.setZero();
+
+			compute_attenuation(object, cd);
 
 			displayGammaColor(object);
 
@@ -1288,6 +1332,9 @@ private:
 						if (cd.cage_vertex_position_.get() == attribute)
 						{
 							MESH* i_cage = cd.influence_cage_;
+							std::shared_ptr<Attribute<Vec3>> cage_vertex_position =
+								get_attribute<Vec3, Vertex>(ctrl_cage, "position");
+
 							std::shared_ptr<Attribute<Vec3>> i_cage_vertex_position =
 								get_attribute<Vec3, Vertex>(*i_cage, "position");
 
@@ -1310,17 +1357,16 @@ private:
 
 							cd.influence_set_->foreach_cell([&](Vertex v) -> bool {
 								uint32 vidx = value<uint32>(object, object_vertex_index, v);
-
+ 
 								float current_attenuation = cd.attenuation_(vidx);
 
 								Vec3 new_pos_ = {0.0, 0.0, 0.0};
-								Vec3 old_pos = {0.0, 0.0, 0.0};
 
 								foreach_cell(*i_cage, [&](Vertex cv) -> bool {
-									const Vec3& cage_point = value<Vec3>(*i_cage, i_cage_vertex_position, cv);
+									const Vec3& i_cage_point = value<Vec3>(*i_cage, i_cage_vertex_position, cv);
 									uint32 i_cage_point_idx = value<uint32>(*i_cage, i_cage_vertex_index, cv);
 
-									new_pos_ += cd.coords_(vidx, i_cage_point_idx) * cage_point;
+									new_pos_ += cd.coords_(vidx, i_cage_point_idx) * i_cage_point;
 
 									return true;
 								});
@@ -2008,8 +2054,7 @@ private:
 									{
 										/* bind_local_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_,
 													   cd.cage_vertex_position_);*/
-										bind_influence_cage_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_,
-																cd.cage_vertex_position_);
+										bind_influence_cage_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_);
 									}
 								}
 
