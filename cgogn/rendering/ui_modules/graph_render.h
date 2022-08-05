@@ -391,7 +391,7 @@ protected:
 			{
 				need_update |=
 					ImGui::ColorEdit3("Color##edges", p.param_bold_line_->color_.data(), ImGuiColorEditFlags_NoInputs);
-				need_update |= ImGui::SliderFloat("Width##edges", &(p.param_bold_line_->width_), 1.0f, 10.0f);
+				need_update |= ImGui::SliderFloat("Width##edges", &(p.param_bold_line_->width_), 1.0f, 100.0f);
 			}
 
 			if (need_update)

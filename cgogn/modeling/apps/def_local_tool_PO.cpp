@@ -32,17 +32,22 @@
 #include <cgogn/modeling/ui_modules/surface_deformation.h>
 #include <cgogn/modeling/ui_modules/space_deformation.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
+#include <cgogn/rendering/ui_modules/graph_render.h>
 
 #define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_DATA_PATH) "/meshes/"
 
 using namespace cgogn::numerics;
 
 using Mesh = cgogn::CMap2;
+using Graph = cgogn::Graph;
 
 template <typename T>
-using Attribute = typename cgogn::mesh_traits<Mesh>::Attribute<T>;
-using Vertex = typename cgogn::mesh_traits<Mesh>::Vertex;
-using Face = typename cgogn::mesh_traits<Mesh>::Face;
+using GraphAttribute = typename cgogn::mesh_traits<Graph>::Attribute<T>;
+
+template <typename T>
+using MeshAttribute = typename cgogn::mesh_traits<Mesh>::Attribute<T>;
+using MeshVertex = typename cgogn::mesh_traits<Mesh>::Vertex;
+using MeshFace = typename cgogn::mesh_traits<Mesh>::Face;
 
 int main(int argc, char** argv)
 {
@@ -64,19 +69,30 @@ int main(int argc, char** argv)
 	app.set_window_size(1000, 800);
 
 	cgogn::ui::MeshProvider<Mesh> mp(app);
+	cgogn::ui::MeshProvider<Graph> mg(app);
+
 	cgogn::ui::SurfaceRender<Mesh> sr(app);
+	//cgogn::ui::SurfaceRender<Graph> gr(app);
+	cgogn::ui::GraphRender<Graph> gr(app);
+
 	cgogn::ui::SurfaceDifferentialProperties<Mesh> sdp(app);
 	cgogn::ui::SurfaceDeformation<Mesh> sd(app);
 	cgogn::ui::SurfaceSelectionPO<Mesh> ss(app);
-	cgogn::ui::SpaceDeformation<Mesh> sd2(app);
+
+	cgogn::ui::SpaceDeformation<Mesh, Graph> sd2(app);
 
 	app.init_modules();
 
 	cgogn::ui::View* v1 = app.current_view();
 	v1->link_module(&mp);
+	v1->link_module(&mg);
+
+	v1->link_module(&gr);
 	v1->link_module(&sr);
+
 	v1->link_module(&sd);
 	v1->link_module(&ss);
+
 
 	Mesh* m = mp.load_surface_from_file(filename);
 	if (!m)
@@ -85,8 +101,8 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	std::shared_ptr<Attribute<Vec3>> vertex_position = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
-	std::shared_ptr<Attribute<Vec3>> vertex_normal = cgogn::add_attribute<Vec3, Vertex>(*m, "normal");
+	auto vertex_position = cgogn::get_attribute<Vec3, cgogn::mesh_traits<Mesh>::Vertex>(*m, "position");
+	auto vertex_normal = cgogn::add_attribute<Vec3, cgogn::mesh_traits<Mesh>::Vertex>(*m, "normal");
 
 	sdp.compute_normal(*m, vertex_position.get(), vertex_normal.get());
 
@@ -97,9 +113,9 @@ int main(int argc, char** argv)
 
 	ss.set_vertex_position(*m, vertex_position);
 
-	std::shared_ptr<Attribute<uint32>> object_vertex_index = cgogn::add_attribute<uint32, Vertex>(*m, "weight_index");
+	auto object_vertex_index = cgogn::add_attribute<uint32, cgogn::mesh_traits<Mesh>::Vertex>(*m, "weight_index");
 	uint32 nb_vertices = 0;
-		foreach_cell(*m, [&](Vertex v) -> bool {
+		foreach_cell(*m, [&](cgogn::mesh_traits<Mesh>::Vertex v) -> bool {
 			cgogn::value<uint32>(*m, object_vertex_index, v) = nb_vertices++;
 			return true;
 		}); 
