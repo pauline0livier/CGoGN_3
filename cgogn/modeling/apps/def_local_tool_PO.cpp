@@ -39,7 +39,7 @@
 using namespace cgogn::numerics;
 
 using Mesh = cgogn::CMap2;
-using Graph = cgogn::Graph;
+using Graph = cgogn::IncidenceGraph;
 
 template <typename T>
 using GraphAttribute = typename cgogn::mesh_traits<Graph>::Attribute<T>;
@@ -72,12 +72,17 @@ int main(int argc, char** argv)
 	cgogn::ui::MeshProvider<Graph> mg(app);
 
 	cgogn::ui::SurfaceRender<Mesh> sr(app);
-	//cgogn::ui::SurfaceRender<Graph> gr(app);
-	cgogn::ui::GraphRender<Graph> gr(app);
+	cgogn::ui::SurfaceRender<Graph> gr(app);
+	//cgogn::ui::GraphRender<Graph> gr(app);
 
 	cgogn::ui::SurfaceDifferentialProperties<Mesh> sdp(app);
+	
 	cgogn::ui::SurfaceDeformation<Mesh> sd(app);
+	//cgogn::ui::SurfaceDeformation<Graph> sdg(app);
+
+
 	cgogn::ui::SurfaceSelectionPO<Mesh> ss(app);
+	//cgogn::ui::SurfaceSelectionPO<Graph> ssg(app);
 
 	cgogn::ui::SpaceDeformation<Mesh, Graph> sd2(app);
 
@@ -91,7 +96,10 @@ int main(int argc, char** argv)
 	v1->link_module(&sr);
 
 	v1->link_module(&sd);
+	//v1->link_module(&sdg);
+
 	v1->link_module(&ss);
+	//v1->link_module(&ssg);
 
 
 	Mesh* m = mp.load_surface_from_file(filename);

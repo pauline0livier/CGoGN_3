@@ -29,7 +29,7 @@
 #include <cgogn/geometry/ui_modules/surface_selectionPO.h>
 #include <cgogn/modeling/ui_modules/surface_deformation.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
-#include <cgogn/rendering/ui_modules/graph_render.h>
+//#include <cgogn/rendering/ui_modules/graph_render.h>
 #include <cgogn/ui/app.h>
 #include <cgogn/ui/imgui_helpers.h>
 #include <cgogn/ui/module.h>
@@ -873,36 +873,6 @@ public:
 			return true;
 		});
 	}
-
-	/*MESH* generate_handle(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position, int i)
-	{
-
-		Parameters& p = parameters_[&m];
-
-		MESH* handle = mesh_provider_->add_mesh("hanlde");  //+ std::to_string(i)); // (m_name + "_cage");
-		std::shared_ptr<MeshAttribute<Vec3>> cage_vertex_position =
-			cgogn::add_attribute<Vec3, MeshVertex>(*cage, "position");
-		mesh_provider_->set_mesh_bb_vertex_position(*cage, cage_vertex_position);
-
-		MeshData<MESH>& md = mesh_provider_->mesh_data(m);
-		create_box(*cage, cage_vertex_position.get(), md.bb_min_, md.bb_max_);
-
-		mesh_provider_->emit_connectivity_changed(*cage);
-		mesh_provider_->emit_attribute_changed(*cage, cage_vertex_position.get());
-
-		Cage_data& cd = cage_data_[cage];
-
-		p.list_cage_.push_back(cage);
-		// p.list_weights_.push_back(Weights());
-		cd.cage_vertex_position_ = cage_vertex_position;
-
-		ui::View* v1 = app_.current_view();
-
-		surface_render_->set_vertex_position(*v1, *cage, cage_vertex_position);
-		surface_render_->set_render_faces(*v1, *cage, false);
-
-		return cage;
-	}*/
 
 	MESH* generate_global_cage(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position, int i)
 	{
@@ -1993,8 +1963,7 @@ public:
 	}
 
 
-	GRAPH* generate_handle(const Vec3& center){
-		Vec3 bb_max_ = center + Vec3{0.1, 0.3, 0.1};
+	GRAPH* generate_handle(const Vec3& center1, const Vec3& center2){
 
 		GRAPH* handle_ = graph_provider_->add_mesh("handle");
 		
@@ -2003,8 +1972,15 @@ public:
 
 		GraphVertex nv = add_vertex(*handle_);
 		
-		value<Vec3>(*handle_, handle_vertex_position_, nv) = bb_max_;
+		value<Vec3>(*handle_, handle_vertex_position_, nv) = center1;
 		value<Scalar>(*handle_, handle_vertex_radius_, nv) = Scalar(100);
+
+		GraphVertex nv1 = add_vertex(*handle_);
+		
+		value<Vec3>(*handle_, handle_vertex_position_, nv1) = center2;
+		value<Scalar>(*handle_, handle_vertex_radius_, nv1) = Scalar(100);
+
+		connect_vertices(*handle_, nv, nv1);
 
 		graph_provider_->emit_connectivity_changed(*handle_);
 		graph_provider_->emit_attribute_changed(*handle_, handle_vertex_position_.get());
@@ -2015,7 +1991,7 @@ public:
 
 		View* v1 = app_.current_view();
 
-		graph_render_->set_vertex_position(*v1, *handle_, handle_vertex_position_);
+		//graph_render_->set_vertex_position(*v1, *handle_, handle_vertex_position_);
 
 		return handle_; 
 	}
@@ -2038,7 +2014,7 @@ protected:
 		surface_render_ = static_cast<ui::SurfaceRender<MESH>*>(
 			app_.module("SurfaceRender (" + std::string{mesh_traits<MESH>::name} + ")"));
 
-		graph_render_ = static_cast<ui::GraphRender<GRAPH>*>(
+		graph_render_ = static_cast<ui::SurfaceRender<GRAPH>*>(
 			app_.module("GraphRender (" + std::string{mesh_traits<GRAPH>::name} + ")"));
 		
 
@@ -2209,7 +2185,18 @@ protected:
 
 						center /= control_set->size();
 
-						generate_handle(center);
+						MeshData<MESH>& md = mesh_provider_->mesh_data(*selected_mesh_);
+						const Vec3& bb_min = md.bb_min_;
+						const Vec3& bb_max = md.bb_max_;
+
+						Vec3 center1 = center + Vec3{bb_min[0], 0.0, 0.0}; 
+						Vec3 center2 = center + Vec3{bb_max[0], 0.0, 0.0}; 
+
+						generate_handle(center1, center2);
+						//auto vertex_position = cgogn::get_attribute<Vec3, GraphVertex>(*handle, "position");
+						
+						//View* v1 = app_.current_view();
+						//graph_render_->set_vertex_position(*v1, *handle, vertex_position);
 					}
 				}
 
@@ -2237,13 +2224,13 @@ private:
 	std::unordered_map<const MESH*, Parameters> parameters_;
 
 	std::unordered_map<const MESH*, Cage_data> cage_data_;
-	std::unordered_map<const Graph*, Handle_data> handle_data_;
+	std::unordered_map<const IncidenceGraph*, Handle_data> handle_data_;
 	std::vector<std::shared_ptr<boost::synapse::connection>> connections_;
 	MeshProvider<MESH>* mesh_provider_;
 	MeshProvider<GRAPH>* graph_provider_;
 
 	SurfaceRender<MESH>* surface_render_;
-	GraphRender<GRAPH>* graph_render_;
+	SurfaceRender<GRAPH>* graph_render_;
 
 	SurfaceDifferentialProperties<MESH>* surface_diff_pptes_;
 	SurfaceSelectionPO<MESH>* surface_selection_;
