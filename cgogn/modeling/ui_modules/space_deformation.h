@@ -27,6 +27,7 @@
 #include <cgogn/core/ui_modules/mesh_provider.h>
 #include <cgogn/geometry/ui_modules/surface_differential_properties.h>
 #include <cgogn/geometry/ui_modules/surface_selectionPO.h>
+#include <cgogn/geometry/ui_modules/graph_selection.h>
 #include <cgogn/modeling/ui_modules/surface_deformation.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
 //#include <cgogn/rendering/ui_modules/graph_render.h>
@@ -1991,7 +1992,9 @@ public:
 
 		View* v1 = app_.current_view();
 
-		//graph_render_->set_vertex_position(*v1, *handle_, handle_vertex_position_);
+		graph_render_->set_vertex_position(*v1, *handle_, handle_vertex_position_);
+
+		graph_selection_->set_vertex_position(*handle_, handle_vertex_position_);
 
 		return handle_; 
 	}
@@ -2015,7 +2018,7 @@ protected:
 			app_.module("SurfaceRender (" + std::string{mesh_traits<MESH>::name} + ")"));
 
 		graph_render_ = static_cast<ui::SurfaceRender<GRAPH>*>(
-			app_.module("GraphRender (" + std::string{mesh_traits<GRAPH>::name} + ")"));
+			app_.module("SurfaceRender (" + std::string{mesh_traits<GRAPH>::name} + ")"));
 		
 
 		surface_diff_pptes_ = static_cast<ui::SurfaceDifferentialProperties<MESH>*>(
@@ -2023,6 +2026,12 @@ protected:
 
 		surface_selection_ = static_cast<ui::SurfaceSelectionPO<MESH>*>(
 			app_.module("SurfaceSelectionPO (" + std::string{mesh_traits<MESH>::name} + ")"));
+
+		/*graph_selection_ = static_cast<ui::SurfaceSelectionPO<GRAPH>*>(
+			app_.module("SurfaceSelectionPO (" + std::string{mesh_traits<GRAPH>::name} + ")"));*/
+
+		graph_selection_ = static_cast<ui::GraphSelection<GRAPH>*>(
+			app_.module("GraphSelection (" + std::string{mesh_traits<GRAPH>::name} + ")")); 
 
 		surface_deformation_ = static_cast<ui::SurfaceDeformation<MESH>*>(
 			app_.module("SurfaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
@@ -2234,6 +2243,9 @@ private:
 
 	SurfaceDifferentialProperties<MESH>* surface_diff_pptes_;
 	SurfaceSelectionPO<MESH>* surface_selection_;
+	//SurfaceSelectionPO<GRAPH>* graph_selection_;
+	GraphSelection<GRAPH>* graph_selection_;
+
 	SurfaceDeformation<MESH>* surface_deformation_;
 
 	SelectionTool selected_tool_;

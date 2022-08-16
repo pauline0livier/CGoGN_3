@@ -181,6 +181,31 @@ inline bool intersection_line_plane(const Vec3& point_line, const Vec3& dir_line
 	return true;
 }
 
+//https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
+inline bool intersection_ray_sphere(const Vec3& P, const Vec3& Dir, const Vec3& center, const int& radius, 
+									  Vec3* inter = nullptr)
+{
+	Vec3 pC = P - center; 
+	double normU2 = Dir.squaredNorm();  
+
+	double delta = (pow(2*(Dir.dot(pC)), 2) - 4*normU2*(pow(pC.norm(), 2) - pow(radius,2)))/(2*normU2); 
+
+	if (delta < 0){
+		return false; 
+	} else {
+		double first_part = -Dir.dot(pC)/normU2; 
+		/*if (delta == 0){
+			*inter = P + first_part*Dir; 
+		} else { // simplification, instead of finding closest to ray
+			*inter = P + first_part*Dir ; 
+		}*/
+		*inter = P + first_part*Dir; 
+		return true; 
+	}
+
+	
+}
+
 } // namespace geometry
 
 } // namespace cgogn

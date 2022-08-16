@@ -211,6 +211,49 @@ void picking(const MESH& m, const typename mesh_traits<MESH>::template Attribute
 		result.push_back(std::get<0>(sf));
 }
 
+template <typename MESH>
+void picking_sphere(const MESH& m, const typename mesh_traits<MESH>::template Attribute<Vec3>* vertex_position, const int radius, const Vec3& A,
+			 const Vec3& B, std::vector<typename mesh_traits<MESH>::Vertex>& result)
+{
+
+	using Vertex = typename mesh_traits<MESH>::Vertex;
+	using SelectedVertex = std::tuple<Vertex, Vec3, Scalar>;
+
+	Vec3 AB = B - A;
+
+	std::vector<SelectedVertex> selected_vertices; 
+
+	parallel_foreach_cell(m, [&](Vertex v) -> bool {
+		Vec3 intersection_point; 
+		bool intersect_vertex = intersection_ray_sphere(A, AB, value<Vec3>(m, vertex_position, v),
+										  radius, &intersection_point); 
+		if (intersect_vertex){
+			selected_vertices.emplace_back(v, intersection_point, (intersection_point - A).squaredNorm()); 
+		}
+		
+		return true; 
+	}); 
+
+	result.clear();
+	result.reserve(selected_vertices.size());
+
+	double min_dist = std::numeric_limits<double>::max();
+	Vertex closest_vertex;
+	for (const auto& sv : selected_vertices)
+	{
+		Scalar d2 = std::get<2>(sv); 
+		if (d2 < min_dist)
+		{
+			min_dist = d2;
+			closest_vertex = std::get<0>(sv);
+		}
+	}
+
+	result.push_back(closest_vertex);
+		
+		
+}
+
 } // namespace geometry
 
 } // namespace cgogn

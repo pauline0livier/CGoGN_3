@@ -50,6 +50,7 @@ target_sources(${PROJECT_NAME}
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/surface_filtering.h"
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/surface_selection.h"
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/surface_selectionPO.h"
+		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/graph_selection.h"
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/volume_selection.h"
 )
 
