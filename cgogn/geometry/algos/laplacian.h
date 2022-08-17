@@ -74,6 +74,38 @@ Scalar edge_cotan_weight(const CMap2& m, CMap2::Edge e, const CMap2::Attribute<V
 	return std::clamp(result, 0.0, 1.0);
 }
 
+Scalar edge_cotan_weight(const IncidenceGraph& ig, IncidenceGraph::Edge e, const IncidenceGraph::Attribute<Vec3>* vertex_position)
+{
+	/*Scalar result = 0.0;
+
+	const Vertex v0 = (*ig.edge_incident_vertices_)[e.index_].first;
+	const Vertex v1 = (*ig.edge_incident_vertices_)[e.index_].second;
+
+	const Vec3& p1 = value<Vec3>(ig, vertex_position, v0);
+	const Vec3& p2 = value<Vec3>(ig, vertex_position, v1);
+
+	const Vec3& p3 = value<Vec3>(ig, vertex_position, IncidenceGraph::Vertex(phi_1(m, d1)));
+	Vec3 vecR = p1 - p3;
+	Vec3 vecL = p2 - p3;
+	Scalar e1value = vecR.dot(vecL) / vecR.cross(vecL).norm();
+
+	result += e1value / 2.0;
+
+	if (!is_boundary(m, d2))
+	{
+		const Vec3& p4 = value<Vec3>(m, vertex_position, IncidenceGraph::Vertex(phi_1(m, d2)));
+		Vec3 vecR = p2 - p4;
+		Vec3 vecL = p1 - p4;
+		Scalar e2value = vecR.dot(vecL) / vecR.cross(vecL).norm();
+
+		result += e2value / 2.0;
+	}
+
+	return std::clamp(result, 0.0, 1.0);*/
+
+	return 0.5; 
+}
+
 /////////////
 // GENERIC //
 /////////////

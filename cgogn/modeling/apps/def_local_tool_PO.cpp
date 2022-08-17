@@ -31,6 +31,7 @@
 #include <cgogn/geometry/ui_modules/surface_selectionPO.h>
 #include <cgogn/geometry/ui_modules/graph_selection.h>
 #include <cgogn/modeling/ui_modules/surface_deformation.h>
+#include <cgogn/modeling/ui_modules/graph_deformation.h>
 #include <cgogn/modeling/ui_modules/space_deformation.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
 #include <cgogn/rendering/ui_modules/graph_render.h>
@@ -79,7 +80,7 @@ int main(int argc, char** argv)
 	cgogn::ui::SurfaceDifferentialProperties<Mesh> sdp(app);
 	
 	cgogn::ui::SurfaceDeformation<Mesh> sd(app);
-	//cgogn::ui::SurfaceDeformation<Graph> sdg(app);
+	cgogn::ui::GraphDeformation<Graph> sdg(app);
 
 
 	cgogn::ui::SurfaceSelectionPO<Mesh> ss(app);
@@ -98,7 +99,7 @@ int main(int argc, char** argv)
 	v1->link_module(&sr);
 
 	v1->link_module(&sd);
-	//v1->link_module(&sdg);
+	v1->link_module(&sdg);
 
 	v1->link_module(&ss);
 	v1->link_module(&ssg);

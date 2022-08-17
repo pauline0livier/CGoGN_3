@@ -242,9 +242,7 @@ protected:
 									break;
 								}
 								mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_vertices_set_);
-							} else {
-								std::cout << "empty set" << std::endl;
-							}
+							} 
 						}
 						break;
 					

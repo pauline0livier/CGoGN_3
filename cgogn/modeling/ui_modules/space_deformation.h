@@ -29,6 +29,7 @@
 #include <cgogn/geometry/ui_modules/surface_selectionPO.h>
 #include <cgogn/geometry/ui_modules/graph_selection.h>
 #include <cgogn/modeling/ui_modules/surface_deformation.h>
+#include <cgogn/modeling/ui_modules/graph_deformation.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
 //#include <cgogn/rendering/ui_modules/graph_render.h>
 #include <cgogn/ui/app.h>
@@ -1999,6 +2000,48 @@ public:
 		return handle_; 
 	}
 
+	GRAPH* generate_axis(const std::vector<Vec3>& setVertices){
+
+		GRAPH* axis_ = graph_provider_->add_mesh("axis");
+		
+		auto axis_vertex_position_ = add_attribute<Vec3, GraphVertex>(*axis_, "position");
+		auto axis_vertex_radius_ = add_attribute<Scalar, GraphVertex>(*axis_, "radius");
+
+		GraphVertex nv = add_vertex(*axis_);
+		
+		value<Vec3>(*axis_, axis_vertex_position_, nv) = setVertices[0];
+		value<Scalar>(*axis_, axis_vertex_radius_, nv) = Scalar(100);
+
+		GraphVertex lastVertex = nv; 
+
+		for (unsigned i  = 1; i < setVertices.size(); i++){
+			GraphVertex nv1 = add_vertex(*axis_);
+		
+			value<Vec3>(*axis_, axis_vertex_position_, nv1) = setVertices[i];
+			value<Scalar>(*axis_, axis_vertex_radius_, nv1) = Scalar(100);
+
+			connect_vertices(*axis_, lastVertex, nv1);
+
+			lastVertex = nv1;
+		}
+		
+
+		graph_provider_->emit_connectivity_changed(*axis_);
+		graph_provider_->emit_attribute_changed(*axis_, axis_vertex_position_.get());
+		graph_provider_->emit_attribute_changed(*axis_, axis_vertex_radius_.get());
+
+		Handle_data& hd = handle_data_[axis_];
+		hd.handle_vertex_position_ = axis_vertex_position_; 
+
+		View* v1 = app_.current_view();
+
+		graph_render_->set_vertex_position(*v1, *axis_, axis_vertex_position_);
+
+		graph_selection_->set_vertex_position(*axis_, axis_vertex_position_);
+
+		return axis_; 
+	}
+
 protected:
 	void init() override
 	{
@@ -2035,6 +2078,9 @@ protected:
 
 		surface_deformation_ = static_cast<ui::SurfaceDeformation<MESH>*>(
 			app_.module("SurfaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
+
+		graph_deformation_ = static_cast<ui::GraphDeformation<GRAPH>*>(
+			app_.module("GraphDeformation (" + std::string{mesh_traits<GRAPH>::name} + ")"));
 	}
 
 	void left_panel() override
@@ -2199,13 +2245,12 @@ protected:
 						const Vec3& bb_max = md.bb_max_;
 
 						Vec3 center1 = center + Vec3{bb_min[0], 0.0, 0.0}; 
-						Vec3 center2 = center + Vec3{bb_max[0], 0.0, 0.0}; 
+						Vec3 center1bis = center + Vec3{bb_max[0], 0.0, 0.0}; 
+						Vec3 center2 = (center1bis + center1)*0.5; 
+						Vec3 center0 = (center1bis*0.25 + center1*0.75); 
 
-						generate_handle(center1, center2);
-						//auto vertex_position = cgogn::get_attribute<Vec3, GraphVertex>(*handle, "position");
+						generate_handle(center0, center2);
 						
-						//View* v1 = app_.current_view();
-						//graph_render_->set_vertex_position(*v1, *handle, vertex_position);
 					}
 				}
 
@@ -2218,9 +2263,53 @@ protected:
 
 					if (control_set && control_set->size() > 0)
 					{
-						// MESH* handle = generate_local_handle(*selected_mesh_, p.vertex_position_, control_set,
-						// p.nb_cage);
-						std::cout << "axis" << std::endl;
+						
+						MeshData<MESH>& md = mesh_provider_->mesh_data(*selected_mesh_);
+						const Vec3& bb_min = md.bb_min_;
+						const Vec3& bb_max = md.bb_max_;
+
+						Vec3 center = {0.0, 0.0, 0.0};
+
+						Vec3 min_pos = bb_max; 
+						Vec3 max_pos = bb_min;  
+
+						control_set->foreach_cell([&](MeshVertex v) {
+							const Vec3& pos = value<Vec3>(*selected_mesh_, p.vertex_position_, v);
+
+							center += pos;
+
+							for (int i = 0; i < 3; i++){
+								if (pos[i] < min_pos[i]){
+									min_pos[i] = pos[i]; 
+								}
+
+								if (pos[i] > max_pos[i]){
+									max_pos[i] = pos[i]; 
+								}
+							}
+
+							
+						});
+
+						center /= control_set->size();
+
+						
+
+						Vec3 center1 = center + Vec3{bb_min[0], 0.0, 0.0}; 
+						Vec3 center1bis = center + Vec3{bb_max[0], 0.0, 0.0}; 
+						Vec3 center2 = (center1bis + center1)*0.5; 
+						Vec3 center0 = (center1bis*0.25 + center1*0.75); 
+
+						double center_pos = (max_pos[1] + min_pos[1])/2.0; 
+
+						Vec3 oneExtrem = {min_pos[0], center_pos, min_pos[2]}; 
+						Vec3 otherExtrem = {min_pos[0], center_pos, max_pos[2]}; 
+						std::vector<Vec3> setVertices; 
+						setVertices.push_back(oneExtrem); 
+						setVertices.push_back(center0); 
+						setVertices.push_back(otherExtrem);
+
+						generate_axis(setVertices);  
 					}
 				}
 			}
@@ -2247,6 +2336,7 @@ private:
 	GraphSelection<GRAPH>* graph_selection_;
 
 	SurfaceDeformation<MESH>* surface_deformation_;
+	GraphDeformation<GRAPH>* graph_deformation_;
 
 	SelectionTool selected_tool_;
 };
