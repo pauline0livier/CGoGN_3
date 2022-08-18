@@ -134,26 +134,5 @@ int main(int argc, char** argv)
 	sd2.set_selected_mesh(*m);
 	sd2.set_vertex_position(*m, vertex_position);
 
-	/*Mesh* cage = cd.generate_cage(*m, vertex_position);
-	std::shared_ptr<Attribute<Vec3>> cage_vertex_position = cgogn::get_attribute<Vec3, Vertex>(*cage, "position");
-
-	std::shared_ptr<Attribute<Vec3>> cage_vertex_normal = cgogn::add_attribute<Vec3, Vertex>(*cage, "normal");
-
-	sdp.compute_normal(*cage, cage_vertex_position.get(), cage_vertex_normal.get());
-
-	sr.set_vertex_position(*v1, *cage, cage_vertex_position);
-	sr.set_render_faces(*v1, *cage, false);
-
-	cgogn::ui::MeshData<Mesh>& md = mp.mesh_data(*cage);
-	cgogn::ui::CellsSet<Mesh, Vertex>& set = md.add_cells_set<Vertex>();
-
-	ss.set_selected_mesh(*cage);
-	ss.set_vertex_position(*cage, cage_vertex_position);
-	ss.set_selected_cells_set(*cage, &set);
-
-	sd.set_selected_mesh(*cage);
-	sd.set_vertex_position(*cage, cage_vertex_position);
-	sd.set_selected_handle_vertices_set(*cage, &set);*/
-
 	return app.launch();
 }

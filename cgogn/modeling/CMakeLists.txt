@@ -13,11 +13,19 @@ add_library(${PROJECT_NAME} STATIC "")
 add_library(cgogn::modeling ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}	PRIVATE
+
+	    "${CMAKE_CURRENT_LIST_DIR}/types/cage3D.h"
+		"${CMAKE_CURRENT_LIST_DIR}/types/cage_deformation_tool.h"
+
         "${CMAKE_CURRENT_LIST_DIR}/algos/decimation/decimation.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/decimation/cell_queue.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/decimation/edge_approximator.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/decimation/edge_queue_update.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/decimation/QEM_helper.h"
+		"${CMAKE_CURRENT_LIST_DIR}/algos/deformation/cage_deformation.h"
+		"${CMAKE_CURRENT_LIST_DIR}/algos/deformation/cage_deformation.cpp"
+		"${CMAKE_CURRENT_LIST_DIR}/algos/deformation/creation_space_tool.h"
+		"${CMAKE_CURRENT_LIST_DIR}/algos/deformation/creation_space_tool.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/convex_hull.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/graph_resampling.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/graph_resampling.cpp"
