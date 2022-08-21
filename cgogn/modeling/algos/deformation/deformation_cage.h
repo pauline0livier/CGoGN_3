@@ -21,11 +21,11 @@
  *                                                                              *
  *******************************************************************************/
 
-#ifndef CGOGN_MODELING_ALGOS_CAGE_DEFORMATION_H_
-#define CGOGN_MODELING_ALGOS_CAGE_DEFORMATION_H_
+#ifndef CGOGN_MODELING_ALGOS_DEFORMATION_CAGE_H_
+#define CGOGN_MODELING_ALGOS_DEFORMATION_CAGE_H_
 
 #include <cgogn/geometry/types/vector_traits.h>
-#include <cgogn/core/types/cmap/cmap2.h>
+
 
 namespace cgogn
 {
@@ -35,6 +35,11 @@ namespace modeling
 
 using Vec3 = geometry::Vec3; 
 
+void set_attribute_position_indices(CMap2& cage, CMap2::Attribute<uint32>* position_indices); 
+
+void set_attribute_marked_vertices(CMap2& cage, CMap2::Attribute<bool>* marked_vertices); 
+
+void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indices); 
 
 double getAngleBetweenUnitVectors(const Vec3& a, const Vec3& b); 
 
@@ -49,4 +54,4 @@ const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2);
 
 } // namespace cgogn
 
-#endif // CGOGN_MODELING_ALGOS_GRAPH_TO_HEX_H_
+#endif // CGOGN_MODELING_ALGOS_DEFORMATION_CAGE_H_
