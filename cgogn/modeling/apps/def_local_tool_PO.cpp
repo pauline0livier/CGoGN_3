@@ -36,6 +36,8 @@
 #include <cgogn/rendering/ui_modules/surface_render.h>
 #include <cgogn/rendering/ui_modules/graph_render.h>
 
+#include <cgogn/modeling/algos/deformation/deformation_cage.h>
+
 #define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_DATA_PATH) "/meshes/"
 
 using namespace cgogn::numerics;
@@ -75,7 +77,6 @@ int main(int argc, char** argv)
 
 	cgogn::ui::SurfaceRender<Mesh> sr(app);
 	cgogn::ui::SurfaceRender<Graph> gr(app);
-	//cgogn::ui::GraphRender<Graph> gr(app);
 
 	cgogn::ui::SurfaceDifferentialProperties<Mesh> sdp(app);
 	
@@ -124,12 +125,8 @@ int main(int argc, char** argv)
 
 	ss.set_vertex_position(*m, vertex_position);
 
-	auto object_vertex_index = cgogn::add_attribute<uint32, cgogn::mesh_traits<Mesh>::Vertex>(*m, "weight_index");
-	uint32 nb_vertices = 0;
-		foreach_cell(*m, [&](cgogn::mesh_traits<Mesh>::Vertex v) -> bool {
-			cgogn::value<uint32>(*m, object_vertex_index, v) = nb_vertices++;
-			return true;
-		}); 
+	auto object_position_indices = cgogn::add_attribute<uint32, cgogn::mesh_traits<Mesh>::Vertex>(*m, "position_indices");
+	cgogn::modeling::set_attribute_position_indices(*m, object_position_indices.get()); 
 
 	sd2.set_selected_mesh(*m);
 	sd2.set_vertex_position(*m, vertex_position);

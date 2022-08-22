@@ -24,6 +24,7 @@
 #ifndef CGOGN_MODELING_HANDLE_DEFORMATION_TOOL_H_
 #define CGOGN_MODELING_HANDLE_DEFORMATION_TOOL_H_
 
+#include <cgogn/modeling/types/space_deformation_tool.h>
 #include <cgogn/core/types/cmap/cmap2.h>
 #include <cgogn/geometry/types/vector_traits.h>
 
@@ -33,29 +34,36 @@ namespace cgogn
 namespace modeling
 {
 
-template <typename MESH>
-class HandleDeformationTool : public CMap2
+template <typename MESH, typename GRAPH>
+class HandleDeformationTool : public SpaceDeformationTool<MESH>
 {
 	template <typename T>
-	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
-	using Vertex = typename mesh_traits<MESH>::Vertex;
-	using Face = typename mesh_traits<MESH>::Face;
+	using Attribute = typename mesh_traits<GRAPH>::template Attribute<T>;
+	using Vertex = typename mesh_traits<GRAPH>::Vertex;
+	using Edge = typename mesh_traits<GRAPH>::Face;
+
+	 using Vec2 = geometry::Vec2;
+    using Vec3 = geometry::Vec3;
 
 public:
 	HandleDeformationTool()
 	{
-		handle_vertex_position = nullptr; 
+		handle_vertex_position_ = nullptr; 
 	}
 
 	~HandleDeformationTool()
 		{
 		}
 
-}
+	void create_space_tool()
+	{
+		std::cout << "handle" << std::endl; 
+	}
 
 private :
-	std::shared_ptr<GraphAttribute<Vec3>> handle_vertex_position_;
+	std::shared_ptr<Attribute<Vec3>> handle_vertex_position_;
 
+}; 
 
 } // namespace modeling
 

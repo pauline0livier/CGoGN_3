@@ -21,8 +21,16 @@
  *                                                                              *
  *******************************************************************************/
 
-#ifndef CGOGN_MODELING_SPACE_TOOL_H_
-#define CGOGN_MODELING_SPACE_TOOL_H_
+#ifndef CGOGN_MODELING_SPACE_DEFORMATION_TOOL_H_
+#define CGOGN_MODELING_SPACE_DEFORMATION_TOOL_H_
+
+#include <cgogn/core/types/cells_set.h>
+
+#include <cgogn/core/functions/mesh_info.h>
+
+#include <cgogn/geometry/types/vector_traits.h>
+#include <cgogn/modeling/algos/deformation/creation_space_tool.h>
+
 
 namespace cgogn
 {
@@ -30,29 +38,47 @@ namespace cgogn
 namespace modeling
 {
 
-class SpaceTool 
+template <typename MESH>
+class SpaceDeformationTool 
 {
 
+    template <typename T>
+	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
+	using Vertex = typename mesh_traits<MESH>::Vertex;
+
+    using Vec2 = geometry::Vec2;
+    using Vec3 = geometry::Vec3;
 
 public:
 
-    SpaceTool()
+    MESH* influence_cage_; 
+    cgogn::ui::CellsSet<MESH, Vertex>* influence_area_; 
+
+    Eigen::VectorXd attenuation_;
+
+    SpaceDeformationTool(): influence_cage_(nullptr), influence_area_(nullptr), influence_cage_vertex_position_(nullptr)
 	{
-		
+	
 	}
 
-    ~SpaceTool()
-	{
+    virtual ~SpaceDeformationTool()
+    {
 
-	}
+    }
 
-    void create_space_tool()
+    virtual void create_space_tool()
     {
         
     }
 
+    /*void set_influence_area(CellsSet<MESH, MeshVertex>& influence_area){
+        influence_area_ = influence_area; 
+    }*/
 
-private:
+protected:
+    std::shared_ptr<Attribute<Vec3>> influence_cage_vertex_position_; 
+    
+    
 
 }; 
 
@@ -60,4 +86,4 @@ private:
 
 } // namespace cgogn
 
-#endif // CGOGN_MODELING_SPACE_TOOL_H_
+#endif // CGOGN_MODELING_SPACE_DEFORMATION_TOOL_H_

@@ -33,8 +33,8 @@ namespace cgogn
 namespace modeling
 {
 
-template <typename MESH>
-class AxisDeformationTool : public CMap2
+template <typename MESH, typename GRAPH>
+class AxisDeformationTool : public SpaceDeformationTool<MESH>
 {
 	template <typename T>
 	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
@@ -48,14 +48,18 @@ public:
 	}
 
 	~AxisDeformationTool()
-		{
-		}
+	{
 
-}
+	}
+
+	void create_space_tool()
+	{
+		std::cout << "axis" << std::endl; 
+	}
 
 private : 
 
-
+}; 
 
 } // namespace modeling
 

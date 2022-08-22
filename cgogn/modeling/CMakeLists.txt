@@ -14,9 +14,6 @@ add_library(cgogn::modeling ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}	PRIVATE
 
-	    "${CMAKE_CURRENT_LIST_DIR}/types/cage3D.h"
-		"${CMAKE_CURRENT_LIST_DIR}/types/cage_deformation_tool.h"
-
         "${CMAKE_CURRENT_LIST_DIR}/algos/decimation/decimation.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/decimation/cell_queue.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/decimation/edge_approximator.h"
@@ -48,6 +45,11 @@ target_sources(${PROJECT_NAME}	PRIVATE
 		"${CMAKE_CURRENT_LIST_DIR}/algos/remeshing/pliant_remeshing.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/volume_utils.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/volume_utils.cpp"
+
+		"${CMAKE_CURRENT_LIST_DIR}/types/space_deformation_tool.h"
+		"${CMAKE_CURRENT_LIST_DIR}/types/cage_deformation_tool.h"
+		"${CMAKE_CURRENT_LIST_DIR}/types/handle_deformation_tool.h"
+		"${CMAKE_CURRENT_LIST_DIR}/types/axis_deformation_tool.h"
 
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/cage_deformation.h"
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/space_deformation.h"
