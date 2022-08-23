@@ -35,33 +35,7 @@ namespace modeling
 // CAGE //
 ///////////
 
-void set_attribute_position_indices(CMap2& cage, CMap2::Attribute<uint32>* position_indices)
-{
-	uint32 nb_vertices = 0;
 
-	foreach_cell(cage, [&](CMap2::Vertex v) -> bool {
-		value<uint32>(cage, position_indices, v) = nb_vertices++;
-		return true;
-	});
-}
-
-void set_attribute_marked_vertices(CMap2& cage, CMap2::Attribute<bool>* marked_vertices)
-{
-
-	parallel_foreach_cell(cage, [&](CMap2::Vertex v) -> bool {
-		value<bool>(cage, marked_vertices, v) = false;
-		return true;
-	});
-}
-
-void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indices)
-{
-	uint32 nb_faces = 0;
-	foreach_cell(cage, [&](CMap2::Face f) -> bool {
-		value<uint32>(cage, face_indices, f) = nb_faces++;
-		return true;
-	});
-}
 
 double getAngleBetweenUnitVectors(const Vec3& a, const Vec3& b)
 {

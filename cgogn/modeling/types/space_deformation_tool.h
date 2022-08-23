@@ -45,6 +45,7 @@ class SpaceDeformationTool
     template <typename T>
 	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
 	using Vertex = typename mesh_traits<MESH>::Vertex;
+    using Face = typename mesh_traits<MESH>::Face;
 
     using Vec2 = geometry::Vec2;
     using Vec3 = geometry::Vec3;
@@ -54,9 +55,11 @@ public:
     MESH* influence_cage_; 
     cgogn::ui::CellsSet<MESH, Vertex>* influence_area_; 
 
+    float smoothing_factor_;
+
     Eigen::VectorXd attenuation_;
 
-    SpaceDeformationTool(): influence_cage_(nullptr), influence_area_(nullptr), influence_cage_vertex_position_(nullptr)
+    SpaceDeformationTool(): influence_cage_(nullptr), influence_area_(nullptr), influence_cage_vertex_position_(nullptr), smoothing_factor_(0.5f)
 	{
 	
 	}
@@ -71,14 +74,146 @@ public:
         
     }
 
-    /*void set_influence_area(CellsSet<MESH, MeshVertex>& influence_area){
-        influence_area_ = influence_area; 
-    }*/
+    void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position){
+        std::shared_ptr<Attribute<uint32>> object_position_indices = get_attribute<uint32, Vertex>(object, "position_indices");
+
+		std::shared_ptr<Attribute<uint32>> cage_position_indices = get_attribute<uint32, Vertex>(*influence_cage_, "position_indices");
+
+		std::shared_ptr<Attribute<bool>> cage_marked_vertices = get_attribute<bool, Vertex>(*influence_cage_, "marked_vertices");
+
+		uint32 nbv_object = nb_cells<Vertex>(object);
+		uint32 nbv_cage = nb_cells<Vertex>(*influence_cage_);
+
+		coords_.resize(nbv_object, nbv_cage);
+		coords_.setZero();
+
+		influence_area_->foreach_cell([&](Vertex v) {
+			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
+			uint32 surface_point_idx = value<uint32>(object, object_position_indices, v);
+
+			DartMarker dm(*influence_cage_);
+			float sumMVC = 0.0;
+
+			for (Dart d = influence_cage_->begin(), end = influence_cage_->end(); d != end; d = influence_cage_->next(d))
+			{
+			    Vertex cage_vertex = CMap2::Vertex(d);
+				bool vc_marked = value<bool>(*influence_cage_, cage_marked_vertices, cage_vertex);
+
+				if (!dm.is_marked(d) && !vc_marked)
+				{
+					const Vec3& cage_point = value<Vec3>(*influence_cage_, influence_cage_vertex_position_, cage_vertex);
+					uint32 cage_point_idx = value<uint32>(*influence_cage_, cage_position_indices, cage_vertex);
+
+					float mvc_value =
+						compute_mvc(surface_point, d, *influence_cage_, cage_point, influence_cage_vertex_position_.get());
+
+					coords_(surface_point_idx, cage_point_idx) = mvc_value;
+
+					dm.mark(d);
+
+					value<bool>(*influence_cage_, cage_marked_vertices, cage_vertex) = true;
+
+					sumMVC += mvc_value;
+				}
+			}
+
+			parallel_foreach_cell(*influence_cage_, [&](Vertex vc) -> bool {
+				uint32 cage_point_idx2 = value<uint32>(*influence_cage_, cage_position_indices, vc);
+
+				coords_(surface_point_idx, cage_point_idx2) =
+					coords_(surface_point_idx, cage_point_idx2) / sumMVC;
+
+				value<bool>(*influence_cage_, cage_marked_vertices, vc) = false;
+
+				return true;
+			});
+		});
+
+		attenuation_.resize(nbv_object);
+		attenuation_.setZero();
+
+		compute_attenuation(object);
+    }
+    
 
 protected:
     std::shared_ptr<Attribute<Vec3>> influence_cage_vertex_position_; 
+
+    Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> coords_;
+
+	Eigen::Matrix<Vec2, Eigen::Dynamic, Eigen::Dynamic> n_coords_;
     
     
+private:
+
+void compute_attenuation(MESH& object)
+	{
+
+		const float h = smoothing_factor_;
+		assert((h <= 1.0f && h >= 0.0f) || !"Cage's attenuation factor must be computed!");
+
+		std::shared_ptr<Attribute<uint32>> cage_face_indices = add_attribute<uint32, Face>(*influence_cage_, "face_indices");
+		cgogn::modeling::set_attribute_face_indices(*influence_cage_, cage_face_indices); 
+
+		std::shared_ptr<Attribute<uint32>> object_position_indices = get_attribute<uint32, Vertex>(object, "position_indices");
+
+		uint32 nbf_cage = 2 * nb_cells<Face>(*influence_cage_);
+		uint32 nbv_cage = nb_cells<Vertex>(*influence_cage_);
+
+		influence_area_->foreach_cell([&](Vertex v) {
+			uint32 surface_point_idx = value<uint32>(object, object_position_indices, v);
+
+            float i_dist = cage_influence_distance(surface_point_idx, nbf_cage, nbv_cage);
+
+			attenuation_(surface_point_idx) =
+				(i_dist < h) ? (0.5f * ((float)sin(M_PI * ((i_dist / h) - 0.5f))) + 0.5f) : 1.0f;
+			
+		});
+	}
+
+
+    float cage_influence_distance(const int object_point_idx, const int& nbf_cage, const int& nbv_cage)
+	{
+
+		std::shared_ptr<Attribute<uint32>> cage_position_index = get_attribute<uint32, Vertex>(*influence_cage_, "position_indices");
+
+		std::shared_ptr<Attribute<uint32>> cage_face_index = get_attribute<uint32, Face>(*influence_cage_, "face_indices");
+
+		float r = 1.0;
+		foreach_cell(*influence_cage_, [&](Face fc) -> bool {
+			uint32 cage_face_idx = value<uint32>(*influence_cage_, cage_face_index, fc);
+
+			std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(*influence_cage_, fc);
+
+			// triangle 1
+			const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[1], face_vertices_[3], face_vertices_[0]};
+			const std::vector<uint32> t1_index = {value<uint32>(*influence_cage_, cage_position_index, triangle1[0]),
+												  value<uint32>(*influence_cage_, cage_position_index, triangle1[1]),
+												  value<uint32>(*influence_cage_, cage_position_index, triangle1[2])};
+
+			const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[1], face_vertices_[2], face_vertices_[3]};
+			const std::vector<uint32> t2_index = {value<uint32>(*influence_cage_, cage_position_index, triangle2[0]),
+												  value<uint32>(*influence_cage_, cage_position_index, triangle2[1]),
+												  value<uint32>(*influence_cage_, cage_position_index, triangle2[2])};
+
+			r *= (1.f - (coords_(object_point_idx, t1_index[0]) + coords_(object_point_idx, t1_index[1]) +
+						 coords_(object_point_idx, t1_index[2])));
+
+			r *= (1.f - (coords_(object_point_idx, t2_index[0]) + coords_(object_point_idx, t2_index[1]) +
+						 coords_(object_point_idx, t2_index[2])));
+
+			return true;
+		});
+
+		r /= std::pow((1.0 - (3.0 / nbv_cage)), nbf_cage);
+
+		if (r > 1.0f)
+		{
+			r = 1.0f;
+		}
+
+		return r;
+	}
 
 }; 
 

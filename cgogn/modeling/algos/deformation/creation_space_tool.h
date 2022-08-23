@@ -40,10 +40,17 @@ using Graph = cgogn::IncidenceGraph;
 
 void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max); 
 
+void set_attribute_position_indices(CMap2& cage, CMap2::Attribute<uint32>* position_indices); 
+
+void set_attribute_marked_vertices(CMap2& cage, CMap2::Attribute<bool>* marked_vertices); 
+
+void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indices); 
+
 void create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const Vec3& center1, const Vec3& center2); 
 
 void create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const std::vector<Vec3>& vertices_positions); 
 
+void set_graph_attribute_position_indices(Graph& g, Graph::Attribute<uint32>* position_indices); 
 
 } // namespace modeling
 

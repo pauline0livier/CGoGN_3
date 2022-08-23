@@ -52,7 +52,7 @@ public:
 
 	MESH* control_cage_; 
 
-	CageDeformationTool(): SpaceDeformationTool<MESH>(), m_hFactor(-1.0f), smoothing_factor_(0.5f), control_cage_vertex_position_(nullptr)
+	CageDeformationTool(): SpaceDeformationTool<MESH>(), m_hFactor(-1.0f), control_cage_vertex_position_(nullptr)
 	{
 		
 	}
@@ -113,9 +113,6 @@ private:
 
 	std::shared_ptr<Attribute<Vec3>> control_cage_vertex_position_; 
 
-	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> coords_;
-	Eigen::Matrix<Vec2, Eigen::Dynamic, Eigen::Dynamic> n_coords_;
-
 	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> ctrl_cage_coords_;
 
 	Eigen::VectorXd mixing_factor_;
@@ -123,8 +120,6 @@ private:
 	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> global_matrix_;
 
 	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> global_matrix_comp_;
-
-	float smoothing_factor_;
 
 	float m_hFactor;
 

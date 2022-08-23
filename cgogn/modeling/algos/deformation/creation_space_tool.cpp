@@ -56,6 +56,34 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max_[0], bb_max_[1], bb_max_[2]};
 }
 
+void set_attribute_position_indices(CMap2& cage, CMap2::Attribute<uint32>* position_indices)
+{
+	uint32 nb_vertices = 0;
+
+	foreach_cell(cage, [&](CMap2::Vertex v) -> bool {
+		value<uint32>(cage, position_indices, v) = nb_vertices++;
+		return true;
+	});
+}
+
+void set_attribute_marked_vertices(CMap2& cage, CMap2::Attribute<bool>* marked_vertices)
+{
+
+	parallel_foreach_cell(cage, [&](CMap2::Vertex v) -> bool {
+		value<bool>(cage, marked_vertices, v) = false;
+		return true;
+	});
+}
+
+void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indices)
+{
+	uint32 nb_faces = 0;
+	foreach_cell(cage, [&](CMap2::Face f) -> bool {
+		value<uint32>(cage, face_indices, f) = nb_faces++;
+		return true;
+	});
+}
+
 
 void create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const Vec3& center1, const Vec3& center2){
     
@@ -89,9 +117,17 @@ void create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attri
 		connect_vertices(g, lastVertex, nv1);
 
 		lastVertex = nv1;
-	}
-		
-	
+	}	
+}
+
+void set_graph_attribute_position_indices(Graph& g, Graph::Attribute<uint32>* position_indices)
+{
+	uint32 nb_vertices = 0;
+
+	foreach_cell(g, [&](Graph::Vertex v) -> bool {
+		value<uint32>(g, position_indices, v) = nb_vertices++;
+		return true;
+	});
 }
 
 }

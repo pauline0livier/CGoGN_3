@@ -25,8 +25,6 @@
 #define CGOGN_MODELING_HANDLE_DEFORMATION_TOOL_H_
 
 #include <cgogn/modeling/types/space_deformation_tool.h>
-#include <cgogn/core/types/cmap/cmap2.h>
-#include <cgogn/geometry/types/vector_traits.h>
 
 namespace cgogn
 {
@@ -34,34 +32,37 @@ namespace cgogn
 namespace modeling
 {
 
-template <typename MESH, typename GRAPH>
+template <typename MESH>
 class HandleDeformationTool : public SpaceDeformationTool<MESH>
 {
-	template <typename T>
-	using Attribute = typename mesh_traits<GRAPH>::template Attribute<T>;
-	using Vertex = typename mesh_traits<GRAPH>::Vertex;
-	using Edge = typename mesh_traits<GRAPH>::Face;
-
-	 using Vec2 = geometry::Vec2;
-    using Vec3 = geometry::Vec3;
+	using Graph = cgogn::IncidenceGraph;
 
 public:
-	HandleDeformationTool()
+
+	Graph* control_handle_;
+
+	HandleDeformationTool():SpaceDeformationTool<MESH>(), control_handle_vertex_position_(nullptr)
 	{
-		handle_vertex_position_ = nullptr; 
+		
 	}
 
 	~HandleDeformationTool()
 		{
 		}
 
-	void create_space_tool()
+	void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const Vec3& center1, const Vec3& center2)
 	{
-		std::cout << "handle" << std::endl; 
+		control_handle_ = g; 
+		cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, center1, center2); 
+
+		control_handle_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
+
+		std::shared_ptr<Graph::Attribute<uint32>> position_indices = cgogn::add_attribute<uint32, Graph::Vertex>(*control_handle_, "position_indices");
+		//cgogn::modeling::set_graph_attribute_position_indices(*control_handle_, position_indices.get()); 
 	}
 
 private :
-	std::shared_ptr<Attribute<Vec3>> handle_vertex_position_;
+	std::shared_ptr<Graph::Attribute<Vec3>> control_handle_vertex_position_;
 
 }; 
 

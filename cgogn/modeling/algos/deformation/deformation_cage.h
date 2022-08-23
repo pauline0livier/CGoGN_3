@@ -35,11 +35,6 @@ namespace modeling
 
 using Vec3 = geometry::Vec3; 
 
-void set_attribute_position_indices(CMap2& cage, CMap2::Attribute<uint32>* position_indices); 
-
-void set_attribute_marked_vertices(CMap2& cage, CMap2::Attribute<bool>* marked_vertices); 
-
-void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indices); 
 
 double getAngleBetweenUnitVectors(const Vec3& a, const Vec3& b); 
 

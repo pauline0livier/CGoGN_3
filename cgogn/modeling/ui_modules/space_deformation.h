@@ -25,11 +25,11 @@
 #define CGOGN_MODULE_CAGE_DEFORMATION_H_
 
 #include <cgogn/core/ui_modules/mesh_provider.h>
+#include <cgogn/geometry/ui_modules/graph_selection.h>
 #include <cgogn/geometry/ui_modules/surface_differential_properties.h>
 #include <cgogn/geometry/ui_modules/surface_selectionPO.h>
-#include <cgogn/geometry/ui_modules/graph_selection.h>
-#include <cgogn/modeling/ui_modules/surface_deformation.h>
 #include <cgogn/modeling/ui_modules/graph_deformation.h>
+#include <cgogn/modeling/ui_modules/surface_deformation.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
 
 #include <cgogn/ui/app.h>
@@ -39,13 +39,12 @@
 #include <cgogn/geometry/algos/normal.h>
 #include <cgogn/geometry/functions/angle.h>
 
-
 #include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 #include <cgogn/modeling/algos/deformation/deformation_cage.h>
 
+#include <cgogn/modeling/types/axis_deformation_tool.h>
 #include <cgogn/modeling/types/cage_deformation_tool.h>
 #include <cgogn/modeling/types/handle_deformation_tool.h>
-#include <cgogn/modeling/types/axis_deformation_tool.h>
 
 #include <boost/synapse/connect.hpp>
 
@@ -63,7 +62,6 @@ using Vec2 = geometry::Vec2;
 using Vec3 = geometry::Vec3;
 using Mat3 = geometry::Mat3;
 using Scalar = geometry::Scalar;
-	
 
 template <typename MESH, typename GRAPH>
 
@@ -127,17 +125,23 @@ public:
 	{
 	}
 
+	/////////////
+	// SIGNALS //
+	/////////////
+	using cage_added = struct cage_added_ (*)(cgogn::modeling::CageDeformationTool<MESH>* c);
+	using handle_added = struct handle_added_ (*)(cgogn::modeling::HandleDeformationTool<MESH>* h);
+	using axis_added = struct axis_added_ (*)(cgogn::modeling::AxisDeformationTool<MESH>* a);
+
 private:
 	void init_mesh(MESH* m)
 	{
 		Parameters& p = parameters_[m];
 	}
 
-
-	// creation deformation tools 
+	// creation deformation tools
 	MESH* generate_global_cage(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position, int i)
 	{
-		// const std::string& m_name = mesh_provider_->mesh_name(m);
+
 		Parameters& p = parameters_[&m];
 
 		MESH* cage = mesh_provider_->add_mesh("cage" + std::to_string(i)); // (m_name + "_cage");
@@ -153,9 +157,7 @@ private:
 
 		std::shared_ptr<MeshAttribute<uint32>> position_indices =
 			cgogn::add_attribute<uint32, MeshVertex>(*cage, "position_indices");
-		cgogn::modeling::set_attribute_position_indices(*cage, position_indices.get()); 
-
-		// Cage_data& cd = cage_data_[cage];
+		cgogn::modeling::set_attribute_position_indices(*cage, position_indices.get());
 
 		p.list_cage_.push_back(cage);
 		// p.list_weights_.push_back(Weights());
@@ -170,10 +172,11 @@ private:
 	}
 
 	MESH* generate_local_cage(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
-							  CellsSet<MESH, MeshVertex>* control_set, int i)
+							  CellsSet<MESH, MeshVertex>* control_set)
 	{
-
-		MESH* l_cage = mesh_provider_->add_mesh("cage" + std::to_string(i));
+		int cage_number = cage_container_.size();
+		std::string cage_name = "local_cage" + std::to_string(cage_number);
+		MESH* l_cage = mesh_provider_->add_mesh(cage_name);
 
 		std::shared_ptr<MeshAttribute<Vec3>> l_cage_vertex_position =
 			cgogn::add_attribute<Vec3, MeshVertex>(*l_cage, "position");
@@ -205,205 +208,138 @@ private:
 			}
 		});
 
-		cgogn::modeling::CageDeformationTool<MESH> cdt; 
+		const auto [it, inserted] =
+			cage_container_.emplace(cage_name, std::make_unique<cgogn::modeling::CageDeformationTool<MESH>>());
+		cgogn::modeling::CageDeformationTool<MESH>* cdt = it->second.get();
+		if (inserted)
+		{
+			cdt->create_space_tool(l_cage, l_cage_vertex_position.get(), l_min, l_max);
 
-		cdt.create_space_tool(l_cage, l_cage_vertex_position.get(), l_min, l_max); 
+			mesh_provider_->emit_connectivity_changed(*l_cage);
+			mesh_provider_->emit_attribute_changed(*l_cage, l_cage_vertex_position.get());
 
-		mesh_provider_->emit_connectivity_changed(*l_cage);
-		mesh_provider_->emit_attribute_changed(*l_cage, l_cage_vertex_position.get());
+			View* v1 = app_.current_view();
 
-		// Cage_data& cd = cage_data_[l_cage];
+			surface_render_->set_vertex_position(*v1, *l_cage, l_cage_vertex_position);
+			surface_render_->set_render_faces(*v1, *l_cage, false);
 
-		p.list_cage_.push_back(l_cage);
+			surface_selection_->set_vertex_position(*l_cage, l_cage_vertex_position);
 
-		// cd.cage_vertex_position_ = l_cage_vertex_position;
-		// cd.local_def = true;
-		// cd.control_set_ = control_set;
+			std::shared_ptr<MeshAttribute<Vec3>> l_cage_vertex_normal =
+				cgogn::add_attribute<Vec3, MeshVertex>(*l_cage, "normal");
 
-		View* v1 = app_.current_view();
+			surface_diff_pptes_->compute_normal(*l_cage, l_cage_vertex_position.get(), l_cage_vertex_normal.get());
 
-		surface_render_->set_vertex_position(*v1, *l_cage, l_cage_vertex_position);
-		surface_render_->set_render_faces(*v1, *l_cage, false);
+			MESH* i_cage = mesh_provider_->add_mesh("i_cage" + cage_number);
 
-		surface_selection_->set_vertex_position(*l_cage, l_cage_vertex_position);
+			std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
+				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "position");
 
-		std::shared_ptr<MeshAttribute<Vec3>> l_cage_vertex_normal =
-			cgogn::add_attribute<Vec3, MeshVertex>(*l_cage, "normal");
+			mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
 
-		surface_diff_pptes_->compute_normal(*l_cage, l_cage_vertex_position.get(), l_cage_vertex_normal.get());
+			Vec3 i_center = (l_min + l_max) / Scalar(2);
+			Vec3 bb_min_ = ((l_min - i_center) * 1.5f) + i_center;
+			Vec3 bb_max_ = ((l_max - i_center) * 1.5f) + i_center;
 
-		MESH* i_cage = mesh_provider_->add_mesh("i_cage" + std::to_string(i));
+			cdt->set_center_control_cage(i_center);
+			cdt->set_influence_cage(i_cage, i_cage_vertex_position.get(), bb_min_, bb_max_);
 
-		std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
-			cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "position");
+			mesh_provider_->emit_connectivity_changed(*i_cage);
+			mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
 
-		mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
+			surface_render_->set_vertex_position(*v1, *i_cage, i_cage_vertex_position);
+			surface_render_->set_render_faces(*v1, *i_cage, false);
 
-		Vec3 i_center = (l_min + l_max) / Scalar(2);
-		Vec3 bb_min_ = ((l_min - i_center) * 1.5f) + i_center;
-		Vec3 bb_max_ = ((l_max - i_center) * 1.5f) + i_center;
+			CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
+			cdt->influence_area_ = &i_set;
 
-		// cd.center_ctrl_cage_ = i_center;
-		cdt.set_center_control_cage(i_center); 
-		cdt.set_influence_cage(i_cage, i_cage_vertex_position.get(), bb_min_, bb_max_); 
-		//cgogn::modeling::create_box(*i_cage, i_cage_vertex_position.get(), bb_min_, bb_max_);
+			//  cd.smoothing_factor_ = 0.3;
 
-		mesh_provider_->emit_connectivity_changed(*i_cage);
-		mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
+			// computeCagesAttenuationFactor(*l_cage);
 
-		// cd.influence_cage_ = i_cage;
-		// cd.i_cage_vertex_position_ = i_cage_vertex_position;
+			mesh_provider_->emit_cells_set_changed(m, cdt->influence_area_);
 
-		surface_render_->set_vertex_position(*v1, *i_cage, i_cage_vertex_position);
-		surface_render_->set_render_faces(*v1, *i_cage, false);
-
-		CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
-		cdt.influence_area_ = &i_set; 
-
-		//  cd.smoothing_factor_ = 0.3;
-
-		// computeCagesAttenuationFactor(*l_cage);
-
-		//cdt.update_influence_area(m, vertex_position.get()); 
-
-		mesh_provider_->emit_cells_set_changed(m, cdt.influence_area_);
+			boost::synapse::emit<cage_added>(this, cdt);
+		}
 
 		return l_cage;
 	}
 
 	GRAPH* generate_handle(const Vec3& center1, const Vec3& center2)
 	{
+		int handle_number = handle_container_.size();
+		std::string handle_name = "handle" + std::to_string(handle_number);
+		GRAPH* handle = graph_provider_->add_mesh(&handle_name);
 
-		GRAPH* handle_ = graph_provider_->add_mesh("handle");
+		auto handle_vertex_position = add_attribute<Vec3, GraphVertex>(*handle, "position");
+		auto handle_vertex_radius = add_attribute<Scalar, GraphVertex>(*handle, "radius");
 
-		auto handle_vertex_position_ = add_attribute<Vec3, GraphVertex>(*handle_, "position");
-		auto handle_vertex_radius_ = add_attribute<Scalar, GraphVertex>(*handle_, "radius");
+		const auto [it, inserted] =
+			handle_container_.emplace(handle_name, std::make_unique<cgogn::modeling::HandleDeformationTool<MESH>>());
+		cgogn::modeling::HandleDeformationTool<MESH>* hdt = it->second.get();
+		if (inserted)
+		{
 
-		cgogn::modeling::create_handle(*handle_, handle_vertex_position_.get(), handle_vertex_radius_.get(), center1,
-									   center2);
+			hdt->create_space_tool(handle, handle_vertex_position.get(), handle_vertex_radius.get(), center1, center2);
 
-		graph_provider_->emit_connectivity_changed(*handle_);
-		graph_provider_->emit_attribute_changed(*handle_, handle_vertex_position_.get());
-		graph_provider_->emit_attribute_changed(*handle_, handle_vertex_radius_.get());
+			graph_provider_->emit_connectivity_changed(*handle);
+			graph_provider_->emit_attribute_changed(*handle, handle_vertex_position.get());
+			graph_provider_->emit_attribute_changed(*handle, handle_vertex_radius.get());
 
-		// Handle_data& hd = handle_data_[handle_];
-		// hd.handle_vertex_position_ = handle_vertex_position_;
+			View* v1 = app_.current_view();
 
-		View* v1 = app_.current_view();
+			graph_render_->set_vertex_position(*v1, *handle, handle_vertex_position);
 
-		graph_render_->set_vertex_position(*v1, *handle_, handle_vertex_position_);
+			graph_selection_->set_vertex_position(*handle, handle_vertex_position);
 
-		graph_selection_->set_vertex_position(*handle_, handle_vertex_position_);
-
-		return handle_;
+			boost::synapse::emit<handle_added>(this, hdt);
+		}
+		return handle;
 	}
 
 	GRAPH* generate_axis(const std::vector<Vec3>& vertices_positions)
 	{
+		int axis_number = axis_container_.size();
+		std::string axis_name = "axis" + std::to_string(axis_number);
+		GRAPH* axis = graph_provider_->add_mesh(&axis_name);
 
-		GRAPH* axis_ = graph_provider_->add_mesh("axis");
+		auto axis_vertex_position = add_attribute<Vec3, GraphVertex>(*axis, "position");
+		auto axis_vertex_radius = add_attribute<Scalar, GraphVertex>(*axis, "radius");
 
-		auto axis_vertex_position_ = add_attribute<Vec3, GraphVertex>(*axis_, "position");
-		auto axis_vertex_radius_ = add_attribute<Scalar, GraphVertex>(*axis_, "radius");
-
-		cgogn::modeling::create_axis(*axis_, axis_vertex_position_.get(), axis_vertex_radius_.get(),
-									 vertices_positions);
-
-		graph_provider_->emit_connectivity_changed(*axis_);
-		graph_provider_->emit_attribute_changed(*axis_, axis_vertex_position_.get());
-		graph_provider_->emit_attribute_changed(*axis_, axis_vertex_radius_.get());
-
-		// Handle_data& hd = handle_data_[axis_];
-		// hd.handle_vertex_position_ = axis_vertex_position_;
-
-		View* v1 = app_.current_view();
-
-		graph_render_->set_vertex_position(*v1, *axis_, axis_vertex_position_);
-
-		graph_selection_->set_vertex_position(*axis_, axis_vertex_position_);
-
-		return axis_;
-	}
-
-
-
-	/*float cageInfluenceDistance(const int object_point_idx, Cage_data& cd, const int& nbf_cage, const int& nbv_cage)
-	{
-
-		MESH* i_cage = cd.influence_cage_;
-
-		std::shared_ptr<MeshAttribute<uint32>> i_cage_vertex_index = get_attribute<uint32, MeshVertex>(*i_cage, "weight_index");
-
-		std::shared_ptr<MeshAttribute<uint32>> i_cage_face_index = get_attribute<uint32, MeshFace>(*i_cage, "face_index");
-
-		float r = 1.0;
-		foreach_cell(*i_cage, [&](MeshFace fc) -> bool {
-			uint32 i_cage_face_idx = value<uint32>(*i_cage, i_cage_face_index, fc);
-
-			std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(*i_cage, fc);
-
-			// triangle 1
-			const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[1], face_vertices_[3], face_vertices_[0]};
-			const std::vector<uint32> t1_index = {value<uint32>(*i_cage, i_cage_vertex_index, triangle1[0]),
-												  value<uint32>(*i_cage, i_cage_vertex_index, triangle1[1]),
-												  value<uint32>(*i_cage, i_cage_vertex_index, triangle1[2])};
-
-			const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[1], face_vertices_[2], face_vertices_[3]};
-			const std::vector<uint32> t2_index = {value<uint32>(*i_cage, i_cage_vertex_index, triangle2[0]),
-												  value<uint32>(*i_cage, i_cage_vertex_index, triangle2[1]),
-												  value<uint32>(*i_cage, i_cage_vertex_index, triangle2[2])};
-
-			r *= (1.f - (cd.coords_(object_point_idx, t1_index[0]) + cd.coords_(object_point_idx, t1_index[1]) +
-						 cd.coords_(object_point_idx, t1_index[2])));
-
-			r *= (1.f - (cd.coords_(object_point_idx, t2_index[0]) + cd.coords_(object_point_idx, t2_index[1]) +
-						 cd.coords_(object_point_idx, t2_index[2])));
-
-			return true;
-		});
-
-		r /= std::pow((1.0 - (3.0 / nbv_cage)), nbf_cage);
-
-		if (r > 1.0f)
+		const auto [it, inserted] =
+			axis_container_.emplace(axis_name, std::make_unique<cgogn::modeling::AxisDeformationTool<MESH>>());
+		cgogn::modeling::AxisDeformationTool<MESH>* adt = it->second.get();
+		if (inserted)
 		{
-			r = 1.0f;
+
+			adt->create_space_tool(axis, axis_vertex_position.get(), axis_vertex_radius.get(), vertices_positions);
+
+			graph_provider_->emit_connectivity_changed(*axis);
+			graph_provider_->emit_attribute_changed(*axis, axis_vertex_position.get());
+			graph_provider_->emit_attribute_changed(*axis, axis_vertex_radius.get());
+
+			// Handle_data& hd = handle_data_[axis_];
+			// hd.handle_vertex_position_ = axis_vertex_position_;
+
+			View* v1 = app_.current_view();
+
+			graph_render_->set_vertex_position(*v1, *axis, axis_vertex_position);
+
+			graph_selection_->set_vertex_position(*axis, axis_vertex_position);
+
+			boost::synapse::emit<axis_added>(this, adt);
 		}
 
-		return r;
-	}*/
+		return axis;
+	}
 
-	/*void compute_attenuation(MESH& object, Cage_data& cd)
+	void displayGammaColor(MESH& object)
 	{
 
-		MESH* i_cage = cd.influence_cage_;
-
-		const float h = cd.smoothing_factor_;
-		assert((h <= 1.0f && h >= 0.0f) || !"Cage's attenuation factor must be computed!");
-
-		std::shared_ptr<MeshAttribute<uint32>> i_cage_face_index = add_attribute<uint32, MeshFace>(*i_cage, "face_index");
-		uint32 nb_faces_cage = 0;
-		foreach_cell(*i_cage, [&](MeshFace f) -> bool {
-			value<uint32>(*i_cage, i_cage_face_index, f) = nb_faces_cage++;
-			return true;
-		});
-
-		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index = get_attribute<uint32, MeshVertex>(object, "weight_index");
-
-		uint32 nbf_cage = 2 * nb_cells<MeshFace>(*i_cage);
-		uint32 nbv_cage = nb_cells<MeshVertex>(*i_cage);
-
-		cd.influence_set_->foreach_cell([&](MeshVertex v) {
-			uint32 surface_point_idx = value<uint32>(object, object_vertex_igenerate_local_ca
-			cd.attenuation_(surface_point_idx) =
-				(i_dist < h) ? (0.5f * ((float)sin(M_PI * ((i_dist / h) - 0.5f))) + 0.5f) : 1.0f;
-		});
-	}*/
-
-	/*void displayGammaColor(MESH& object)
-	{
-
-		std::shared_ptr<MeshAttribute<Vec3>> gamma_color = cgogn::add_attribute<Vec3, MeshVertex>(object, "color_gamma");
-		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index = get_attribute<uint32, MeshVertex>(object, "weight_index");
+		std::shared_ptr<MeshAttribute<Vec3>> gamma_color =
+			cgogn::add_attribute<Vec3, MeshVertex>(object, "color_gamma");
+		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
+			get_attribute<uint32, MeshVertex>(object, "position_indices");
 
 		Parameters& p = parameters_[&object];
 
@@ -412,12 +348,9 @@ private:
 
 			float gamma_value = 0.f;
 
-			for (int i = 0; i < p.list_cage_.size(); i++)
+			for (auto& [name, m] : cage_container_)
 			{
-				const MESH* current_cage = p.list_cage_[i];
-				Cage_data& cd = cage_data_[current_cage];
-
-				gamma_value += cd.attenuation_(surface_point_idx);
+				gamma_value += m->attenuation_(surface_point_idx);
 			}
 
 			Vec3 color;
@@ -438,7 +371,7 @@ private:
 
 		View* v1 = app_.current_view();
 		surface_render_->set_vertex_color(*v1, object, gamma_color);
-	}*/
+	}
 
 	/*float cageNormalizedDistance(MESH& ctrl_cage, const CageVolList& l_ct)
 	{
@@ -476,8 +409,9 @@ private:
 		cd.mixing_factor_.resize(nbv_object);
 		cd.mixing_factor_.setZero();
 
-		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index = get_attribute<uint32, MeshVertex>(object, "weight_index");
-		std::shared_ptr<MeshAttribute<Vec3>> object_vertex_position = get_attribute<Vec3, MeshVertex>(object, "position");
+		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index = get_attribute<uint32, MeshVertex>(object,
+	"weight_index"); std::shared_ptr<MeshAttribute<Vec3>> object_vertex_position = get_attribute<Vec3,
+	MeshVertex>(object, "position");
 
 		if (!cd.b_simple_mix)
 		{
@@ -512,12 +446,15 @@ private:
 
 		std::shared_ptr<MeshAttribute<uint32>> ctrl_cage_vertex_index =
 			get_attribute<uint32, MeshVertex>(ctrl_cage, "weight_index");
-		std::shared_ptr<MeshAttribute<Vec3>> ctrl_cage_vertex_position = get_attribute<Vec3, MeshVertex>(ctrl_cage, "position");
+		std::shared_ptr<MeshAttribute<Vec3>> ctrl_cage_vertex_position = get_attribute<Vec3, MeshVertex>(ctrl_cage,
+	"position");
 
-		std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position = get_attribute<Vec3, MeshVertex>(*i_cage, "position");
-		std::shared_ptr<MeshAttribute<uint32>> i_cage_vertex_index = get_attribute<uint32, MeshVertex>(*i_cage, "weight_index");
+		std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position = get_attribute<Vec3, MeshVertex>(*i_cage,
+	"position"); std::shared_ptr<MeshAttribute<uint32>> i_cage_vertex_index = get_attribute<uint32, MeshVertex>(*i_cage,
+	"weight_index");
 
-		std::shared_ptr<MeshAttribute<bool>> i_cage_vertex_marked = get_attribute<bool, MeshVertex>(*i_cage, "marked_vertex");
+		std::shared_ptr<MeshAttribute<bool>> i_cage_vertex_marked = get_attribute<bool, MeshVertex>(*i_cage,
+	"marked_vertex");
 
 		uint32 nbv_object = nb_cells<MeshVertex>(ctrl_cage);
 		uint32 nbv_cage = nb_cells<MeshVertex>(*i_cage);
@@ -616,12 +553,15 @@ generate_local_ca
 
 			std::shared_ptr<MeshAttribute<uint32>> ctrl_vertex_index =
 				get_attribute<uint32, MeshVertex>(ctrl_cage, "weight_index");
-			std::shared_ptr<MeshAttribute<Vec3>> ctrl_vertex_position = get_attribute<Vec3, MeshVertex>(ctrl_cage, "position");
+			std::shared_ptr<MeshAttribute<Vec3>> ctrl_vertex_position = get_attribute<Vec3, MeshVertex>(ctrl_cage,
+"position");
 
-			std::shared_ptr<MeshAttribute<Vec3>> i_vertex_position = get_attribute<Vec3, MeshVertex>(*i_cage, "position");
-			std::shared_ptr<MeshAttribute<uint32>> i_vertex_index = get_attribute<uint32, MeshVertex>(*i_cage, "weight_index");
+			std::shared_ptr<MeshAttribute<Vec3>> i_vertex_position = get_attribute<Vec3, MeshVertex>(*i_cage,
+"position"); std::shared_ptr<MeshAttribute<uint32>> i_vertex_index = get_attribute<uint32, MeshVertex>(*i_cage,
+"weight_index");
 
-			std::shared_ptr<MeshAttribute<bool>> i_vertex_marked = get_attribute<bool, MeshVertex>(*i_cage, "marked_vertex");
+			std::shared_ptr<MeshAttribute<bool>> i_vertex_marked = get_attribute<bool, MeshVertex>(*i_cage,
+"marked_vertex");
 
 			cd.ctrl_cage_coords_.resize(nbv_cage, nbv_cage);
 			cd.ctrl_cage_coords_.setZero();
@@ -667,7 +607,8 @@ generate_local_ca
 				return true;
 			});
 
-			std::shared_ptr<MeshAttribute<uint32>> i_face_index = get_attribute<uint32, MeshFace>(*i_cage, "face_index");
+			std::shared_ptr<MeshAttribute<uint32>> i_face_index = get_attribute<uint32, MeshFace>(*i_cage,
+"face_index");
 
 			parallel_foreach_cell(ctrl_cage, [&](MeshVertex v) -> bool {
 				uint32 ctrl_point_idx = value<uint32>(ctrl_cage, ctrl_vertex_index, v);
@@ -811,26 +752,21 @@ public:
 		});
 	}
 
-	
-
-	
 	/*void bind_local_mvc(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, MESH& cage,
 						const std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position)
 	{
 
-		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index = get_attribute<uint32, MeshVertex>(object, "weight_index");
+		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index = get_attribute<uint32, MeshVertex>(object,
+	"weight_index");
 
-		std::shared_ptr<MeshAttribute<uint32>> cage_vertex_index = add_attribute<uint32, MeshVertex>(cage, "weight_index");
-		uint32 nb_vertices_cage = 0;
-		foreach_cell(cage, [&](MeshVertex v) -> bool {
-			value<uint32>(cage, cage_vertex_index, v) = nb_vertices_cage++;
-			return true;
+		std::shared_ptr<MeshAttribute<uint32>> cage_vertex_index = add_attribute<uint32, MeshVertex>(cage,
+	"weight_index"); uint32 nb_vertices_cage = 0; foreach_cell(cage, [&](MeshVertex v) -> bool { value<uint32>(cage,
+	cage_vertex_index, v) = nb_vertices_cage++; return true;
 		});
 
-		std::shared_ptr<MeshAttribute<bool>> cage_vertex_marked = add_attribute<bool, MeshVertex>(cage, "marked_vertex");
-		parallel_foreach_cell(cage, [&](MeshVertex v) -> bool {
-			value<bool>(cage, cage_vertex_marked, v) = false;
-			return true;
+		std::shared_ptr<MeshAttribute<bool>> cage_vertex_marked = add_attribute<bool, MeshVertex>(cage,
+	"marked_vertex"); parallel_foreach_cell(cage, [&](MeshVertex v) -> bool { value<bool>(cage, cage_vertex_marked, v) =
+	false; return true;
 		});
 
 		uint32 nbv_object = nb_cells<MeshVertex>(object);
@@ -926,71 +862,7 @@ public:
 								 MESH& ctrl_cage)
 	{
 
-		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index = get_attribute<uint32, MeshVertex>(object, "weight_index");
 
-		Cage_data& cd = cage_data_[&ctrl_cage];
-		MESH* i_cage = cd.influence_cage_;
-
-		std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position = get_attribute<Vec3, MeshVertex>(*i_cage, "position");
-
-		std::shared_ptr<MeshAttribute<uint32>> i_cage_vertex_index = get_attribute<uint32, MeshVertex>(*i_cage, "weight_index");
-
-		std::shared_ptr<MeshAttribute<bool>> i_cage_vertex_marked = get_attribute<bool, MeshVertex>(*i_cage, "marked_vertex");
-
-		uint32 nbv_object = nb_cells<MeshVertex>(object);
-		uint32 nbv_cage = nb_cells<MeshVertex>(*i_cage);
-
-		Parameters& p = parameters_[&object];
-
-		cd.coords_.resize(nbv_object, nbv_cage);
-		cd.coords_.setZero();
-
-		cd.influence_set_->foreach_cell([&](MeshVertex v) {
-			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
-			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
-
-			DartMarker dm(*i_cage);
-			float sumMVC = 0.0;
-
-			for (Dart d = i_cage->begin(), end = i_cage->end(); d != end; d = i_cage->next(d))
-			{
-				MeshVertex cage_vertex = CMap2::Vertex(d);
-				bool vc_marked = value<bool>(*i_cage, i_cage_vertex_marked, cage_vertex);
-
-				if (!dm.is_marked(d) && !vc_marked)
-				{
-					const Vec3& i_cage_point = value<Vec3>(*i_cage, i_cage_vertex_position, cage_vertex);
-					uint32 i_cage_point_idx = value<uint32>(*i_cage, i_cage_vertex_index, cage_vertex);
-
-					float mvc_value =
-						compute_mvc(surface_point, d, *i_cage, i_cage_point, i_cage_vertex_position.get());
-
-					cd.coords_(surface_point_idx, i_cage_point_idx) = mvc_value;
-
-					dm.mark(d);
-
-					value<bool>(*i_cage, i_cage_vertex_marked, cage_vertex) = true;
-
-					sumMVC += mvc_value;
-				}
-			}
-
-			parallel_foreach_cell(*i_cage, [&](MeshVertex vc) -> bool {
-				uint32 cage_point_idx2 = value<uint32>(*i_cage, i_cage_vertex_index, vc);
-
-				cd.coords_(surface_point_idx, cage_point_idx2) =
-					cd.coords_(surface_point_idx, cage_point_idx2) / sumMVC;
-
-				value<bool>(*i_cage, i_cage_vertex_marked, vc) = false;
-
-				return true;
-			});
-		});
-
-		cd.attenuation_.resize(nbv_object);
-		cd.attenuation_.setZero();
-
-		compute_attenuation(object, cd);
 
 		displayGammaColor(object);
 
@@ -1054,17 +926,16 @@ public:
 				});
 	}*/
 
-	/*void bind_object_green(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, MESH& cage,
-						   const std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position)
+	/*void bind_object_green(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, MESH&
+	cage, const std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position)
 	{
 
-		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index = get_attribute<uint32, MeshVertex>(object, "weight_index");
+		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index = get_attribute<uint32, MeshVertex>(object,
+	"weight_index");
 
-		std::shared_ptr<MeshAttribute<uint32>> cage_vertex_index = add_attribute<uint32, MeshVertex>(cage, "weight_index");
-		uint32 nb_vertices_cage = 0;
-		foreach_cell(cage, [&](MeshVertex v) -> bool {
-			value<uint32>(cage, cage_vertex_index, v) = nb_vertices_cage++;
-			return true;
+		std::shared_ptr<MeshAttribute<uint32>> cage_vertex_index = add_attribute<uint32, MeshVertex>(cage,
+	"weight_index"); uint32 nb_vertices_cage = 0; foreach_cell(cage, [&](MeshVertex v) -> bool { value<uint32>(cage,
+	cage_vertex_index, v) = nb_vertices_cage++; return true;
 		});
 
 		std::shared_ptr<MeshAttribute<uint32>> cage_face_index = add_attribute<uint32, MeshFace>(cage, "face_index");
@@ -1325,17 +1196,16 @@ public:
 				});
 	}*/
 
-	/*void bind_local_green(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, MESH& cage,
-						  const std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position)
+	/*void bind_local_green(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, MESH&
+	cage, const std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position)
 	{
 
-		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index = get_attribute<uint32, MeshVertex>(object, "weight_index");
+		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index = get_attribute<uint32, MeshVertex>(object,
+	"weight_index");
 
-		std::shared_ptr<MeshAttribute<uint32>> cage_vertex_index = add_attribute<uint32, MeshVertex>(cage, "weight_index");
-		uint32 nb_vertices_cage = 0;
-		foreach_cell(cage, [&](MeshVertex v) -> bool {
-			value<uint32>(cage, cage_vertex_index, v) = nb_vertices_cage++;
-			return true;
+		std::shared_ptr<MeshAttribute<uint32>> cage_vertex_index = add_attribute<uint32, MeshVertex>(cage,
+	"weight_index"); uint32 nb_vertices_cage = 0; foreach_cell(cage, [&](MeshVertex v) -> bool { value<uint32>(cage,
+	cage_vertex_index, v) = nb_vertices_cage++; return true;
 		});
 
 		std::shared_ptr<MeshAttribute<uint32>> cage_face_index = add_attribute<uint32, MeshFace>(cage, "face_index");
@@ -1590,9 +1460,6 @@ public:
 				});
 	}*/
 
-
-	
-
 protected:
 	void init() override
 	{
@@ -1610,7 +1477,6 @@ protected:
 
 		graph_render_ = static_cast<ui::SurfaceRender<GRAPH>*>(
 			app_.module("SurfaceRender (" + std::string{mesh_traits<GRAPH>::name} + ")"));
-		
 
 		surface_diff_pptes_ = static_cast<ui::SurfaceDifferentialProperties<MESH>*>(
 			app_.module("SurfaceDifferentialProperties (" + std::string{mesh_traits<MESH>::name} + ")"));
@@ -1622,7 +1488,7 @@ protected:
 			app_.module("SurfaceSelectionPO (" + std::string{mesh_traits<GRAPH>::name} + ")"));*/
 
 		graph_selection_ = static_cast<ui::GraphSelection<GRAPH>*>(
-			app_.module("GraphSelection (" + std::string{mesh_traits<GRAPH>::name} + ")")); 
+			app_.module("GraphSelection (" + std::string{mesh_traits<GRAPH>::name} + ")"));
 
 		surface_deformation_ = static_cast<ui::SurfaceDeformation<MESH>*>(
 			app_.module("SurfaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
@@ -1644,9 +1510,9 @@ protected:
 			Parameters& p = parameters_[selected_mesh_];
 
 			imgui_combo_attribute<MeshVertex, Vec3>(*selected_mesh_, p.vertex_position_, "Position",
-												[&](const std::shared_ptr<MeshAttribute<Vec3>>& attribute) {
-													set_vertex_position(*selected_mesh_, attribute);
-												});
+													[&](const std::shared_ptr<MeshAttribute<Vec3>>& attribute) {
+														set_vertex_position(*selected_mesh_, attribute);
+													});
 			if (p.vertex_position_)
 			{
 				ImGui::Separator();
@@ -1678,31 +1544,27 @@ protected:
 
 					if (control_set && control_set->size() > 0)
 					{
-						MESH* l_cage = generate_local_cage(*selected_mesh_, p.vertex_position_, control_set, p.nb_cage);
-
-						p.nb_cage++;
-
-						p.new_cage_ = true;
+						MESH* l_cage = generate_local_cage(*selected_mesh_, p.vertex_position_, control_set);
 					}
 
 					ImGui::Separator();
 					ImGui::Text("Binding");
 
-					/*if (p.list_cage_.size() > 0)
+					if (cage_container_.size() > 0)
 					{
-						imgui_mesh_selector(mesh_provider_, selected_cage_, "Cage", [&](MESH& m) {
+						/*imgui_mesh_selector(mesh_provider_, selected_cage_, "Cage", [&](MESH& m) {
 							selected_cage_ = &m;
 							mesh_provider_->mesh_data(m).outlined_until_ = App::frame_time_ + 1.0;
-						});
-
-						Cage_data& cd = cage_data_[selected_cage_];
+						});*/
+						imgui_cage_selector(cage_container_, selected_cage_, "Cage",
+											[&](MESH& m) { selected_cage_ = &m; });
 
 						const std::string& cage_name = mesh_provider_->mesh_name(*selected_cage_);
 
-						if (cage_name.length() > 0)
+						std::string prefix = "local_cage";
+						if (std::mismatch(prefix.begin(), prefix.end(), cage_name.begin()).first == prefix.end())
 						{
 
-							
 							// inspired from https://github.com/ocornut/imgui/issues/1658
 							const char* items[] = {"MVC", "Green"};
 							static const char* current_item = "MVC";
@@ -1731,7 +1593,8 @@ protected:
 
 								if (current_item == "MVC")
 								{
-									if (!cd.local_def)
+									std::cout << "mvc" << std::endl;
+									/*if (!cd.local_def)
 									{
 										bind_object_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_,
 														cd.cage_vertex_position_);
@@ -1739,12 +1602,12 @@ protected:
 									else
 									{
 										bind_influence_cage_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_);
-									}
+									}*/
 								}
 
 								else if (current_item == "Green")
 								{
-									if (!cd.local_def)
+									/*if (!cd.local_def)
 									{
 										bind_object_green(*selected_mesh_, p.vertex_position_, *selected_cage_,
 														  cd.cage_vertex_position_);
@@ -1753,7 +1616,9 @@ protected:
 									{
 										bind_local_green(*selected_mesh_, p.vertex_position_, *selected_cage_,
 														 cd.cage_vertex_position_);
-									}
+									}*/
+
+									std::cout << "green" << std::endl;
 								}
 								else
 								{
@@ -1761,7 +1626,7 @@ protected:
 								}
 							}
 						}
-					}*/
+					}
 				}
 
 				if (selected_tool_ == Handle)
@@ -1787,13 +1652,12 @@ protected:
 						const Vec3& bb_min = md.bb_min_;
 						const Vec3& bb_max = md.bb_max_;
 
-						Vec3 center1 = center + Vec3{bb_min[0], 0.0, 0.0}; 
-						Vec3 center1bis = center + Vec3{bb_max[0], 0.0, 0.0}; 
-						Vec3 center2 = (center1bis + center1)*0.5; 
-						Vec3 center0 = (center1bis*0.25 + center1*0.75); 
+						Vec3 center1 = center + Vec3{bb_min[0], 0.0, 0.0};
+						Vec3 center1bis = center + Vec3{bb_max[0], 0.0, 0.0};
+						Vec3 center2 = (center1bis + center1) * 0.5;
+						Vec3 center0 = (center1bis * 0.25 + center1 * 0.75);
 
 						generate_handle(center0, center2);
-						
 					}
 				}
 
@@ -1806,53 +1670,52 @@ protected:
 
 					if (control_set && control_set->size() > 0)
 					{
-						
+
 						MeshData<MESH>& md = mesh_provider_->mesh_data(*selected_mesh_);
 						const Vec3& bb_min = md.bb_min_;
 						const Vec3& bb_max = md.bb_max_;
 
 						Vec3 center = {0.0, 0.0, 0.0};
 
-						Vec3 min_pos = bb_max; 
-						Vec3 max_pos = bb_min;  
+						Vec3 min_pos = bb_max;
+						Vec3 max_pos = bb_min;
 
 						control_set->foreach_cell([&](MeshVertex v) {
 							const Vec3& pos = value<Vec3>(*selected_mesh_, p.vertex_position_, v);
 
 							center += pos;
 
-							for (int i = 0; i < 3; i++){
-								if (pos[i] < min_pos[i]){
-									min_pos[i] = pos[i]; 
+							for (int i = 0; i < 3; i++)
+							{
+								if (pos[i] < min_pos[i])
+								{
+									min_pos[i] = pos[i];
 								}
 
-								if (pos[i] > max_pos[i]){
-									max_pos[i] = pos[i]; 
+								if (pos[i] > max_pos[i])
+								{
+									max_pos[i] = pos[i];
 								}
 							}
-
-							
 						});
 
 						center /= control_set->size();
 
-						
+						Vec3 center1 = center + Vec3{bb_min[0], 0.0, 0.0};
+						Vec3 center1bis = center + Vec3{bb_max[0], 0.0, 0.0};
+						Vec3 center2 = (center1bis + center1) * 0.5;
+						Vec3 center0 = (center1bis * 0.25 + center1 * 0.75);
 
-						Vec3 center1 = center + Vec3{bb_min[0], 0.0, 0.0}; 
-						Vec3 center1bis = center + Vec3{bb_max[0], 0.0, 0.0}; 
-						Vec3 center2 = (center1bis + center1)*0.5; 
-						Vec3 center0 = (center1bis*0.25 + center1*0.75); 
+						double center_pos = (max_pos[1] + min_pos[1]) / 2.0;
 
-						double center_pos = (max_pos[1] + min_pos[1])/2.0; 
-
-						Vec3 oneExtrem = {min_pos[0], center_pos, min_pos[2]}; 
-						Vec3 otherExtrem = {min_pos[0], center_pos, max_pos[2]}; 
-						std::vector<Vec3> setVertices; 
-						setVertices.push_back(oneExtrem); 
-						setVertices.push_back(center0); 
+						Vec3 oneExtrem = {min_pos[0], center_pos, min_pos[2]};
+						Vec3 otherExtrem = {min_pos[0], center_pos, max_pos[2]};
+						std::vector<Vec3> setVertices;
+						setVertices.push_back(oneExtrem);
+						setVertices.push_back(center0);
 						setVertices.push_back(otherExtrem);
 
-						generate_axis(setVertices);  
+						generate_axis(setVertices);
 					}
 				}
 			}
@@ -1864,8 +1727,9 @@ private:
 	MESH* selected_cage_;
 	std::unordered_map<const MESH*, Parameters> parameters_;
 
-	//std::unordered_map<const MESH*, Cage_data> cage_data_;
-	//std::unordered_map<const IncidenceGraph*, Handle_data> handle_data_;
+	std::unordered_map<std::string, std::unique_ptr<cgogn::modeling::AxisDeformationTool<MESH>>> axis_container_;
+	std::unordered_map<std::string, std::unique_ptr<cgogn::modeling::HandleDeformationTool<MESH>>> handle_container_;
+	std::unordered_map<std::string, std::unique_ptr<cgogn::modeling::CageDeformationTool<MESH>>> cage_container_;
 
 	std::vector<std::shared_ptr<boost::synapse::connection>> connections_;
 	MeshProvider<MESH>* mesh_provider_;
@@ -1875,7 +1739,7 @@ private:
 	SurfaceRender<GRAPH>* graph_render_;
 
 	SurfaceDifferentialProperties<MESH>* surface_diff_pptes_;
-	
+
 	SurfaceSelectionPO<MESH>* surface_selection_;
 	GraphSelection<GRAPH>* graph_selection_;
 

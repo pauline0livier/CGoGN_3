@@ -129,6 +129,30 @@ bool imgui_mesh_selector(MESH_PROVIDER<MESH>* mesh_provider, const MESH* selecte
 	return false;
 }
 
+
+template <template <typename MESH> typename SPACE_DEFORMATION, typename MESH, typename FUNC>
+bool imgui_cage_selector(SPACE_DEFORMATION<MESH,GRAPH> space_deformation, const MESH* selected_mesh, const std::string& label,
+						 const FUNC& on_change)
+{
+	static_assert(is_func_parameter_same<FUNC, MESH&>::value, "Wrong function parameter type");
+	if (ImGui::ListBoxHeader(label.c_str(), cage_container->size()))
+	{
+		for (auto& [name, m] : cage_container){
+			if (ImGui::Selectable(name.c_str(), &(m->control_cage) == selected_mesh))
+			{
+				if (&(m->control_cage) != selected_mesh)
+					on_change(m->control_cage);
+			}
+		}
+    		
+		ImGui::ListBoxFooter();
+		return true;
+		
+	}
+	return false;
+}
+
+
 template <typename FUNC>
 bool imgui_view_selector(ViewModule* vm, const View* selected, const FUNC& on_change)
 {
