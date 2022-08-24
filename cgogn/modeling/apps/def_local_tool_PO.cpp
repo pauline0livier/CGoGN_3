@@ -36,7 +36,7 @@
 #include <cgogn/rendering/ui_modules/surface_render.h>
 #include <cgogn/rendering/ui_modules/graph_render.h>
 
-#include <cgogn/modeling/algos/deformation/deformation_cage.h>
+#include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 
 #define DEFAULT_MESH_PATH CGOGN_STR(CGOGN_DATA_PATH) "/meshes/"
 

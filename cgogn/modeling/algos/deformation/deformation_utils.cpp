@@ -22,7 +22,7 @@
  *******************************************************************************/
 
 #include <cgogn/core/functions/mesh_info.h>
-#include <cgogn/modeling/algos/deformation/deformation_cage.h>
+#include <cgogn/modeling/algos/deformation/deformation_utils.h>
 #include <iostream>
 
 namespace cgogn

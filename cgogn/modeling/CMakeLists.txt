@@ -22,6 +22,8 @@ target_sources(${PROJECT_NAME}	PRIVATE
 		
 		"${CMAKE_CURRENT_LIST_DIR}/algos/deformation/creation_space_tool.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/deformation/creation_space_tool.cpp"
+		"${CMAKE_CURRENT_LIST_DIR}/algos/deformation/deformation_utils.h"
+		"${CMAKE_CURRENT_LIST_DIR}/algos/deformation/deformation_utils.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/convex_hull.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/graph_resampling.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/graph_resampling.cpp"

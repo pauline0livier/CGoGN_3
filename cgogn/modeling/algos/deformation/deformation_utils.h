@@ -21,8 +21,8 @@
  *                                                                              *
  *******************************************************************************/
 
-#ifndef CGOGN_MODELING_ALGOS_DEFORMATION_CAGE_H_
-#define CGOGN_MODELING_ALGOS_DEFORMATION_CAGE_H_
+#ifndef CGOGN_MODELING_ALGOS_DEFORMATION_UTILS_H_
+#define CGOGN_MODELING_ALGOS_DEFORMATION_UTILS_H_
 
 #include <cgogn/geometry/types/vector_traits.h>
 
