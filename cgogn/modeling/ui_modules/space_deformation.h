@@ -502,7 +502,7 @@ private:
 	}
 
 
-	void bind_influence_cage_mvc(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, MESH& control_cage,
+	void bind_influence_cage_mvc(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, MESH& control_cage, const std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position,
 								 std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>>& cdt)
 								 
 								 
@@ -513,16 +513,21 @@ private:
 
 		Parameters& p = parameters_[&object];
 
+		MESH* i_cage = cdt->influence_cage_;
+
 		cdt->cage_attribute_update_connection_ =
 			boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
 				&control_cage, [&](MeshAttribute<Vec3>* attribute) {
-					if (cdt->control_cage_vertex_position_.get() == attribute)
+					
+					if (cage_vertex_position.get() == attribute)
 					{
 						std::cout << "enter def" << std::endl; 
-						MESH* i_cage = cdt->influence_cage_;	
-						std::cout << "ok pour enter deformation " << std::endl; 					
+							
+						std::cout << "ok pour enter deformation " << cdt->influence_cage_ << std::endl; 					
 
 						cdt->update_influence_cage_position(); 
+
+						std::cout << "ok pour post update" << std::endl; 
 
 						std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
 							get_attribute<Vec3, MeshVertex>(*i_cage, "position");
@@ -720,7 +725,7 @@ protected:
 
 								if (current_item == "MVC")
 								{
-									bind_influence_cage_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_, cdt);
+									bind_influence_cage_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_, cdt->control_cage_vertex_position_, cdt);
 									/*if (!cd.local_def)
 									{
 										bind_object_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_,
