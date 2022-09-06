@@ -56,11 +56,11 @@ ShaderFlatPO::ShaderFlatPO()
 
 	const char* fragment_shader_source = R"(
 		#version 150
-		uniform vec4 ambient_color;
-		uniform vec4 diffuse_color;
-		uniform vec4 specular_color;
-		uniform float shininess;
-		uniform float alpha;
+		//uniform vec4 ambient_color;
+		//uniform vec4 diffuse_color;
+		//uniform vec4 specular_color;
+		//uniform float shininess;
+		//uniform float alpha;
 		uniform vec3 light_position;
 		uniform bool ghost_mode;
 		
@@ -84,26 +84,26 @@ ShaderFlatPO::ShaderFlatPO()
 				lambert = 0.4 * pow(1.0 - lambert, 2);
 			
 			float specular = 0.0;
-			if (lambert > 0.0){
-				vec3 viewDir = normalize(-position);
+			//if (lambert > 0.0){
+				//vec3 viewDir = normalize(-position);
 
-				vec3 halfDir = normalize(LightDir + viewDir);
-    			float specAngle = max(dot(halfDir, N), 0.0);
-    			specular = pow(specAngle, shininess);
+				//vec3 halfDir = normalize(LightDir + viewDir);
+    			//float specAngle = max(dot(halfDir, N), 0.0);
+    			//specular = pow(specAngle, shininess);
 
       			//vec3 reflectDir = reflect(-LightDir, N);
       			//float specAngle = max(dot(reflectDir, viewDir), 0.0);
       			// note that the exponent is different here
       			//specular = pow(specAngle, shininess/4.0);
     
-  			}		
+  			//}		
 
 			//vec3 newColor = normalize(vec3(abs(position.y), abs(position.z), abs(position.x))); 
-			vec3 colorLinear = ambient_color.xyz + diffuse_color.xyz*lambert* vec3(1.0, 1.0, 1.0) * 40.0 / distance +
-                    specular_color.xyz * specular * vec3(1.0, 1.0, 1.0) * 10.0 / distance; 
+			//vec3 colorLinear = ambient_color.xyz + diffuse_color.xyz*lambert* vec3(1.0, 1.0, 1.0) * 40.0 / distance +
+                    //specular_color.xyz * specular * vec3(1.0, 1.0, 1.0) * 10.0 / distance; 
 
 
-			vec3 colorGammaCorrected = pow(colorLinear, vec3(1.0 / 2.2));
+			//vec3 colorGammaCorrected = pow(colorLinear, vec3(1.0 / 2.2));
 			
 			frag_out = vec4(abs(LightDir.x-N.x), abs(LightDir.y-N.y), abs(LightDir.z - N.z), 1.0); 
 			//frag_out = vec4(colorLinear, alpha); 
@@ -111,14 +111,14 @@ ShaderFlatPO::ShaderFlatPO()
 	)";
 
 	load2_bind(vertex_shader_source, fragment_shader_source, "vertex_position","vertex_tc");
-	get_uniforms("ambient_color", "diffuse_color", "specular_color", "shininess",
-				 "alpha", "light_position", "ghost_mode");
+	//get_uniforms();
 }
 
 void ShaderParamFlatPO::set_uniforms()
 {
-	shader_->set_uniforms_values(ambient_color_, diffuse_color_, specular_color_, shininess_,
-								alpha_, light_position_, ghost_mode_);
+	//shader_->set_uniforms_values();
+		/*ambient_color_, diffuse_color_, specular_color_, shininess_, alpha_, light_position_,
+								 ghost_mode_*/ 
 }
 
 } // namespace rendering

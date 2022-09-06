@@ -681,24 +681,33 @@ protected:
 
 					if (cage_container_.size() > 0)
 					{
-						/*imgui_mesh_selector(mesh_provider_, selected_cage_, "Cage", [&](MESH& m) {
+						if (!imgui_mesh_selector(mesh_provider_, selected_cage_, "Cage", [&](MESH& m) {
 							selected_cage_ = &m;
+								std::cout << "selected cqge found" << std::endl;
 							mesh_provider_->mesh_data(m).outlined_until_ = App::frame_time_ + 1.0;
-						});*/
-						SpaceDeformation<MESH, GRAPH>* space_deformation = static_cast<SpaceDeformation<MESH, GRAPH>*>(
+							}))
+						{
+							std::cout << "no cqges found" << std::endl;
+						};
+						/*SpaceDeformation<MESH, GRAPH>* space_deformation = static_cast<SpaceDeformation<MESH, GRAPH>*>(
 							app_.module("SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
-						imgui_cage_selector(space_deformation, selected_cage_, "Cage",
-											[&](MESH& m) { selected_cage_ = &m; });
+						if (
+							!imgui_cage_selector(space_deformation, selected_cage_, "Cage",
+												 [&](MESH& m) { selected_cage_ = &m; }))
+						{
+							std::cout << " there is a bug" << std::endl;
+						}*/
 
-						const std::string& cage_name = mesh_provider_->mesh_name(*selected_cage_);
+						const std::string cage_name = mesh_provider_->mesh_name(*selected_cage_);
 
 						std::string prefix = "local_cage";
+						std::cout << cage_name << " " << prefix << std::endl;
 						if (std::mismatch(prefix.begin(), prefix.end(), cage_name.begin()).first == prefix.end())
 						{
 
 							// inspired from https://github.com/ocornut/imgui/issues/1658
 							const char* items[] = {"MVC", "Green"};
-							static const char* current_item = "MVC";
+							std::string current_item = "MVC";
 							ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
 
 							ImGuiStyle& style = ImGui::GetStyle();
@@ -706,7 +715,8 @@ protected:
 							float spacing = style.ItemInnerSpacing.x;
 							float button_sz = ImGui::GetFrameHeight();
 							ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
-							if (ImGui::BeginCombo("##custom combo", current_item, ImGuiComboFlags_NoArrowButton))
+							if (ImGui::BeginCombo("##custom combo", current_item.c_str(),
+												  ImGuiComboFlags_NoArrowButton))
 							{
 								for (int n = 0; n < IM_ARRAYSIZE(items); n++)
 								{

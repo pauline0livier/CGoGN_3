@@ -52,7 +52,10 @@ public:
 
 	}
 
-	void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const std::vector<Vec3>& vertices_positions)
+	void create_space_tool(Graph* g, 
+		Graph::Attribute<Vec3>* vertex_position, 
+		Graph::Attribute<Scalar>* vertex_radius, 
+		const std::vector<Vec3>& vertices_positions)
 	{
 		control_axis_ = g; 
 		cgogn::modeling::create_axis(*g, vertex_position, vertex_radius, vertices_positions); 

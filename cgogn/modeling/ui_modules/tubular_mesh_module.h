@@ -297,7 +297,7 @@ public:
 		contact_surface_ = surface_provider_->add_mesh("contact");
 		volume_ = volume_provider_->add_mesh("hex");
 
-		if constexpr (std::is_same_v<GRAPH, Graph>)
+		if constexpr (std::is_same_v<GRAPH, cgogn::Graph>)
 			hex_building_attributes_ = modeling::graph_to_hex(*graph_, *contact_surface_, *volume_);
 
 		if constexpr (std::is_same_v<GRAPH, IncidenceGraph>)

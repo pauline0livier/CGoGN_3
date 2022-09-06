@@ -41,7 +41,7 @@ namespace modeling
 template <typename MESH>
 class SpaceDeformationTool
 {
-
+  public:
 	template <typename T>
 	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
 	using Vertex = typename mesh_traits<MESH>::Vertex;
@@ -50,7 +50,6 @@ class SpaceDeformationTool
 	using Vec2 = geometry::Vec2;
 	using Vec3 = geometry::Vec3;
 
-public:
 	MESH* influence_cage_;
 	cgogn::ui::CellsSet<MESH, Vertex>* influence_area_;
 
