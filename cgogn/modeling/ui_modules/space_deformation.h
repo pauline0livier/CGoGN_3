@@ -502,41 +502,35 @@ private:
 	}
 
 
-	void bind_influence_cage_mvc(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, MESH& control_cage, const std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position,
-								 std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>>& cdt)
-								 
-								 
+	void bind_influence_cage_mvc(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, MESH& control_cage, const std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position)
+								 		 
 	{
-		cdt->bind_mvc(object, object_vertex_position); 
+		selected_cdt_->bind_mvc(object, object_vertex_position); 
 
 		displayGammaColor(object); 
 
 		Parameters& p = parameters_[&object];
 
-		MESH* i_cage = cdt->influence_cage_;
-
-		cdt->cage_attribute_update_connection_ =
+		selected_cdt_->cage_attribute_update_connection_ =
 			boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
 				&control_cage, [&](MeshAttribute<Vec3>* attribute) {
 					
 					if (cage_vertex_position.get() == attribute)
-					{
-						std::cout << "enter def" << std::endl; 
-							
-						std::cout << "ok pour enter deformation " << cdt->influence_cage_ << std::endl; 					
+					{				
 
-						cdt->update_influence_cage_position(); 
+						selected_cdt_->update_influence_cage_position(); 
 
-						std::cout << "ok pour post update" << std::endl; 
+						MESH* i_cage = selected_cdt_->influence_cage_;
 
 						std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
 							get_attribute<Vec3, MeshVertex>(*i_cage, "position");
 
 						mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
 
-						cdt->update_deformation_object_mvc(object, object_vertex_position, p.init_position_); 
+						selected_cdt_->update_deformation_object_mvc(object, object_vertex_position, p.init_position_); 
 
 						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+
 					}
 				});
 	}
@@ -681,14 +675,14 @@ protected:
 
 					if (cage_container_.size() > 0)
 					{
-						if (!imgui_mesh_selector(mesh_provider_, selected_cage_, "Cage", [&](MESH& m) {
+						/*if (!imgui_mesh_selector(mesh_provider_, selected_cage_, "Cage", [&](MESH& m) {
 							selected_cage_ = &m;
 								std::cout << "selected cqge found" << std::endl;
 							mesh_provider_->mesh_data(m).outlined_until_ = App::frame_time_ + 1.0;
 							}))
 						{
 							std::cout << "no cqges found" << std::endl;
-						};
+						};*/
 						/*SpaceDeformation<MESH, GRAPH>* space_deformation = static_cast<SpaceDeformation<MESH, GRAPH>*>(
 							app_.module("SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
 						if (
@@ -698,10 +692,20 @@ protected:
 							std::cout << " there is a bug" << std::endl;
 						}*/
 
+						SpaceDeformation<MESH, GRAPH>* space_deformation = static_cast<SpaceDeformation<MESH, GRAPH>*>(
+							app_.module("SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
+						if (
+							!imgui_cage_selector(space_deformation, selected_cage_, "Cage",
+												 [&](MESH& m) { selected_cage_ = &m; }))
+						{
+							std::cout << " there is a bug" << std::endl;
+						}
+						
+
 						const std::string cage_name = mesh_provider_->mesh_name(*selected_cage_);
 
 						std::string prefix = "local_cage";
-						std::cout << cage_name << " " << prefix << std::endl;
+						//std::cout << cage_name << " " << prefix << std::endl;
 						if (std::mismatch(prefix.begin(), prefix.end(), cage_name.begin()).first == prefix.end())
 						{
 
@@ -729,22 +733,15 @@ protected:
 								ImGui::EndCombo();
 							}
 
-							std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> cdt = cage_container_[cage_name]; 
+						//std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> cdt = cage_container_[cage_name];
+							selected_cdt_ = cage_container_[cage_name];
 							if (ImGui::Button("Bind object"))
 							{
 
 								if (current_item == "MVC")
 								{
-									bind_influence_cage_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_, cdt->control_cage_vertex_position_, cdt);
-									/*if (!cd.local_def)
-									{
-										bind_object_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_,
-														cd.cage_vertex_position_);
-									}
-									else
-									{
-										
-									}*/
+									bind_influence_cage_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_, selected_cdt_->control_cage_vertex_position_);
+									
 								}
 
 								else if (current_item == "Green")
@@ -766,7 +763,17 @@ protected:
 								{
 									std::cout << "not available yet" << std::endl;
 								}
+								
 							}
+
+							ImGui::Separator();
+								float new_smoothing_factor = selected_cdt_->smoothing_factor_; 
+								ImGui::SliderFloat("Attenuation factor", &new_smoothing_factor, 0.0f, 1.0f);
+
+								if (new_smoothing_factor != selected_cdt_->smoothing_factor_){
+									selected_cdt_->smoothing_factor_ = new_smoothing_factor; 
+									selected_cdt_->update_attenuation(*selected_mesh_);
+								}
 						}
 					}
 				}
@@ -805,6 +812,7 @@ protected:
 private:
 	MESH* selected_mesh_;
 	MESH* selected_cage_;
+	std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> selected_cdt_; 
 	std::unordered_map<const MESH*, Parameters> parameters_;
 
 	std::vector<std::shared_ptr<boost::synapse::connection>> connections_;

@@ -59,7 +59,7 @@ class SpaceDeformationTool
 
 	SpaceDeformationTool()
 		: influence_cage_(nullptr), influence_area_(nullptr), influence_cage_vertex_position_(nullptr),
-		  smoothing_factor_(0.5f)
+		  smoothing_factor_(0.2f)
 	{
 	}
 
@@ -170,9 +170,15 @@ class SpaceDeformationTool
 		compute_attenuation(object);
 	}
 
+	void update_attenuation(MESH& object){
+		attenuation_.setZero();
+
+		compute_attenuation(object);
+	}
+
 	void update_deformation_object_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, const std::vector<Vec3>& init_position)
 	{
-		std::cout << "update deformation object" << std::endl; 
+		 
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
 			cgogn::get_attribute<uint32, Vertex>(object, "position_indices");
 
@@ -235,8 +241,12 @@ private:
 
 			float i_dist = cage_influence_distance(surface_point_idx, nbf_cage, nbv_cage);
 
-			attenuation_(surface_point_idx) =
+			std::cout << "dist " << i_dist << std::endl; 
+
+			attenuation_(surface_point_idx) =  
 				(i_dist < h) ? (0.5f * ((float)sin(M_PI * ((i_dist / h) - 0.5f))) + 0.5f) : 1.0f;
+
+			std::cout << "att_value " << attenuation_(surface_point_idx) << std::endl; 	
 		});
 	}
 
