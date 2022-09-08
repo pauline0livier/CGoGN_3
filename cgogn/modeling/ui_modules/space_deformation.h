@@ -278,8 +278,8 @@ private:
 			mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
 
 			Vec3 i_center = (local_min + local_max) / Scalar(2);
-			Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
-			Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
+			Vec3 bb_min_ = ((local_min - i_center) * 2.f) + i_center;
+			Vec3 bb_max_ = ((local_max - i_center) * 2.f) + i_center;
 
 			cdt->set_center_control_cage(i_center);
 			cdt->set_influence_cage(i_cage, i_cage_vertex_position.get(), bb_min_, bb_max_);
@@ -506,6 +506,7 @@ private:
 								 		 
 	{
 		selected_cdt_->bind_mvc(object, object_vertex_position); 
+		selected_cdt_->set_up_attenuation(object, object_vertex_position);
 
 		displayGammaColor(object); 
 
@@ -698,7 +699,7 @@ protected:
 							!imgui_cage_selector(space_deformation, selected_cage_, "Cage",
 												 [&](MESH& m) { selected_cage_ = &m; }))
 						{
-							std::cout << " there is a bug" << std::endl;
+							//std::cout << " there is a bug" << std::endl;
 						}
 						
 
@@ -766,14 +767,14 @@ protected:
 								
 							}
 
-							ImGui::Separator();
+							/*ImGui::Separator();
 								float new_smoothing_factor = selected_cdt_->smoothing_factor_; 
 								ImGui::SliderFloat("Attenuation factor", &new_smoothing_factor, 0.0f, 1.0f);
 
 								if (new_smoothing_factor != selected_cdt_->smoothing_factor_){
 									selected_cdt_->smoothing_factor_ = new_smoothing_factor; 
 									selected_cdt_->update_attenuation(*selected_mesh_);
-								}
+								}*/
 						}
 					}
 				}

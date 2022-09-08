@@ -162,19 +162,15 @@ class SpaceDeformationTool
 
 				return true;
 			});
-		});
+		}); 
 
-		attenuation_.resize(nbv_object);
+	}
+
+	/*void update_attenuation(MESH& object){
 		attenuation_.setZero();
 
 		compute_attenuation(object);
-	}
-
-	void update_attenuation(MESH& object){
-		attenuation_.setZero();
-
-		compute_attenuation(object);
-	}
+	}*/
 
 	void update_deformation_object_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, const std::vector<Vec3>& init_position)
 	{
@@ -218,37 +214,6 @@ protected:
 	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> coords_;
 
 	Eigen::Matrix<Vec2, Eigen::Dynamic, Eigen::Dynamic> n_coords_;
-
-private:
-	void compute_attenuation(MESH& object)
-	{
-		const float h = smoothing_factor_;
-		assert((h <= 1.0f && h >= 0.0f) || !"Cage's attenuation factor must be computed!");
-
-		std::shared_ptr<Attribute<uint32>> cage_face_indices =
-			add_attribute<uint32, Face>(*influence_cage_, "face_indices");
-
-		cgogn::modeling::set_attribute_face_indices(*influence_cage_, cage_face_indices.get());
-
-		std::shared_ptr<Attribute<uint32>> object_position_indices =
-			get_attribute<uint32, Vertex>(object, "position_indices");
-
-		uint32 nbf_cage = 2 * nb_cells<Face>(*influence_cage_);
-		uint32 nbv_cage = nb_cells<Vertex>(*influence_cage_);
-
-		influence_area_->foreach_cell([&](Vertex v) {
-			uint32 surface_point_idx = value<uint32>(object, object_position_indices, v);
-
-			float i_dist = cage_influence_distance(surface_point_idx, nbf_cage, nbv_cage);
-
-			std::cout << "dist " << i_dist << std::endl; 
-
-			attenuation_(surface_point_idx) =  
-				(i_dist < h) ? (0.5f * ((float)sin(M_PI * ((i_dist / h) - 0.5f))) + 0.5f) : 1.0f;
-
-			std::cout << "att_value " << attenuation_(surface_point_idx) << std::endl; 	
-		});
-	}
 
 	float cage_influence_distance(const int object_point_idx, const int& nbf_cage, const int& nbv_cage)
 	{
@@ -294,6 +259,38 @@ private:
 
 		return r;
 	}
+
+private:
+	/*void compute_attenuation(MESH& object)
+	{
+		/*const float h = smoothing_factor_;
+		assert((h <= 1.0f && h >= 0.0f) || !"Cage's attenuation factor must be computed!");
+
+		std::shared_ptr<Attribute<uint32>> cage_face_indices =
+			add_attribute<uint32, Face>(*influence_cage_, "face_indices");
+
+		cgogn::modeling::set_attribute_face_indices(*influence_cage_, cage_face_indices.get());
+
+		std::shared_ptr<Attribute<uint32>> object_position_indices =
+			get_attribute<uint32, Vertex>(object, "position_indices");
+
+		uint32 nbf_cage = 2 * nb_cells<Face>(*influence_cage_);
+		uint32 nbv_cage = nb_cells<Vertex>(*influence_cage_);
+
+		influence_area_->foreach_cell([&](Vertex v) {
+			uint32 surface_point_idx = value<uint32>(object, object_position_indices, v);
+
+			float i_dist = cage_influence_distance(surface_point_idx, nbf_cage, nbv_cage);
+
+			std::cout << "dist " << i_dist << std::endl; 
+
+			attenuation_(surface_point_idx) =  
+				(i_dist < h) ? (0.5f * ((float)sin(M_PI * ((i_dist / h) - 0.5f))) + 0.5f) : 1.0f;
+
+			std::cout << "att_value " << attenuation_(surface_point_idx) << std::endl; 	
+		});
+	}*/
+
 
 	bool local_mvc_pt_surface(Vec3 pt)
 	{
