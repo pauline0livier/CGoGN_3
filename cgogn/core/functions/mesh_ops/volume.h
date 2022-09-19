@@ -66,6 +66,20 @@ CMap2::Volume CGOGN_CORE_EXPORT add_prism(CMap2& m, uint32 size, bool set_indice
 
 // template <typename MESH>
 // typename mesh_traits<MESH>::Volume
+// add_custom_polyhedron(MESH& m, uint32 size, bool set_indices, number_side);
+
+/*****************************************************************************/
+
+///////////
+// CMap2 //
+///////////
+
+CMap2::Volume CGOGN_CORE_EXPORT add_custom_polyhedron(CMap2& m, uint32 size, bool set_indices, uint32 number_side); 
+
+/*****************************************************************************/
+
+// template <typename MESH>
+// typename mesh_traits<MESH>::Volume
 // remove_volume(MESH& m, typename mesh_traits<MESH>::Volume v);
 
 /*****************************************************************************/

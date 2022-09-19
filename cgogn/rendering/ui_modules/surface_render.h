@@ -662,11 +662,11 @@ protected:
 					switch (p.color_per_cell_)
 					{
 					case GLOBAL: {
-						if (p.param_flatPO_->attributes_initialized()) // ici
+						if (p.param_flat_->attributes_initialized()) // ici
 						{
-							p.param_flatPO_->bind(proj_matrix, view_matrix);
+							p.param_flat_->bind(proj_matrix, view_matrix);
 							md.draw(rendering::TRIANGLES, p.vertex_position_);
-							p.param_flatPO_->release();
+							p.param_flat_->release();
 						}
 					}
 					break;

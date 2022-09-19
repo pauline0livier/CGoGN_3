@@ -384,7 +384,7 @@ private:
 			Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
 			Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
 
-			hdt->set_influence_cage(i_cage, i_cage_vertex_position.get(), bb_min_, bb_max_);
+			hdt->set_influence_cage_customed(i_cage, i_cage_vertex_position.get(), bb_min_, bb_max_, center0, center2);
 
 			mesh_provider_->emit_connectivity_changed(*i_cage);
 			mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
