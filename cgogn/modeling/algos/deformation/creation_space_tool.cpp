@@ -56,9 +56,9 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max_[0], bb_max_[1], bb_max_[2]};
 }
 
-void create_customed_polyhedron(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& handle_position1, const Vec3& handle_position2){
+void create_customed_polyhedron(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& center_min, const Vec3& center_max){
 
-	CMap2::Volume v = add_custom_polyhedron(m, 6, true, 4);
+	CMap2::Volume v = add_prism(m, 6);
 
 	Dart f1 = v.dart;
 	Dart f2 = phi<2, 1, 1, 2>(m, f1);
@@ -69,23 +69,24 @@ void create_customed_polyhedron(CMap2& m, CMap2::Attribute<Vec3>* vertex_positio
 	Vec3 bb_min_ = bb_min;
 	Vec3 bb_max_ = bb_max;
 
-	double radius = (bb_min[0] - handle_position1[0])/std::cos(4*M_PI/3); 
+	double radius = (bb_min[0] - center_min[0])/std::cos(4*M_PI/3); 
 
 	value<Vec3>(m, vertex_position, vertices[0]) = bb_min_;
-	value<Vec3>(m, vertex_position, vertices[1]) = {bb_min_[0],handle_position1[1]+radius*std::cos(M_PI), handle_position1[2]+radius*std::sin(M_PI)};
-	value<Vec3>(m, vertex_position, vertices[2]) = {bb_min_[0], handle_position1[1]+radius*std::cos(2*M_PI/3), handle_position1[2]+radius*std::sin(2*M_PI/3)};
-	value<Vec3>(m, vertex_position, vertices[3]) = {bb_min_[0],handle_position1[1]+radius*std::cos(M_PI/3), handle_position1[2]+radius*std::sin(M_PI/3)};
-	value<Vec3>(m, vertex_position, vertices[4]) = {bb_min_[0], handle_position1[1]+radius*std::cos(0), handle_position1[2]+radius*std::sin(0)};
-	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min_[0],handle_position1[1]+radius*std::cos(5*M_PI/3), handle_position1[2]+radius*std::sin(5*M_PI/3)};
+	value<Vec3>(m, vertex_position, vertices[1]) = {bb_min_[0],center_min[1]+radius*std::cos(M_PI), center_min[2]+radius*std::sin(M_PI)};
+	value<Vec3>(m, vertex_position, vertices[2]) = {bb_min_[0], center_min[1]+radius*std::cos(2*M_PI/3), center_min[2]+radius*std::sin(2*M_PI/3)};
+	value<Vec3>(m, vertex_position, vertices[3]) = {bb_min_[0], center_min[1]+radius*std::cos(M_PI/3), center_min[2]+radius*std::sin(M_PI/3)};
+	value<Vec3>(m, vertex_position, vertices[4]) = {bb_min_[0], center_min[1]+radius*std::cos(0), center_min[2]+radius*std::sin(0)};
+	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min_[0],center_min[1]+radius*std::cos(5*M_PI/3), center_min[2]+radius*std::sin(5*M_PI/3)};
 
-	value<Vec3>(m, vertex_position, vertices[6]) = {bb_max_[0], handle_position2[1]+radius*std::cos(M_PI), handle_position2[2]+radius*std::sin(M_PI)};
-	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max_[0],handle_position2[1]+radius*std::cos(4*M_PI/3), handle_position2[2]+radius*std::sin(4*M_PI/3)};
-	value<Vec3>(m, vertex_position, vertices[8]) = {bb_max_[0],handle_position2[1]+radius*std::cos(5*M_PI/3), handle_position2[2]+radius*std::sin(5*M_PI/3)};
-	value<Vec3>(m, vertex_position, vertices[9]) = {bb_max_[0],handle_position2[1]+radius*std::cos(0), handle_position2[2]+radius*std::sin(0)};
+	value<Vec3>(m, vertex_position, vertices[6]) = {bb_max_[0], center_max[1]+radius*std::cos(M_PI), center_max[2]+radius*std::sin(M_PI)};
+	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max_[0],center_max[1]+radius*std::cos(4*M_PI/3), center_max[2]+radius*std::sin(4*M_PI/3)};
+	value<Vec3>(m, vertex_position, vertices[8]) = {bb_max_[0],center_max[1]+radius*std::cos(5*M_PI/3), center_max[2]+radius*std::sin(5*M_PI/3)};
+	value<Vec3>(m, vertex_position, vertices[9]) = {bb_max_[0],center_max[1]+radius*std::cos(0), center_max[2]+radius*std::sin(0)};
 	value<Vec3>(m, vertex_position, vertices[10]) = bb_max; 
-	value<Vec3>(m, vertex_position, vertices[11]) = {bb_max_[0],handle_position2[1]+radius*std::cos(2*M_PI/3), handle_position2[2]+radius*std::sin(2*M_PI/3)};
+	value<Vec3>(m, vertex_position, vertices[11]) = {bb_max_[0],center_max[1]+radius*std::cos(2*M_PI/3), center_max[2]+radius*std::sin(2*M_PI/3)};
 	
 }
+
 
 void set_attribute_position_indices(CMap2& cage, CMap2::Attribute<uint32>* position_indices)
 {
