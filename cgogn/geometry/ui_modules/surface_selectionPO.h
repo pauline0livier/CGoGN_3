@@ -387,7 +387,7 @@ protected:
 																		p.vertex_base_size_ * p.sphere_scale_factor_,
 																		p.vertex_position_.get());
 																	
-						bool back_side = (picked.size() > 1); 
+						bool back_side = false; //(picked.size() > 1); 
 						 
 						switch (p.selecting_cell_)
 						{

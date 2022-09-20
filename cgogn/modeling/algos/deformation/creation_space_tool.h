@@ -40,7 +40,7 @@ using Graph = cgogn::IncidenceGraph;
 
 void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max); 
 
-void create_customed_polyhedron(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& handle_position1, const Vec3& handle_position2); 
+void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& handle_position, const Vec3& inner_handle_position, Vec3& camera_ray); 
 
 void set_attribute_position_indices(CMap2& cage, CMap2::Attribute<uint32>* position_indices); 
 

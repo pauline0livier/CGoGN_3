@@ -87,10 +87,10 @@ class SpaceDeformationTool
 		cgogn::modeling::set_attribute_marked_vertices(*influence_cage_, marked_vertices.get());
 	}
 
-	void set_influence_cage_customed(MESH* m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& handle_position1, const Vec3& handle_position2)
+	void set_influence_cage_handle(MESH* m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& handle_position, const Vec3& inner_handle_position, Vec3& camera_ray)
 	{
 		influence_cage_ = m;
-		cgogn::modeling::create_customed_polyhedron(*m, vertex_position, bb_min, bb_max, handle_position1, handle_position2);
+		cgogn::modeling::create_handle_box(*m, vertex_position, bb_min, bb_max, handle_position, inner_handle_position, camera_ray);
 
 		influence_cage_vertex_position_ = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
 

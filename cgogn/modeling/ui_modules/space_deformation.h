@@ -318,19 +318,27 @@ private:
 		auto handle_vertex_position = add_attribute<Vec3, GraphVertex>(*handle, "position");
 		auto handle_vertex_radius = add_attribute<Scalar, GraphVertex>(*handle, "radius");
 
+		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
+
 		MeshData<MESH>& md = mesh_provider_->mesh_data(*selected_mesh_);
 		const Vec3& bb_min = md.bb_min_;
 		const Vec3& bb_max = md.bb_max_;
 
-		Vec3 local_min = {bb_max[0], bb_max[1], bb_max[2]};
-		Vec3 local_max = {bb_min[0], bb_min[1], bb_min[2]};
+		/*Vec3 local_min = {bb_max[0], bb_max[1], bb_max[2]};
+		Vec3 local_max = {bb_min[0], bb_min[1], bb_min[2]};*/
+
+		Vec3 local_min = {1000.f, 1000.f, 1000.f}; 
+		Vec3 local_max = {0.f, 0.f, 0.f}; 
 
 		Vec3 center = {0.0, 0.0, 0.0};
+		Vec3 normal = {0.0, 0.0, 0.0};
 
 		control_set->foreach_cell([&](MeshVertex v) {
 			const Vec3& pos = value<Vec3>(*selected_mesh_, vertex_position, v);
+			const Vec3& norm = value<Vec3>(*selected_mesh_, mesh_vertex_normal, v);
 
 			center += pos;
+			normal += norm; 
 
 			for (size_t j = 0; j < 3; j++)
 			{
@@ -347,12 +355,14 @@ private:
 		});
 
 		center /= control_set->size();
+		normal /= control_set->size(); 
+
+		Vec3 ray = normal; 
+		ray.normalize(); 
 
 	
-		Vec3 center1 = center + Vec3{bb_min[0], 0.0, 0.0};
-		Vec3 center1bis = center + Vec3{bb_max[0], 0.0, 0.0};
-		const Vec3 center2 = (center1bis + center1) * 0.5;
-		const Vec3 center0 = (center1bis * 0.25 + center1 * 0.75);
+		const Vec3 handle_position = center; 
+		const Vec3 inner_handle_position = {center[0]-2.f*ray[0], center[1]-2.f*ray[1], center[2]-2.f*ray[2]}; 
 
 		const auto [it, inserted] =
 			handle_container_.emplace(handle_name, std::make_shared<cgogn::modeling::HandleDeformationTool<MESH>>());
@@ -361,14 +371,13 @@ private:
 		if (inserted)
 		{
 
-			hdt->create_space_tool(handle, handle_vertex_position.get(), handle_vertex_radius.get(), center0, center2);
+			hdt->create_space_tool(handle, handle_vertex_position.get(), handle_vertex_radius.get(), handle_position, inner_handle_position);
 
 			graph_provider_->emit_connectivity_changed(*handle);
 			graph_provider_->emit_attribute_changed(*handle, handle_vertex_position.get());
 			graph_provider_->emit_attribute_changed(*handle, handle_vertex_radius.get());
 
 			View* v1 = app_.current_view();
-
 			graph_render_->set_vertex_position(*v1, *handle, handle_vertex_position);
 
 			graph_selection_->set_vertex_position(*handle, handle_vertex_position);
@@ -384,7 +393,7 @@ private:
 			Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
 			Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
 
-			hdt->set_influence_cage_customed(i_cage, i_cage_vertex_position.get(), bb_min_, bb_max_, center0, center2);
+			hdt->set_influence_cage_handle(i_cage, i_cage_vertex_position.get(), bb_min_, bb_max_, handle_position, inner_handle_position, ray);
 
 			mesh_provider_->emit_connectivity_changed(*i_cage);
 			mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
