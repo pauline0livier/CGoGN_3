@@ -71,6 +71,10 @@ class SpaceDeformationTool
 	{
 	}
 
+	virtual void update_influence_cage_position()
+	{
+	}
+
 	void set_influence_cage(MESH* m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max)
 	{
 		influence_cage_ = m;

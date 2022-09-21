@@ -167,23 +167,6 @@ void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const 
 	value<Vec3>(m, vertex_position, vertices[10]) = bb_max;
 
 	value<Vec3>(m, vertex_position, vertices[11]) = frame_max_inv*local_vertex11 + center_max_plane;
-
-
-	/*double radius = (bb_min[0] - center_min[0])/std::cos(4*M_PI/3); 
-
-	value<Vec3>(m, vertex_position, vertices[0]) = bb_min_;
-	value<Vec3>(m, vertex_position, vertices[1]) = {bb_min_[0],center_min[1]+radius*std::cos(M_PI), center_min[2]+radius*std::sin(M_PI)};
-	value<Vec3>(m, vertex_position, vertices[2]) = {bb_min_[0], center_min[1]+radius*std::cos(2*M_PI/3), center_min[2]+radius*std::sin(2*M_PI/3)};
-	value<Vec3>(m, vertex_position, vertices[3]) = {bb_min_[0], center_min[1]+radius*std::cos(M_PI/3), center_min[2]+radius*std::sin(M_PI/3)};
-	value<Vec3>(m, vertex_position, vertices[4]) = {bb_min_[0], center_min[1]+radius*std::cos(0), center_min[2]+radius*std::sin(0)};
-	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min_[0],center_min[1]+radius*std::cos(5*M_PI/3), center_min[2]+radius*std::sin(5*M_PI/3)};
-
-	value<Vec3>(m, vertex_position, vertices[6]) = {bb_max_[0], center_max[1]+radius*std::cos(M_PI), center_max[2]+radius*std::sin(M_PI)};
-	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max_[0],center_max[1]+radius*std::cos(4*M_PI/3), center_max[2]+radius*std::sin(4*M_PI/3)};
-	value<Vec3>(m, vertex_position, vertices[8]) = {bb_max_[0],center_max[1]+radius*std::cos(5*M_PI/3), center_max[2]+radius*std::sin(5*M_PI/3)};
-	value<Vec3>(m, vertex_position, vertices[9]) = {bb_max_[0],center_max[1]+radius*std::cos(0), center_max[2]+radius*std::sin(0)};
-	value<Vec3>(m, vertex_position, vertices[10]) = bb_max; 
-	value<Vec3>(m, vertex_position, vertices[11]) = {bb_max_[0],center_max[1]+radius*std::cos(2*M_PI/3), center_max[2]+radius*std::sin(2*M_PI/3)};*/
 	
 }
 

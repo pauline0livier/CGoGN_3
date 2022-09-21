@@ -122,7 +122,7 @@ public:
 	std::unordered_map<std::string, std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>>> cage_container_;
 
 	SpaceDeformation(const App& app)
-		: Module(app, "SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), selected_mesh_(nullptr)
+		: Module(app, "SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), selected_mesh_(nullptr), selected_cage_(nullptr), selected_handle_(nullptr)
 	{
 	}
 	~SpaceDeformation()
@@ -165,6 +165,15 @@ public:
 		static_assert(is_ith_func_parameter_same<FUNC, 1, const std::string&>::value, "Wrong function parameter type");
 		for (auto& [name, cdt] : cage_container_)
 			f(*(cdt->control_cage_), name);
+	}
+
+	template <typename FUNC>
+	void foreach_handle(const FUNC& f)
+	{
+		static_assert(is_ith_func_parameter_same<FUNC, 0, GRAPH&>::value, "Wrong function parameter type");
+		static_assert(is_ith_func_parameter_same<FUNC, 1, const std::string&>::value, "Wrong function parameter type");
+		for (auto& [name, hdt] : handle_container_)
+			f(*(hdt->control_handle_), name);
 	}
 
 	/////////////
@@ -324,9 +333,6 @@ private:
 		const Vec3& bb_min = md.bb_min_;
 		const Vec3& bb_max = md.bb_max_;
 
-		/*Vec3 local_min = {bb_max[0], bb_max[1], bb_max[2]};
-		Vec3 local_max = {bb_min[0], bb_min[1], bb_min[2]};*/
-
 		Vec3 local_min = {1000.f, 1000.f, 1000.f}; 
 		Vec3 local_max = {0.f, 0.f, 0.f}; 
 
@@ -359,7 +365,6 @@ private:
 
 		Vec3 ray = normal; 
 		ray.normalize(); 
-
 	
 		const Vec3 handle_position = center; 
 		const Vec3 inner_handle_position = {center[0]-2.f*ray[0], center[1]-2.f*ray[1], center[2]-2.f*ray[2]}; 
@@ -403,6 +408,10 @@ private:
 
 			CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
 			hdt->influence_area_ = &i_set;
+
+			hdt->update_influence_area(m, vertex_position.get()); 
+
+			mesh_provider_->emit_cells_set_changed(m, hdt->influence_area_);
 
 			boost::synapse::emit<handle_added>(this, hdt);
 		}
@@ -538,6 +547,40 @@ private:
 						mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
 
 						selected_cdt_->update_deformation_object_mvc(object, object_vertex_position, p.init_position_); 
+
+						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+
+					}
+				});
+	}
+
+	void bind_influence_cage_mvc_handle(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, GRAPH& control_handle, const std::shared_ptr<GraphAttribute<Vec3>>& handle_vertex_position)
+								 		 
+	{
+		selected_hdt_->bind_mvc(object, object_vertex_position); 
+		selected_hdt_->set_up_attenuation(object, object_vertex_position);
+
+		displayGammaColor(object); 
+
+		Parameters& p = parameters_[&object];
+
+		selected_hdt_->handle_attribute_update_connection_ =
+			boost::synapse::connect<typename GraphProvider<GRAPH>::template attribute_changed_t<Vec3>>(
+				&control_handle, [&](GraphAttribute<Vec3>* attribute) {
+					
+					if (handle_vertex_position.get() == attribute)
+					{				
+
+						selected_hdt_->update_influence_cage_position(); 
+
+						MESH* i_cage = selected_hdt_->influence_cage_;
+
+						std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
+							get_attribute<Vec3, MeshVertex>(*i_cage, "position");
+
+						mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
+
+						selected_hdt_->update_deformation_object_mvc(object, object_vertex_position, p.init_position_); 
 
 						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
 
@@ -800,6 +843,71 @@ protected:
 
 						generate_handle(*selected_mesh_, p.vertex_position_, control_set);
 					}
+
+					ImGui::Separator();
+					ImGui::Text("Binding");
+
+					if (handle_container_.size() > 0)
+					{
+						SpaceDeformation<MESH, GRAPH>* space_deformation = static_cast<SpaceDeformation<MESH, GRAPH>*>(
+							app_.module("SpaceDeformation (" + std::string{mesh_traits<GRAPH>::name} + ")"));
+						if (
+							!imgui_handle_selector(space_deformation, selected_handle_, "Handle",
+												 [&](GRAPH& g) { selected_handle_ = &g; }))
+						{
+							//std::cout << " there is a bug" << std::endl;
+						}
+						
+
+						const std::string handle_name = graph_provider_->mesh_name(*selected_handle_);
+
+						std::string prefix = "local_handle";
+						if (std::mismatch(prefix.begin(), prefix.end(), handle_name.begin()).first == prefix.end())
+						{
+
+							const char* items[] = {"MVC", "Green"};
+							std::string current_item = "MVC";
+							ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
+
+							ImGuiStyle& style = ImGui::GetStyle();
+							float w = ImGui::CalcItemWidth();
+							float spacing = style.ItemInnerSpacing.x;
+							float button_sz = ImGui::GetFrameHeight();
+							ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
+							if (ImGui::BeginCombo("##custom combo", current_item.c_str(),
+												  ImGuiComboFlags_NoArrowButton))
+							{
+								for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+								{
+									bool is_selected = (current_item == items[n]);
+									if (ImGui::Selectable(items[n], is_selected))
+										current_item = items[n];
+									if (is_selected)
+										ImGui::SetItemDefaultFocus();
+								}
+								ImGui::EndCombo();
+							}
+
+						
+							selected_hdt_ = handle_container_[handle_name];
+							if (ImGui::Button("Bind object"))
+							{
+
+								if (current_item == "MVC")
+								{
+									bind_influence_cage_mvc_handle(*selected_mesh_, p.vertex_position_, *selected_handle_, selected_hdt_->control_handle_vertex_position_);
+									
+								}
+
+								else
+								{
+									std::cout << "not available yet" << std::endl;
+								}
+								
+							}
+
+					}
+					}
 				}
 
 				if (selected_tool_ == Axis)
@@ -822,7 +930,10 @@ protected:
 private:
 	MESH* selected_mesh_;
 	MESH* selected_cage_;
+	GRAPH* selected_handle_;
+
 	std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> selected_cdt_; 
+	std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> selected_hdt_; 
 	std::unordered_map<const MESH*, Parameters> parameters_;
 
 	std::vector<std::shared_ptr<boost::synapse::connection>> connections_;

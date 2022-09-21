@@ -40,6 +40,8 @@ class HandleDeformationTool : public SpaceDeformationTool<MESH>
 public:
 
 	Graph* control_handle_;
+	std::shared_ptr<Graph::Attribute<Vec3>> control_handle_vertex_position_;
+	std::shared_ptr<boost::synapse::connection> handle_attribute_update_connection_;
 
 	HandleDeformationTool():SpaceDeformationTool<MESH>(), control_handle_vertex_position_(nullptr)
 	{
@@ -61,9 +63,23 @@ public:
 		//cgogn::modeling::set_graph_attribute_position_indices(*control_handle_, position_indices.get()); 
 	}
 
-private :
-	std::shared_ptr<Graph::Attribute<Vec3>> control_handle_vertex_position_;
+		void update_influence_cage_position()
+	{
+		/*foreach_cell(*control_handle_, [&](Vertex v) -> bool {
+			const Vec3& handle_point = value<Vec3>(*control_handle_, control_handle_vertex_position_, v);
 
+			value<Vec3>(*SpaceDeformationTool<MESH>::influence_cage_,
+						SpaceDeformationTool<MESH>::influence_cage_vertex_position_, v) =
+				((handle_point - center_control_cage_) * 1.5) + center_control_cage_;
+
+			return true;
+		});*/
+
+		// update influence cage relative to new handle position
+	}
+
+private :
+	
 }; 
 
 } // namespace modeling
