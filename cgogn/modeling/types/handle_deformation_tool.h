@@ -99,28 +99,15 @@ template <typename T>
 		const Vec3 local_bb_min = local_frame_ * (bb_min - handle_position_);
 		const Vec3 local_bb_max = local_frame_ * (bb_max - handle_position_);
 
-		std::cout << "min depth " << local_bb_min[2] << std::endl; 
-		std::cout << "max depth " << local_bb_max[2] << std::endl; 
-
 		const double radius = local_bb_min.norm(); 
 
-		/*double dot_product = u.dot(v); 
-		double det = u[0]*v[1]*handle_normal_[2]+u[1]*v[2]*handle_normal_[0]+ u[2]*v[0]*handle_normal_[1] - handle_normal_[0]*v[1]*u[2] - handle_normal_[1]*v[2]*u[0] - handle_normal_[2]*v[0]*u[1]; 
-
-		double angle = std::atan2(det, dot_product); */
-
-		/*dot = x1*x2 + y1*y2 + z1*z2    #between [x1, y1, z1] and [x2, y2, z2]
-		lenSq1 = x1*x1 + y1*y1 + z1*z1
-		lenSq2 = x2*x2 + y2*y2 + z2*z2
-		angle = acos(dot/sqrt(lenSq1 * lenSq2))*/
-
-		double dot_product = u.dot(handle_normal_); 
-		double angle = std::acos(dot_product); 
-
-		std::cout << "angle " << angle << std::endl; 
-		std::cout << "normal " << handle_normal_ << std::endl; 
-
-		cgogn::modeling::create_handle_box(*m, vertex_position, local_vertex_position, handle_position, radius, local_frame_inverse_, local_bb_min[2], local_bb_max[2]);
+		Vec3 min_depth, max_depth; 
+		if (local_bb_min[2] > local_bb_max[2]){
+			cgogn::modeling::create_handle_box(*m, vertex_position, local_vertex_position, handle_position, radius, local_frame_inverse_, local_bb_min[2], local_bb_max[2]);
+		} else {
+			cgogn::modeling::create_handle_box(*m, vertex_position, local_vertex_position, handle_position, radius, local_frame_inverse_, local_bb_max[2], local_bb_min[2]);
+		}
+		
 
 		SpaceDeformationTool<MESH>::influence_cage_vertex_position_ = cgogn::get_attribute<Vec3, MeshVertex>(*m, "position");
 
