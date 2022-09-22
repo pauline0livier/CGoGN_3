@@ -56,7 +56,7 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max_[0], bb_max_[1], bb_max_[2]};
 }
 
-void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& center_min, const Vec3& center_max, Vec3& handle_normal){
+void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* local_vertex_position, const Vec3& handle_position, const double& radius, const Eigen::Matrix3d& frame_inverse, const float& local_min_depth, const float& local_max_depth){
 
 	CMap2::Volume v = add_prism(m, 6);
 
@@ -66,108 +66,52 @@ void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const 
 		CMap2::Vertex(f1), CMap2::Vertex(phi1(m, f1)), CMap2::Vertex(phi<1, 1>(m, f1)), CMap2::Vertex(phi<1, 1, 1>(m, f1)), CMap2::Vertex(phi<1, 1, 1,1>(m, f1)),CMap2::Vertex(phi_1(m, f1)),
 		CMap2::Vertex(f2), CMap2::Vertex(phi1(m, f2)), CMap2::Vertex(phi<1, 1>(m, f2)), CMap2::Vertex(phi<1, 1, 1>(m, f2)), CMap2::Vertex(phi<1, 1, 1, 1>(m, f2)),CMap2::Vertex(phi_1(m, f2))};
 
-	Vec3 bb_min_ = bb_min;
-	Vec3 bb_max_ = bb_max;
+	Eigen::Vector3d local_vertex0 = {radius*std::cos(0), radius*std::sin(0), local_min_depth}; 
 
-	// plane ax+by+cz+d = 0, with (a,b,c) = handle_normal and (x,y,z) = bb_min (same for bb_max)
-
-	// bbmin belongs to the plane 
-	float d_handle_min = -(handle_normal.dot(bb_min));
-
-	// find alpha such that center + alpha*handle_normal belongs to plane
-	float alpha_min = -d_handle_min - (handle_normal.dot(center_min));
-
-	Eigen::Vector3d center_min_plane = center_min + alpha_min*handle_normal; 
-
-	Vec3 u_min = bb_min - center_min_plane; 
-	u_min.normalize(); 
-
-	Vec3 v_min = handle_normal.cross(u_min); 
-	v_min.normalize();  
-
-	Eigen::Matrix3d frame_min;
-	frame_min.row(0) = u_min;
-	frame_min.row(1) = v_min; 
-	frame_min.row(2) = handle_normal; 
-	Eigen::Matrix3d frame_min_inv = frame_min.inverse();
-
-	Eigen::Vector3d local_bbmin = frame_min * (bb_min - center_min_plane);
-
-	double radius = local_bbmin.norm(); 
-
-	value<Vec3>(m, vertex_position, vertices[0]) = bb_min;
-
-	Eigen::Vector3d local_vertex1 = {radius*std::cos(-M_PI/3), radius*std::sin(-M_PI/3), local_bbmin[2]}; 
+	Eigen::Vector3d local_vertex1 = {radius*std::cos(M_PI/3), radius*std::sin(M_PI/3), local_min_depth}; 
 	
-	Eigen::Vector3d local_vertex2 = {radius*std::cos(-2*M_PI/3), radius*std::sin(-2*M_PI/3), local_bbmin[2]}; 
+	Eigen::Vector3d local_vertex2 = {radius*std::cos(2*M_PI/3), radius*std::sin(2*M_PI/3), local_min_depth}; 
 	
-	Eigen::Vector3d local_vertex3 = {radius*std::cos(-M_PI), radius*std::sin(-M_PI), local_bbmin[2]}; 
+	Eigen::Vector3d local_vertex3 = {radius*std::cos(M_PI), radius*std::sin(M_PI), local_min_depth}; 
 	
-	Eigen::Vector3d local_vertex4 = {radius*std::cos(-4*M_PI/3), radius*std::sin(-4*M_PI/3), local_bbmin[2]}; 
+	Eigen::Vector3d local_vertex4 = {radius*std::cos(4*M_PI/3), radius*std::sin(4*M_PI/3), local_min_depth}; 
 	
-	Eigen::Vector3d local_vertex5 = {radius*std::cos(-5*M_PI/3), radius*std::sin(-5*M_PI/3), local_bbmin[2]}; 
+	Eigen::Vector3d local_vertex5 = {radius*std::cos(5*M_PI/3), radius*std::sin(5*M_PI/3), local_min_depth}; 
 	
-	value<Vec3>(m, vertex_position, vertices[1]) = (frame_min_inv*local_vertex1) + center_min_plane;
+	value<Vec3>(m, local_vertex_position, vertices[0]) = local_vertex0;
+	value<Vec3>(m, local_vertex_position, vertices[1]) = local_vertex1;
+	value<Vec3>(m, local_vertex_position, vertices[2]) = local_vertex2;
+	value<Vec3>(m, local_vertex_position, vertices[3]) = local_vertex3;
+	value<Vec3>(m, local_vertex_position, vertices[4]) = local_vertex4;
+	value<Vec3>(m, local_vertex_position, vertices[5]) = local_vertex5;
 
-	value<Vec3>(m, vertex_position, vertices[2]) = frame_min_inv*local_vertex2 + center_min_plane;
+	value<Vec3>(m, vertex_position, vertices[0]) = (frame_inverse*local_vertex0) + handle_position;
+	value<Vec3>(m, vertex_position, vertices[1]) = (frame_inverse*local_vertex1) + handle_position;
+	value<Vec3>(m, vertex_position, vertices[2]) = frame_inverse*local_vertex2 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[3]) = frame_inverse*local_vertex3 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[4]) = frame_inverse*local_vertex4+ handle_position;
+	value<Vec3>(m, vertex_position, vertices[5]) = frame_inverse*local_vertex5 + handle_position;
 
-	value<Vec3>(m, vertex_position, vertices[3]) = frame_min_inv*local_vertex3 + center_min_plane;
-
-	value<Vec3>(m, vertex_position, vertices[4]) = frame_min_inv*local_vertex4+center_min_plane;
-
-	value<Vec3>(m, vertex_position, vertices[5]) = frame_min_inv*local_vertex5 + center_min_plane;
-
-
-
-	// Other side 
-	// bbmax belongs to the plane 
-	float d_handle_max = -(handle_normal.dot(bb_max));
-
-	// find alpha such that center + alpha*handle_normal belongs to plane
-	float alpha_max = -d_handle_max - (handle_normal.dot(center_max));
-
-	Eigen::Vector3d center_max_plane = center_max + alpha_max*handle_normal; 
-
-	Vec3 u_max = bb_max - center_max_plane; 
-	u_max.normalize(); 
-
-	Vec3 v_max = handle_normal.cross(u_max); 
-	v_max.normalize();  
-
-	Eigen::Matrix3d frame_max;
-	frame_max.row(0) = u_max;
-	frame_max.row(1) = v_max; 
-	frame_max.row(2) = handle_normal; 
-	Eigen::Matrix3d frame_max_inv = frame_max.inverse();
-
-	Eigen::Vector3d local_bbmax = frame_max * (bb_max - center_max_plane);
-
-	Eigen::Vector3d local_vertex6 = {radius*std::cos(2*M_PI/3), radius*std::sin(2*M_PI/3), local_bbmax[2]}; 
+	Eigen::Vector3d local_vertex6 = {radius*std::cos(-5*M_PI/3), radius*std::sin(-5*M_PI/3), local_max_depth};
+	Eigen::Vector3d local_vertex7 = {radius*std::cos(0), radius*std::sin(0), local_max_depth}; 
+	Eigen::Vector3d local_vertex8 = {radius*std::cos(-M_PI/3), radius*std::sin(-M_PI/3), local_max_depth}; 
+	Eigen::Vector3d local_vertex9 = {radius*std::cos(-2*M_PI/3), radius*std::sin(-2*M_PI/3), local_max_depth}; 
+	Eigen::Vector3d local_vertex10 = {radius*std::cos(-M_PI), radius*std::sin(-M_PI), local_max_depth}; 
+	Eigen::Vector3d local_vertex11 = {radius*std::cos(-4*M_PI/3), radius*std::sin(-4*M_PI/3), local_max_depth}; 
 	
+	value<Vec3>(m, local_vertex_position, vertices[6]) = local_vertex6;
+	value<Vec3>(m, local_vertex_position, vertices[7]) = local_vertex7;
+	value<Vec3>(m, local_vertex_position, vertices[8]) = local_vertex8;
+	value<Vec3>(m, local_vertex_position, vertices[9]) = local_vertex9;
+	value<Vec3>(m, local_vertex_position, vertices[10]) = local_vertex10;
+	value<Vec3>(m, local_vertex_position, vertices[11]) = local_vertex11;
 
-	Eigen::Vector3d local_vertex7 = {radius*std::cos(M_PI), radius*std::sin(M_PI), local_bbmax[2]}; 
-	
-
-	Eigen::Vector3d local_vertex8 = {radius*std::cos(4*M_PI/3), radius*std::sin(4*M_PI/3), local_bbmax[2]}; 
-	
-
-	Eigen::Vector3d local_vertex9 = {radius*std::cos(5*M_PI/3), radius*std::sin(5*M_PI/3), local_bbmax[2]}; 
-	
-	
-	Eigen::Vector3d local_vertex11 = {radius*std::cos(M_PI/3), radius*std::sin(M_PI/3), local_bbmax[2]};
-
-	value<Vec3>(m, vertex_position, vertices[6]) = frame_max_inv*local_vertex6 + center_max_plane;
-
-	value<Vec3>(m, vertex_position, vertices[7]) = frame_max_inv*local_vertex7 + center_max_plane;
-
-	value<Vec3>(m, vertex_position, vertices[8]) = frame_max_inv*local_vertex8 + center_max_plane;
-
-	value<Vec3>(m, vertex_position, vertices[9]) = frame_max_inv*local_vertex9 + center_max_plane;
-	
-	value<Vec3>(m, vertex_position, vertices[10]) = bb_max;
-
-	value<Vec3>(m, vertex_position, vertices[11]) = frame_max_inv*local_vertex11 + center_max_plane;
-	
+	value<Vec3>(m, vertex_position, vertices[6]) = frame_inverse*local_vertex6 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[7]) = frame_inverse*local_vertex7 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[8]) = frame_inverse*local_vertex8 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[9]) = frame_inverse*local_vertex9 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[10]) = frame_inverse*local_vertex10 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[11]) = frame_inverse*local_vertex11 + handle_position;
 }
 
 

@@ -40,7 +40,7 @@ using Graph = cgogn::IncidenceGraph;
 
 void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max); 
 
-void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& handle_position, const Vec3& inner_handle_position, Vec3& camera_ray); 
+void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* local_vertex_position, const Vec3& handle_position, const double& radius, const Eigen::Matrix3d& frame_inverse, const float& local_min_depth, const float& local_max_depth); 
 
 void set_attribute_position_indices(CMap2& cage, CMap2::Attribute<uint32>* position_indices); 
 

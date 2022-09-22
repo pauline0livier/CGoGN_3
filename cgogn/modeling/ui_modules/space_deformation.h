@@ -392,13 +392,16 @@ private:
 			std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
 				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "position");
 
+			std::shared_ptr<MeshAttribute<Vec3>> i_cage_local_vertex_position =
+				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "local_position");
+
 			mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
 
 			Vec3 i_center = (local_min + local_max) / Scalar(2);
 			Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
 			Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
 
-			hdt->set_influence_cage_handle(i_cage, i_cage_vertex_position.get(), bb_min_, bb_max_, handle_position, inner_handle_position, ray);
+			hdt->set_influence_cage_handle(i_cage, i_cage_vertex_position.get(),i_cage_local_vertex_position.get(), bb_min_, bb_max_, handle_position, ray);
 
 			mesh_provider_->emit_connectivity_changed(*i_cage);
 			mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
@@ -554,7 +557,7 @@ private:
 				});
 	}
 
-	void bind_influence_cage_mvc_handle(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, GRAPH& control_handle, const std::shared_ptr<GraphAttribute<Vec3>>& handle_vertex_position)
+	/*void bind_influence_cage_mvc_handle(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, GRAPH& control_handle, const std::shared_ptr<GraphAttribute<Vec3>>& handle_vertex_position)
 								 		 
 	{
 		selected_hdt_->bind_mvc(object, object_vertex_position); 
@@ -586,7 +589,7 @@ private:
 
 					}
 				});
-	}
+	}*/
 
 	void displayGammaColor(MESH& object)
 	{
@@ -844,7 +847,7 @@ protected:
 						generate_handle(*selected_mesh_, p.vertex_position_, control_set);
 					}
 
-					ImGui::Separator();
+					/*ImGui::Separator();
 					ImGui::Text("Binding");
 
 					if (handle_container_.size() > 0)
@@ -907,7 +910,7 @@ protected:
 							}
 
 					}
-					}
+					}*/
 				}
 
 				if (selected_tool_ == Axis)

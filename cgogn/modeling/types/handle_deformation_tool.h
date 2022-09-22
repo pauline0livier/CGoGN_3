@@ -38,32 +38,102 @@ class HandleDeformationTool : public SpaceDeformationTool<MESH>
 	using Graph = cgogn::IncidenceGraph;
 
 public:
+template <typename T>
+	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
+	using MeshVertex = typename mesh_traits<MESH>::Vertex;
 
 	Graph* control_handle_;
 	std::shared_ptr<Graph::Attribute<Vec3>> control_handle_vertex_position_;
 	std::shared_ptr<boost::synapse::connection> handle_attribute_update_connection_;
 
-	HandleDeformationTool():SpaceDeformationTool<MESH>(), control_handle_vertex_position_(nullptr)
+	HandleDeformationTool() : SpaceDeformationTool<MESH>(), control_handle_vertex_position_(nullptr)
 	{
-		
 	}
 
 	~HandleDeformationTool()
-		{
-		}
-
-	void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const Vec3& center1, const Vec3& center2)
 	{
-		control_handle_ = g; 
-		cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, center1, center2); 
+	}
+
+	void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
+						   const Vec3& center1, const Vec3& center2)
+	{
+		control_handle_ = g;
+		cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, center1, center2);
 
 		control_handle_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
 
-		std::shared_ptr<Graph::Attribute<uint32>> position_indices = cgogn::add_attribute<uint32, Graph::Vertex>(*control_handle_, "position_indices");
-		//cgogn::modeling::set_graph_attribute_position_indices(*control_handle_, position_indices.get()); 
+		std::shared_ptr<Graph::Attribute<uint32>> position_indices =
+			cgogn::add_attribute<uint32, Graph::Vertex>(*control_handle_, "position_indices");
+		// cgogn::modeling::set_graph_attribute_position_indices(*control_handle_, position_indices.get());
 	}
 
-		void update_influence_cage_position()
+	void set_influence_cage_handle(MESH* m, CMap2::Attribute<Vec3>* vertex_position,
+								   CMap2::Attribute<Vec3>* local_vertex_position, const Vec3& bb_min,
+								   const Vec3& bb_max, const Vec3& handle_position, Vec3& normal)
+	{
+		SpaceDeformationTool<MESH>::influence_cage_ = m;
+		handle_normal_ = normal;
+		handle_position_ = handle_position; 
+
+		// plane ax+by+cz+d = 0, with (a,b,c) = handle_normal and (x,y,z) = bb_min
+
+		// bbmin belongs to the plane
+		float d_handle_min = -(handle_normal_.dot(bb_min));
+
+		// find alpha such that center + alpha*handle_normal belongs to plane
+		float alpha_min = -d_handle_min - (handle_normal_.dot(handle_position));
+
+		Eigen::Vector3d center_min_plane = handle_position + alpha_min * handle_normal_;
+
+		Vec3 u = bb_min - center_min_plane;
+		u.normalize();
+
+		Vec3 v = handle_normal_.cross(u);
+		v.normalize();
+
+		local_frame_.row(0) = u;
+		local_frame_.row(1) = v;
+		local_frame_.row(2) = handle_normal_;
+		local_frame_inverse_ = local_frame_.inverse();
+
+		const Vec3 local_bb_min = local_frame_ * (bb_min - handle_position_);
+		const Vec3 local_bb_max = local_frame_ * (bb_max - handle_position_);
+
+		std::cout << "min depth " << local_bb_min[2] << std::endl; 
+		std::cout << "max depth " << local_bb_max[2] << std::endl; 
+
+		const double radius = local_bb_min.norm(); 
+
+		/*double dot_product = u.dot(v); 
+		double det = u[0]*v[1]*handle_normal_[2]+u[1]*v[2]*handle_normal_[0]+ u[2]*v[0]*handle_normal_[1] - handle_normal_[0]*v[1]*u[2] - handle_normal_[1]*v[2]*u[0] - handle_normal_[2]*v[0]*u[1]; 
+
+		double angle = std::atan2(det, dot_product); */
+
+		/*dot = x1*x2 + y1*y2 + z1*z2    #between [x1, y1, z1] and [x2, y2, z2]
+		lenSq1 = x1*x1 + y1*y1 + z1*z1
+		lenSq2 = x2*x2 + y2*y2 + z2*z2
+		angle = acos(dot/sqrt(lenSq1 * lenSq2))*/
+
+		double dot_product = u.dot(handle_normal_); 
+		double angle = std::acos(dot_product); 
+
+		std::cout << "angle " << angle << std::endl; 
+		std::cout << "normal " << handle_normal_ << std::endl; 
+
+		cgogn::modeling::create_handle_box(*m, vertex_position, local_vertex_position, handle_position, radius, local_frame_inverse_, local_bb_min[2], local_bb_max[2]);
+
+		SpaceDeformationTool<MESH>::influence_cage_vertex_position_ = cgogn::get_attribute<Vec3, MeshVertex>(*m, "position");
+
+		std::shared_ptr<Attribute<uint32>> position_indices =
+			cgogn::add_attribute<uint32, MeshVertex>(*SpaceDeformationTool<MESH>::influence_cage_, "position_indices");
+		cgogn::modeling::set_attribute_position_indices(*SpaceDeformationTool<MESH>::influence_cage_, position_indices.get());
+
+		std::shared_ptr<Attribute<bool>> marked_vertices =
+			cgogn::add_attribute<bool, MeshVertex>(*SpaceDeformationTool<MESH>::influence_cage_, "marked_vertices");
+		cgogn::modeling::set_attribute_marked_vertices(*SpaceDeformationTool<MESH>::influence_cage_, marked_vertices.get());
+	}
+
+	void update_influence_cage_position()
 	{
 		/*foreach_cell(*control_handle_, [&](Vertex v) -> bool {
 			const Vec3& handle_point = value<Vec3>(*control_handle_, control_handle_vertex_position_, v);
@@ -78,9 +148,13 @@ public:
 		// update influence cage relative to new handle position
 	}
 
-private :
-	
-}; 
+private:
+	Vec3 handle_position_; // also frame_origin 
+
+	Vec3 handle_normal_;
+	Eigen::Matrix3d local_frame_;
+	Eigen::Matrix3d local_frame_inverse_;
+};
 
 } // namespace modeling
 

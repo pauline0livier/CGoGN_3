@@ -91,22 +91,6 @@ class SpaceDeformationTool
 		cgogn::modeling::set_attribute_marked_vertices(*influence_cage_, marked_vertices.get());
 	}
 
-	void set_influence_cage_handle(MESH* m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& handle_position, const Vec3& inner_handle_position, Vec3& camera_ray)
-	{
-		influence_cage_ = m;
-		cgogn::modeling::create_handle_box(*m, vertex_position, bb_min, bb_max, handle_position, inner_handle_position, camera_ray);
-
-		influence_cage_vertex_position_ = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
-
-		std::shared_ptr<Attribute<uint32>> position_indices =
-			cgogn::add_attribute<uint32, Vertex>(*influence_cage_, "position_indices");
-		cgogn::modeling::set_attribute_position_indices(*influence_cage_, position_indices.get());
-
-		std::shared_ptr<Attribute<bool>> marked_vertices =
-			cgogn::add_attribute<bool, Vertex>(*influence_cage_, "marked_vertices");
-		cgogn::modeling::set_attribute_marked_vertices(*influence_cage_, marked_vertices.get());
-	}
-
 	void update_influence_area(const MESH& m, const CMap2::Attribute<Vec3>* vertex_position)
 	{
 		foreach_cell(m, [&](Vertex v) -> bool {
