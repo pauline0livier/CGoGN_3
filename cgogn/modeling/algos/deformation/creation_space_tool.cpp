@@ -144,7 +144,7 @@ void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indi
 }
 
 
-void create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const Vec3& center1, const Vec3& center2){
+Graph::Vertex create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const Vec3& center1, const Vec3& center2){
     
     Graph::Vertex nv = add_vertex(g);
 		
@@ -157,6 +157,8 @@ void create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Att
 	value<Scalar>(g, vertex_radius, nv1) = Scalar(50);
 
 	connect_vertices(g, nv, nv1);
+
+	return nv; 
 }
 
 void create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const std::vector<Vec3>& vertices_positions){

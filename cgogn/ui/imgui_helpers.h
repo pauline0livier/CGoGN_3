@@ -156,7 +156,8 @@ template <template <typename MESH, typename Graph> typename SPACE_DEFORMATION, t
 bool imgui_handle_selector(SPACE_DEFORMATION<MESH,Graph>* space_deformation, const Graph* selected_graph, const std::string& label,
 						 const FUNC& on_change)
 {
-	static_assert(is_func_parameter_same<FUNC, MESH&>::value, "Wrong function parameter type");
+	//static_assert(is_func_parameter_same<FUNC, MESH&>::value, "Wrong function parameter type");
+	
 	if (ImGui::ListBoxHeader(label.c_str(), space_deformation->handle_container_.size()))
 	{
 		space_deformation->foreach_handle([&](Graph& g, const std::string& name) {

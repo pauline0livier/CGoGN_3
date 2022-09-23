@@ -41,8 +41,13 @@ public:
 template <typename T>
 	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
 	using MeshVertex = typename mesh_traits<MESH>::Vertex;
+	using MeshFace = typename mesh_traits<MESH>::Face;
+
+	using Vec2 = geometry::Vec2;
+	using Vec3 = geometry::Vec3;
 
 	Graph* control_handle_;
+
 	std::shared_ptr<Graph::Attribute<Vec3>> control_handle_vertex_position_;
 	std::shared_ptr<boost::synapse::connection> handle_attribute_update_connection_;
 
@@ -58,13 +63,13 @@ template <typename T>
 						   const Vec3& center1, const Vec3& center2)
 	{
 		control_handle_ = g;
-		cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, center1, center2);
-
+		handle_vertex_ = cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, center1, center2);
+ 
 		control_handle_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
 
-		std::shared_ptr<Graph::Attribute<uint32>> position_indices =
-			cgogn::add_attribute<uint32, Graph::Vertex>(*control_handle_, "position_indices");
-		// cgogn::modeling::set_graph_attribute_position_indices(*control_handle_, position_indices.get());
+		/*std::shared_ptr<Graph::Attribute<uint32>> position_indices =
+			cgogn::add_attribute<uint32, Graph::Vertex>(*control_handle_, "position_indices");*/
+		//cgogn::modeling::set_graph_attribute_position_indices(*control_handle_, position_indices.get());
 	}
 
 	void set_influence_cage_handle(MESH* m, CMap2::Attribute<Vec3>* vertex_position,
@@ -122,25 +127,69 @@ template <typename T>
 
 	void update_influence_cage_position()
 	{
-		/*foreach_cell(*control_handle_, [&](Vertex v) -> bool {
-			const Vec3& handle_point = value<Vec3>(*control_handle_, control_handle_vertex_position_, v);
+		handle_position_ = value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_vertex_);
 
-			value<Vec3>(*SpaceDeformationTool<MESH>::influence_cage_,
-						SpaceDeformationTool<MESH>::influence_cage_vertex_position_, v) =
-				((handle_point - center_control_cage_) * 1.5) + center_control_cage_;
+		std::shared_ptr<Attribute<Vec3>> local_position =
+			cgogn::get_attribute<Vec3, MeshVertex>(*SpaceDeformationTool<MESH>::influence_cage_, "local_position");
+
+		foreach_cell(*SpaceDeformationTool<MESH>::influence_cage_, [&](MeshVertex v) -> bool {
+			Vec3 local_point = value<Vec3>(*SpaceDeformationTool<MESH>::influence_cage_, local_position, v); 
+
+			value<Vec3>(*SpaceDeformationTool<MESH>::influence_cage_, SpaceDeformationTool<MESH>::influence_cage_vertex_position_, v) = local_frame_inverse_*local_point + handle_position_;
 
 			return true;
-		});*/
+		});
+	}
 
-		// update influence cage relative to new handle position
+	void set_up_attenuation(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
+	{
+
+		uint32 nbv_object = nb_cells<MeshVertex>(object);
+
+		SpaceDeformationTool<MESH>::attenuation_.resize(nbv_object);
+		SpaceDeformationTool<MESH>::attenuation_.setZero();
+
+		compute_attenuation_cage(object);
+
 	}
 
 private:
+	Graph::Vertex handle_vertex_;
 	Vec3 handle_position_; // also frame_origin 
-
 	Vec3 handle_normal_;
 	Eigen::Matrix3d local_frame_;
 	Eigen::Matrix3d local_frame_inverse_;
+
+	void compute_attenuation_cage(MESH& object)
+	{
+		std::shared_ptr<Attribute<uint32>> cage_face_indices =
+			add_attribute<uint32, MeshFace>(*SpaceDeformationTool<MESH>::influence_cage_, "face_indices");
+
+		cgogn::modeling::set_attribute_face_indices(*SpaceDeformationTool<MESH>::influence_cage_,
+													cage_face_indices.get());
+
+		std::shared_ptr<Attribute<uint32>> object_position_indices =
+			get_attribute<uint32, MeshVertex>(object, "position_indices");
+
+		std::shared_ptr<Attribute<uint32>> i_cage_position_indices =
+			get_attribute<uint32, MeshVertex>(*SpaceDeformationTool<MESH>::influence_cage_, "position_indices");
+
+		uint32 nbf_cage = 2 * nb_cells<MeshFace>(*SpaceDeformationTool<MESH>::influence_cage_);
+		uint32 nbv_cage = nb_cells<MeshVertex>(*SpaceDeformationTool<MESH>::influence_cage_);
+
+		float h = 0.0f;
+		float max_dist = 0.0f; 
+		std::vector<Vec2> attenuation_points;
+		SpaceDeformationTool<MESH>::influence_area_->foreach_cell([&](MeshVertex v) {
+			uint32 surface_point_idx = value<uint32>(object, object_position_indices, v);
+
+			float i_dist = SpaceDeformationTool<MESH>::cage_influence_distance(surface_point_idx, nbf_cage, nbv_cage);
+
+			SpaceDeformationTool<MESH>::attenuation_(surface_point_idx) = (float)sin(0.5*M_PI * (i_dist ));
+		
+		});
+
+	}
 };
 
 } // namespace modeling
