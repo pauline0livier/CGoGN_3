@@ -125,7 +125,7 @@ class SurfaceRender : public ViewModule
 			param_flatPO_->ambient_color_ = {0.7f, 0.0f, 0.0f, 1.0f}; 
 			param_flatPO_->diffuse_color_ = {1.0f, 1.0f, 1.0f, 1.0f}; 
 			param_flatPO_->specular_color_ = {0.089804f, 0.089804f, 0.89804f, 1.0f}; 
-			param_flatPO_->shininess_ = {960.078431}; 
+			param_flatPO_->shininess_ = {960.078431f}; 
 
 
 			param_flat_color_per_vertex_ = rendering::ShaderFlatColorPerVertex::generate_param();

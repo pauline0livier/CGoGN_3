@@ -86,7 +86,6 @@ int main(int argc, char** argv)
 
 
 	cgogn::ui::SurfaceSelectionPO<Mesh> ss(app);
-	//cgogn::ui::SurfaceSelectionPO<Graph> ssg(app);
 	cgogn::ui::GraphSelection<Graph> ssg(app);
 
 	cgogn::ui::SpaceDeformation<Mesh, Graph> sd2(app);
@@ -105,7 +104,6 @@ int main(int argc, char** argv)
 
 	v1->link_module(&ss);
 	v1->link_module(&ssg);
-
 
 	Mesh* m = mp.load_surface_from_file(filename);
 	if (!m)

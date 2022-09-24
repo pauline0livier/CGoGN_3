@@ -46,6 +46,7 @@ template <typename MESH>
 bool import_OBJ(MESH& m, const std::string& filename)
 {
 	static_assert(mesh_traits<MESH>::dimension == 2, "MESH dimension should be 2");
+ 
 
 	using Vertex = typename MESH::Vertex;
 
@@ -58,7 +59,7 @@ bool import_OBJ(MESH& m, const std::string& filename)
 	std::string line, tag;
 	line.reserve(512u);
 
-	std::string tex_name; 
+	std::string tex_name;  
 
 	do
 	{
@@ -73,6 +74,7 @@ bool import_OBJ(MESH& m, const std::string& filename)
 			break; 
 			}
 	} while (!fp.eof());
+ 
 
 	// read vertices position
 	do
@@ -88,6 +90,7 @@ bool import_OBJ(MESH& m, const std::string& filename)
 		}
 		getline_safe(fp, line); // flush line
 	} while (!fp.eof());
+ 
 
 	if (surface_data.nb_vertices_ == 0u)
 	{
@@ -98,9 +101,7 @@ bool import_OBJ(MESH& m, const std::string& filename)
 	// rewind
 	fp.clear();
 	fp.seekg(0, std::ios::beg);
-
-	
-
+ 
 	do
 	{
 		fp >> tag;
@@ -118,7 +119,8 @@ bool import_OBJ(MESH& m, const std::string& filename)
 	fp.seekg(0, std::ios::beg);
 
 	// read faces (vertex indices)
-	//uint32 nb_faces = 0;
+	//uint32 nb_faces = 0; 
+
 	do
 	{
 		fp >> tag;
@@ -147,7 +149,7 @@ bool import_OBJ(MESH& m, const std::string& filename)
 			surface_data.faces_vertex_indices_.insert(surface_data.faces_vertex_indices_.end(), indices.begin(),
 													  indices.end());
 		}
-	} while (!fp.eof());
+	} while (!fp.eof()); 
 
 	if (surface_data.nb_faces_ == 0u)
 	{
@@ -157,7 +159,7 @@ bool import_OBJ(MESH& m, const std::string& filename)
 
 
 	//std::cout << surface_data.mtl_filename << std::endl;
-	//std::cout << surface_data.nb_material << std::endl;
+	//std::cout << surface_data.nb_material << std::endl; 
 
 	import_surface_data(m, surface_data);
 

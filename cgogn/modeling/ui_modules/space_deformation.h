@@ -732,102 +732,86 @@ protected:
 
 					if (cage_container_.size() > 0)
 					{
-						/*if (!imgui_mesh_selector(mesh_provider_, selected_cage_, "Cage", [&](MESH& m) {
-							selected_cage_ = &m;
-								std::cout << "selected cqge found" << std::endl;
-							mesh_provider_->mesh_data(m).outlined_until_ = App::frame_time_ + 1.0;
-							}))
-						{
-							std::cout << "no cqges found" << std::endl;
-						};*/
-						/*SpaceDeformation<MESH, GRAPH>* space_deformation = static_cast<SpaceDeformation<MESH,
-						GRAPH>*>( app_.module("SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")")); if (
-							!imgui_cage_selector(space_deformation, selected_cage_, "Cage",
-												 [&](MESH& m) { selected_cage_ = &m; }))
-						{
-							std::cout << " there is a bug" << std::endl;
-						}*/
 
 						SpaceDeformation<MESH, GRAPH>* space_deformation = static_cast<SpaceDeformation<MESH, GRAPH>*>(
 							app_.module("SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
-						if (!imgui_cage_selector(space_deformation, selected_cage_, "Cage",
+						if (imgui_cage_selector(space_deformation, selected_cage_, "Cage",
 												 [&](MESH& m) { selected_cage_ = &m; }))
 						{
-							// std::cout << " there is a bug" << std::endl;
-						}
+							
+							const std::string cage_name = mesh_provider_->mesh_name(*selected_cage_);
 
-						const std::string cage_name = mesh_provider_->mesh_name(*selected_cage_);
+							std::string prefix = "local_cage";
 
-						std::string prefix = "local_cage";
-						// std::cout << cage_name << " " << prefix << std::endl;
-						if (std::mismatch(prefix.begin(), prefix.end(), cage_name.begin()).first == prefix.end())
-						{
-
-							// inspired from https://github.com/ocornut/imgui/issues/1658
-							const char* items[] = {"MVC", "Green"};
-							std::string current_item = "MVC";
-							ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
-
-							ImGuiStyle& style = ImGui::GetStyle();
-							float w = ImGui::CalcItemWidth();
-							float spacing = style.ItemInnerSpacing.x;
-							float button_sz = ImGui::GetFrameHeight();
-							ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
-							if (ImGui::BeginCombo("##custom combo", current_item.c_str(),
-												  ImGuiComboFlags_NoArrowButton))
-							{
-								for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-								{
-									bool is_selected = (current_item == items[n]);
-									if (ImGui::Selectable(items[n], is_selected))
-										current_item = items[n];
-									if (is_selected)
-										ImGui::SetItemDefaultFocus();
-								}
-								ImGui::EndCombo();
-							}
-
-							// std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> cdt =
-							// cage_container_[cage_name];
-							selected_cdt_ = cage_container_[cage_name];
-							if (ImGui::Button("Bind object"))
+							if (cage_name.size() > 0 && std::mismatch(prefix.begin(), prefix.end(), cage_name.begin()).first == prefix.end())
 							{
 
-								if (current_item == "MVC")
-								{
-									bind_influence_cage_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_,
-															selected_cdt_->control_cage_vertex_position_);
-								}
+								// inspired from https://github.com/ocornut/imgui/issues/1658
+								const char* items[] = {"MVC", "Green"};
+								std::string current_item = "MVC";
+								ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
 
-								else if (current_item == "Green")
+								ImGuiStyle& style = ImGui::GetStyle();
+								float w = ImGui::CalcItemWidth();
+								float spacing = style.ItemInnerSpacing.x;
+								float button_sz = ImGui::GetFrameHeight();
+								ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
+								if (ImGui::BeginCombo("##custom combo", current_item.c_str(),
+													  ImGuiComboFlags_NoArrowButton))
 								{
-									/*if (!cd.local_def)
+									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
 									{
-										bind_object_green(*selected_mesh_, p.vertex_position_, *selected_cage_,
-														  cd.cage_vertex_position_);
+										bool is_selected = (current_item == items[n]);
+										if (ImGui::Selectable(items[n], is_selected))
+											current_item = items[n];
+										if (is_selected)
+											ImGui::SetItemDefaultFocus();
 									}
-									else
-									{
-										bind_local_green(*selected_mesh_, p.vertex_position_, *selected_cage_,
-														 cd.cage_vertex_position_);
-									}*/
-
-									std::cout << "green" << std::endl;
+									ImGui::EndCombo();
 								}
-								else
+
+								std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> cdt =
+								 cage_container_[cage_name];
+								selected_cdt_ = cage_container_[cage_name];
+								if (ImGui::Button("Bind object"))
 								{
-									std::cout << "not available yet" << std::endl;
+
+									if (current_item == "MVC")
+									{
+										bind_influence_cage_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_,selected_cdt_->control_cage_vertex_position_); 
+									
+									}
+
+									else if (current_item == "Green")
+									{
+										/*if (!cd.local_def)
+										{
+											bind_object_green(*selected_mesh_, p.vertex_position_, *selected_cage_,
+															  cd.cage_vertex_position_);
+										}
+										else
+										{
+											bind_local_green(*selected_mesh_, p.vertex_position_, *selected_cage_,
+															 cd.cage_vertex_position_);
+										}*/
+
+										std::cout << "green" << std::endl;
+									}
+									 else
+									{
+										std::cout << "not available yet" << std::endl;
+									}
 								}
+
+								/*ImGui::Separator();
+									float new_smoothing_factor = selected_cdt_->smoothing_factor_;
+									ImGui::SliderFloat("Attenuation factor", &new_smoothing_factor, 0.0f, 1.0f);
+
+									if (new_smoothing_factor != selected_cdt_->smoothing_factor_){
+										selected_cdt_->smoothing_factor_ = new_smoothing_factor;
+										selected_cdt_->update_attenuation(*selected_mesh_);
+									}*/
 							}
-
-							/*ImGui::Separator();
-								float new_smoothing_factor = selected_cdt_->smoothing_factor_;
-								ImGui::SliderFloat("Attenuation factor", &new_smoothing_factor, 0.0f, 1.0f);
-
-								if (new_smoothing_factor != selected_cdt_->smoothing_factor_){
-									selected_cdt_->smoothing_factor_ = new_smoothing_factor;
-									selected_cdt_->update_attenuation(*selected_mesh_);
-								}*/
 						}
 					}
 				}
@@ -848,6 +832,7 @@ protected:
 					ImGui::Separator();
 					ImGui::Text("Binding");
 
+
 					if (handle_container_.size() > 0)
 					{
 						SpaceDeformation<MESH, GRAPH>* space_deformation = static_cast<SpaceDeformation<MESH, GRAPH>*>(
@@ -855,54 +840,60 @@ protected:
 						if (!imgui_handle_selector(space_deformation, selected_handle_, "Handle",
 												   [&](GRAPH& g) { selected_handle_ = &g; }))
 						{
-							// std::cout << " there is a bug" << std::endl;
+							//std::cout << " there is a bug" << std::endl;
+						}
+						else
+						{
+	 
+							const std::string handle_name = graph_provider_->mesh_name(*selected_handle_);
+
+							std::string prefix = "local_handle";
+					
+							if (handle_name.size() > 0 &&
+								 std::mismatch(prefix.begin(), prefix.end(), handle_name.begin()).first == prefix.end())
+							{ 
+								const char* items[] = {"MVC", "Green"};
+								std::string current_item = "MVC";
+								ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
+
+								ImGuiStyle& style = ImGui::GetStyle();
+								float w = ImGui::CalcItemWidth();
+								float spacing = style.ItemInnerSpacing.x;
+								float button_sz = ImGui::GetFrameHeight();
+								ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
+								if (ImGui::BeginCombo("##custom combo", current_item.c_str(),
+													  ImGuiComboFlags_NoArrowButton))
+								{
+									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+									{
+										bool is_selected = (current_item == items[n]);
+										if (ImGui::Selectable(items[n], is_selected))
+											current_item = items[n];
+										if (is_selected)
+											ImGui::SetItemDefaultFocus();
+									}
+									ImGui::EndCombo();
+								}
+
+								selected_hdt_ = handle_container_[handle_name];
+								if (ImGui::Button("Bind object"))
+								{
+
+									if (current_item == "MVC")
+									{
+										bind_influence_cage_mvc_handle(*selected_mesh_, p.vertex_position_,
+																	   *selected_handle_,
+																	   selected_hdt_->control_handle_vertex_position_);
+									}
+
+									else
+									{
+										std::cout << "not available yet" << std::endl;
+									}
+								}
 						}
 
-						const std::string handle_name = graph_provider_->mesh_name(*selected_handle_);
-
-						std::string prefix = "local_handle";
-						if (std::mismatch(prefix.begin(), prefix.end(), handle_name.begin()).first == prefix.end())
-						{
-
-							const char* items[] = {"MVC", "Green"};
-							std::string current_item = "MVC";
-							ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
-
-							ImGuiStyle& style = ImGui::GetStyle();
-							float w = ImGui::CalcItemWidth();
-							float spacing = style.ItemInnerSpacing.x;
-							float button_sz = ImGui::GetFrameHeight();
-							ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
-							if (ImGui::BeginCombo("##custom combo", current_item.c_str(),
-												  ImGuiComboFlags_NoArrowButton))
-							{
-								for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-								{
-									bool is_selected = (current_item == items[n]);
-									if (ImGui::Selectable(items[n], is_selected))
-										current_item = items[n];
-									if (is_selected)
-										ImGui::SetItemDefaultFocus();
-								}
-								ImGui::EndCombo();
-							}
-
-							selected_hdt_ = handle_container_[handle_name];
-							if (ImGui::Button("Bind object"))
-							{
-
-								if (current_item == "MVC")
-								{
-									bind_influence_cage_mvc_handle(*selected_mesh_, p.vertex_position_,
-																   *selected_handle_,
-																   selected_hdt_->control_handle_vertex_position_);
-								}
-
-								else
-								{
-									std::cout << "not available yet" << std::endl;
-								}
-							}
+						
 						}
 					}
 				}

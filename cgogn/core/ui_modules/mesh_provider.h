@@ -358,6 +358,7 @@ public:
 			return it->first;
 		else
 			return "";
+			
 	}
 
 	MeshData<MESH>& mesh_data(const MESH& m)
