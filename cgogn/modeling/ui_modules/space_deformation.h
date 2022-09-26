@@ -490,16 +490,41 @@ private:
 		Eigen::Matrix<float, 1, Eigen::Dynamic> eigen_values = eigen_solver.eigenvalues();
 		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> eigen_vectors = eigen_solver.eigenvectors();
 
+		Eigen::Vector3f main_eigen_vector = cgogn::modeling::sort_eigen_vectors(eigen_values, eigen_vectors); 
+		main_eigen_vector.normalize();
 
-		Eigen::Vector3f main_direction = cgogn::modeling::sort_eigen_vectors(eigen_values, eigen_vectors); 
-		main_direction.normalize(); 
+		Vec3 main_direction = {main_eigen_vector[0], main_eigen_vector[1], main_eigen_vector[2]}; 
 
-		const Vec3 axis_center = {center[0] + 0.1f * ray[0], center[1] + 0.1f * ray[1], center[2] + 0.1f * ray[2]};
+		// loop on control set to find extremum points and height 
+		double min_x = 1000, max_x = 0.0, max_normal = center.dot(ray); 
+		control_set->foreach_cell([&](MeshVertex v) {
+			const Vec3& pos = value<Vec3>(m, vertex_position, v);
+
+			double x_value = pos.dot(main_direction); 
+			double n_value = pos.dot(ray); 
+
+			if (x_value > max_x){
+				max_x = x_value; 
+			} 
+
+			if (x_value < min_x){
+				min_x = x_value; 
+			}
+
+			if (n_value > max_normal){
+				max_normal = n_value; 
+			}
+		}); 
+
+		const Vec3 axis_center = center + (max_normal - center.dot(ray))*ray;
+		const Vec3 extrem_min = axis_center + (min_x - center.dot(main_direction))*main_direction; 
+		const Vec3 extrem_max = axis_center + (max_x - center.dot(main_direction))*main_direction;
+
 
 		std::vector<Vec3> axis_vertices;
-		axis_vertices.push_back({axis_center[0]-0.2f*main_direction(0), axis_center[1]-0.2f*main_direction(1), axis_center[2]-0.2f*main_direction(2)}); 
+		axis_vertices.push_back(extrem_min); 
 		axis_vertices.push_back(axis_center);
-		axis_vertices.push_back({axis_center[0]+0.2f*main_direction(0), axis_center[1]+0.2f*main_direction(1), axis_center[2]+0.2f*main_direction(2)}); 
+		axis_vertices.push_back(extrem_max); 
 
 		const auto [it, inserted] =
 			axis_container_.emplace(axis_name, std::make_shared<cgogn::modeling::AxisDeformationTool<MESH>>());
@@ -524,13 +549,19 @@ private:
 			std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
 				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "position");
 
+			std::shared_ptr<MeshAttribute<Vec3>> i_cage_local_vertex_position =
+				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "local_position");
+
+			std::shared_ptr<MeshAttribute<uint32>> i_cage_local_skeleton =
+				cgogn::add_attribute<uint32, MeshVertex>(*i_cage, "local_skeleton");
+
 			mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
 
 			Vec3 i_center = (local_min + local_max) / Scalar(2);
 			Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
 			Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
 
-			adt->set_influence_cage(i_cage, i_cage_vertex_position.get(), bb_min_, bb_max_);
+			adt->set_influence_cage_axis(i_cage, i_cage_vertex_position.get(), i_cage_local_vertex_position.get(), i_cage_local_skeleton.get(), bb_min_, bb_max_, main_direction, ray);
 
 			mesh_provider_->emit_connectivity_changed(*i_cage);
 			mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());

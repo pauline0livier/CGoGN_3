@@ -42,6 +42,8 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 
 void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* local_vertex_position, const Vec3& handle_position, const double& radius, const Eigen::Matrix3d& frame_inverse, const float& local_min_depth, const float& local_max_depth); 
 
+void create_axis_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* local_vertex_position, Graph::Attribute<uint32>* skeleton_vertex, const std::vector<Vec3>& vertex_coords, const std::vector<Vec3>& local_vertex_coords);
+
 void set_attribute_position_indices(CMap2& cage, CMap2::Attribute<uint32>* position_indices); 
 
 void set_attribute_marked_vertices(CMap2& cage, CMap2::Attribute<bool>* marked_vertices); 
@@ -50,7 +52,7 @@ void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indi
 
 Graph::Vertex create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const Vec3& center1, const Vec3& center2); 
 
-void create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const std::vector<Vec3>& vertices_positions); 
+std::vector<Graph::Vertex> create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const std::vector<Vec3>& vertices_positions); 
 
 void set_graph_attribute_position_indices(Graph& g, Graph::Attribute<uint32>* position_indices); 
 

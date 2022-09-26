@@ -21,17 +21,14 @@
  *                                                                              *
  *******************************************************************************/
 
-
-#include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 #include <cgogn/core/functions/mesh_info.h>
-
+#include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 
 namespace cgogn
 {
 
 namespace modeling
 {
-
 
 void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max)
 {
@@ -56,28 +53,40 @@ void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& b
 	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max_[0], bb_max_[1], bb_max_[2]};
 }
 
-void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* local_vertex_position, const Vec3& handle_position, const double& radius, const Eigen::Matrix3d& frame_inverse, const float& local_min_depth, const float& local_max_depth){
+void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* local_vertex_position,
+					   const Vec3& handle_position, const double& radius, const Eigen::Matrix3d& frame_inverse,
+					   const float& local_max_depth, const float& local_min_depth)
+{
 
 	CMap2::Volume v = add_prism(m, 6);
 
 	Dart f1 = v.dart;
 	Dart f2 = phi<2, 1, 1, 2>(m, f1);
-	std::vector<CMap2::Vertex> vertices = {
-		CMap2::Vertex(f1), CMap2::Vertex(phi1(m, f1)), CMap2::Vertex(phi<1, 1>(m, f1)), CMap2::Vertex(phi<1, 1, 1>(m, f1)), CMap2::Vertex(phi<1, 1, 1,1>(m, f1)),CMap2::Vertex(phi_1(m, f1)),
-		CMap2::Vertex(f2), CMap2::Vertex(phi1(m, f2)), CMap2::Vertex(phi<1, 1>(m, f2)), CMap2::Vertex(phi<1, 1, 1>(m, f2)), CMap2::Vertex(phi<1, 1, 1, 1>(m, f2)),CMap2::Vertex(phi_1(m, f2))};
+	std::vector<CMap2::Vertex> vertices = {CMap2::Vertex(f1),
+										   CMap2::Vertex(phi1(m, f1)),
+										   CMap2::Vertex(phi<1, 1>(m, f1)),
+										   CMap2::Vertex(phi<1, 1, 1>(m, f1)),
+										   CMap2::Vertex(phi<1, 1, 1, 1>(m, f1)),
+										   CMap2::Vertex(phi_1(m, f1)),
+										   CMap2::Vertex(f2),
+										   CMap2::Vertex(phi1(m, f2)),
+										   CMap2::Vertex(phi<1, 1>(m, f2)),
+										   CMap2::Vertex(phi<1, 1, 1>(m, f2)),
+										   CMap2::Vertex(phi<1, 1, 1, 1>(m, f2)),
+										   CMap2::Vertex(phi_1(m, f2))};
 
-	Eigen::Vector3d local_vertex0 = {radius*std::cos(0), radius*std::sin(0), local_min_depth}; 
+	Eigen::Vector3d local_vertex0 = {radius * std::cos(0), radius * std::sin(0), local_max_depth};
 
-	Eigen::Vector3d local_vertex1 = {radius*std::cos(M_PI/3), radius*std::sin(M_PI/3), local_min_depth}; 
-	
-	Eigen::Vector3d local_vertex2 = {radius*std::cos(2*M_PI/3), radius*std::sin(2*M_PI/3), local_min_depth}; 
-	
-	Eigen::Vector3d local_vertex3 = {radius*std::cos(M_PI), radius*std::sin(M_PI), local_min_depth}; 
-	
-	Eigen::Vector3d local_vertex4 = {radius*std::cos(4*M_PI/3), radius*std::sin(4*M_PI/3), local_min_depth}; 
-	
-	Eigen::Vector3d local_vertex5 = {radius*std::cos(5*M_PI/3), radius*std::sin(5*M_PI/3), local_min_depth}; 
-	
+	Eigen::Vector3d local_vertex1 = {radius * std::cos(M_PI / 3), radius * std::sin(M_PI / 3), local_max_depth};
+
+	Eigen::Vector3d local_vertex2 = {radius * std::cos(2 * M_PI / 3), radius * std::sin(2 * M_PI / 3), local_max_depth};
+
+	Eigen::Vector3d local_vertex3 = {radius * std::cos(M_PI), radius * std::sin(M_PI), local_max_depth};
+
+	Eigen::Vector3d local_vertex4 = {radius * std::cos(4 * M_PI / 3), radius * std::sin(4 * M_PI / 3), local_max_depth};
+
+	Eigen::Vector3d local_vertex5 = {radius * std::cos(5 * M_PI / 3), radius * std::sin(5 * M_PI / 3), local_max_depth};
+
 	value<Vec3>(m, local_vertex_position, vertices[0]) = local_vertex0;
 	value<Vec3>(m, local_vertex_position, vertices[1]) = local_vertex1;
 	value<Vec3>(m, local_vertex_position, vertices[2]) = local_vertex2;
@@ -85,20 +94,20 @@ void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2:
 	value<Vec3>(m, local_vertex_position, vertices[4]) = local_vertex4;
 	value<Vec3>(m, local_vertex_position, vertices[5]) = local_vertex5;
 
-	value<Vec3>(m, vertex_position, vertices[0]) = (frame_inverse*local_vertex0) + handle_position;
-	value<Vec3>(m, vertex_position, vertices[1]) = (frame_inverse*local_vertex1) + handle_position;
-	value<Vec3>(m, vertex_position, vertices[2]) = frame_inverse*local_vertex2 + handle_position;
-	value<Vec3>(m, vertex_position, vertices[3]) = frame_inverse*local_vertex3 + handle_position;
-	value<Vec3>(m, vertex_position, vertices[4]) = frame_inverse*local_vertex4+ handle_position;
-	value<Vec3>(m, vertex_position, vertices[5]) = frame_inverse*local_vertex5 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[0]) = (frame_inverse * local_vertex0) + handle_position;
+	value<Vec3>(m, vertex_position, vertices[1]) = (frame_inverse * local_vertex1) + handle_position;
+	value<Vec3>(m, vertex_position, vertices[2]) = frame_inverse * local_vertex2 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[3]) = frame_inverse * local_vertex3 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[4]) = frame_inverse * local_vertex4 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[5]) = frame_inverse * local_vertex5 + handle_position;
 
-	Eigen::Vector3d local_vertex6 = {radius*std::cos(-5*M_PI/3), radius*std::sin(-5*M_PI/3), local_max_depth};
-	Eigen::Vector3d local_vertex7 = {radius*std::cos(0), radius*std::sin(0), local_max_depth}; 
-	Eigen::Vector3d local_vertex8 = {radius*std::cos(-M_PI/3), radius*std::sin(-M_PI/3), local_max_depth}; 
-	Eigen::Vector3d local_vertex9 = {radius*std::cos(-2*M_PI/3), radius*std::sin(-2*M_PI/3), local_max_depth}; 
-	Eigen::Vector3d local_vertex10 = {radius*std::cos(-M_PI), radius*std::sin(-M_PI), local_max_depth}; 
-	Eigen::Vector3d local_vertex11 = {radius*std::cos(-4*M_PI/3), radius*std::sin(-4*M_PI/3), local_max_depth}; 
-	
+	Eigen::Vector3d local_vertex6 = {radius * std::cos(-5 * M_PI / 3), radius * std::sin(-5 * M_PI / 3), local_min_depth};
+	Eigen::Vector3d local_vertex7 = {radius * std::cos(0), radius * std::sin(0), local_min_depth};
+	Eigen::Vector3d local_vertex8 = {radius * std::cos(-M_PI / 3), radius * std::sin(-M_PI / 3), local_min_depth};
+	Eigen::Vector3d local_vertex9 = {radius * std::cos(-2 * M_PI / 3), radius * std::sin(-2 * M_PI / 3), local_min_depth};
+	Eigen::Vector3d local_vertex10 = {radius * std::cos(-M_PI), radius * std::sin(-M_PI), local_min_depth};
+	Eigen::Vector3d local_vertex11 = {radius * std::cos(-4 * M_PI / 3), radius * std::sin(-4 * M_PI / 3), local_min_depth};
+
 	value<Vec3>(m, local_vertex_position, vertices[6]) = local_vertex6;
 	value<Vec3>(m, local_vertex_position, vertices[7]) = local_vertex7;
 	value<Vec3>(m, local_vertex_position, vertices[8]) = local_vertex8;
@@ -106,14 +115,81 @@ void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2:
 	value<Vec3>(m, local_vertex_position, vertices[10]) = local_vertex10;
 	value<Vec3>(m, local_vertex_position, vertices[11]) = local_vertex11;
 
-	value<Vec3>(m, vertex_position, vertices[6]) = frame_inverse*local_vertex6 + handle_position;
-	value<Vec3>(m, vertex_position, vertices[7]) = frame_inverse*local_vertex7 + handle_position;
-	value<Vec3>(m, vertex_position, vertices[8]) = frame_inverse*local_vertex8 + handle_position;
-	value<Vec3>(m, vertex_position, vertices[9]) = frame_inverse*local_vertex9 + handle_position;
-	value<Vec3>(m, vertex_position, vertices[10]) = frame_inverse*local_vertex10 + handle_position;
-	value<Vec3>(m, vertex_position, vertices[11]) = frame_inverse*local_vertex11 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[6]) = frame_inverse * local_vertex6 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[7]) = frame_inverse * local_vertex7 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[8]) = frame_inverse * local_vertex8 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[9]) = frame_inverse * local_vertex9 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[10]) = frame_inverse * local_vertex10 + handle_position;
+	value<Vec3>(m, vertex_position, vertices[11]) = frame_inverse * local_vertex11 + handle_position;
 }
 
+void create_axis_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* local_vertex_position, Graph::Attribute<uint32>* skeleton_vertex, const std::vector<Vec3>& vertex_coords, const std::vector<Vec3>& local_vertex_coords)
+{
+
+	int volume_size = vertex_coords.size()/2;
+	CMap2::Volume v = add_prism(m, volume_size);
+
+	Dart f1 = v.dart;
+	Dart f2 = phi<2, 1, 1, 2>(m, f1);
+	std::vector<CMap2::Vertex> vertices = {CMap2::Vertex(f1),
+										   CMap2::Vertex(phi1(m, f1)),
+										   CMap2::Vertex(phi<1, 1>(m, f1)),
+										   CMap2::Vertex(phi<1, 1, 1>(m, f1)),
+										   CMap2::Vertex(phi<1, 1, 1, 1>(m, f1)),
+										   CMap2::Vertex(phi_1(m, f1)),
+										   CMap2::Vertex(f2),
+										   CMap2::Vertex(phi1(m, f2)),
+										   CMap2::Vertex(phi<1, 1>(m, f2)),
+										   CMap2::Vertex(phi<1, 1, 1>(m, f2)),
+										   CMap2::Vertex(phi<1, 1, 1, 1>(m, f2)),
+										   CMap2::Vertex(phi_1(m, f2))};
+
+	// top 
+	value<uint32>(m, skeleton_vertex, vertices[0]) = 0;
+	value<uint32>(m, skeleton_vertex, vertices[1]) = 0; 
+	value<uint32>(m, skeleton_vertex, vertices[2]) = 1; 
+	value<uint32>(m, skeleton_vertex, vertices[3]) = 2;
+	value<uint32>(m, skeleton_vertex, vertices[4]) = 2;
+	value<uint32>(m, skeleton_vertex, vertices[5]) = 1;
+
+
+	value<Vec3>(m, local_vertex_position, vertices[0]) = local_vertex_coords[4*0+0];
+	value<Vec3>(m, local_vertex_position, vertices[1]) = local_vertex_coords[4*0+1];
+	value<Vec3>(m, local_vertex_position, vertices[2]) = local_vertex_coords[4*1+1];
+	value<Vec3>(m, local_vertex_position, vertices[3]) = local_vertex_coords[4*2+1];
+	value<Vec3>(m, local_vertex_position, vertices[4]) = local_vertex_coords[4*2+0];
+	value<Vec3>(m, local_vertex_position, vertices[5]) = local_vertex_coords[4*1+0];
+
+	value<Vec3>(m, vertex_position, vertices[0]) = vertex_coords[0]; 
+	value<Vec3>(m, vertex_position, vertices[1]) = vertex_coords[1]; 
+	value<Vec3>(m, vertex_position, vertices[2]) = vertex_coords[5];
+	value<Vec3>(m, vertex_position, vertices[3]) = vertex_coords[9];
+	value<Vec3>(m, vertex_position, vertices[4]) = vertex_coords[8];
+	value<Vec3>(m, vertex_position, vertices[5]) = vertex_coords[4]; 
+
+	// bottom
+	value<uint32>(m, skeleton_vertex, vertices[6]) = 0;
+	value<uint32>(m, skeleton_vertex, vertices[7]) = 0; 
+	value<uint32>(m, skeleton_vertex, vertices[8]) = 1; 
+	value<uint32>(m, skeleton_vertex, vertices[9]) = 2;
+	value<uint32>(m, skeleton_vertex, vertices[10]) = 2;
+	value<uint32>(m, skeleton_vertex, vertices[11]) = 1;
+
+	value<Vec3>(m, local_vertex_position, vertices[6]) = local_vertex_coords[4*0+3];
+	value<Vec3>(m, local_vertex_position, vertices[7]) = local_vertex_coords[4*0+2];
+	value<Vec3>(m, local_vertex_position, vertices[8]) = local_vertex_coords[4*1+2];
+	value<Vec3>(m, local_vertex_position, vertices[9]) = local_vertex_coords[4*2+2];
+	value<Vec3>(m, local_vertex_position, vertices[10]) = local_vertex_coords[4*2+3];
+	value<Vec3>(m, local_vertex_position, vertices[11]) = local_vertex_coords[4*1+3];
+
+	value<Vec3>(m, vertex_position, vertices[6]) = vertex_coords[3]; 
+	value<Vec3>(m, vertex_position, vertices[7]) = vertex_coords[2]; 
+	value<Vec3>(m, vertex_position, vertices[8]) = vertex_coords[6]; 
+	value<Vec3>(m, vertex_position, vertices[9]) = vertex_coords[10]; 
+	value<Vec3>(m, vertex_position, vertices[10]) = vertex_coords[11]; 
+	value<Vec3>(m, vertex_position, vertices[11]) = vertex_coords[7]; 
+
+}
 
 void set_attribute_position_indices(CMap2& cage, CMap2::Attribute<uint32>* position_indices)
 {
@@ -143,42 +219,54 @@ void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indi
 	});
 }
 
+Graph::Vertex create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
+							const Vec3& center1, const Vec3& center2)
+{
 
-Graph::Vertex create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const Vec3& center1, const Vec3& center2){
-    
-    Graph::Vertex nv = add_vertex(g);
-		
+	Graph::Vertex nv = add_vertex(g);
+
 	value<Vec3>(g, vertex_position, nv) = center1;
 	value<Scalar>(g, vertex_radius, nv) = Scalar(50);
 
 	Graph::Vertex nv1 = add_vertex(g);
-		
+
 	value<Vec3>(g, vertex_position, nv1) = center2;
 	value<Scalar>(g, vertex_radius, nv1) = Scalar(50);
 
 	connect_vertices(g, nv, nv1);
 
-	return nv; 
+	return nv;
 }
 
-void create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const std::vector<Vec3>& vertices_positions){
-    Graph::Vertex nv = add_vertex(g);
-		
+std::vector<Graph::Vertex> create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_position,
+									   Graph::Attribute<Scalar>* vertex_radius,
+									   const std::vector<Vec3>& vertices_positions)
+{
+
+	std::vector<Graph::Vertex> list_vertex;
+	Graph::Vertex nv = add_vertex(g);
+
+	list_vertex.push_back(nv);
+
 	value<Vec3>(g, vertex_position, nv) = vertices_positions[0];
 	value<Scalar>(g, vertex_radius, nv) = Scalar(50);
 
-	Graph::Vertex lastVertex = nv; 
+	Graph::Vertex lastVertex = nv;
 
-	for (unsigned i  = 1; i < vertices_positions.size(); i++){
+	for (unsigned i = 1; i < vertices_positions.size(); i++)
+	{
 		Graph::Vertex nv1 = add_vertex(g);
-		
+		list_vertex.push_back(nv1);
+
 		value<Vec3>(g, vertex_position, nv1) = vertices_positions[i];
 		value<Scalar>(g, vertex_radius, nv1) = Scalar(50);
 
 		connect_vertices(g, lastVertex, nv1);
 
 		lastVertex = nv1;
-	}	
+	}
+
+	return list_vertex;
 }
 
 void set_graph_attribute_position_indices(Graph& g, Graph::Attribute<uint32>* position_indices)
@@ -191,6 +279,6 @@ void set_graph_attribute_position_indices(Graph& g, Graph::Attribute<uint32>* po
 	});
 }
 
-}
+} // namespace modeling
 
-}
+} // namespace cgogn
