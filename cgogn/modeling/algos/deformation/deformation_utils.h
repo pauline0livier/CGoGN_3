@@ -44,6 +44,8 @@ float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage, const Vec
 const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3& nu); 
 
 const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2); 
+     
+Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>& eigen_values, const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors); 
 
 } // namespace modeling
 

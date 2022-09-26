@@ -433,50 +433,73 @@ private:
 		auto axis_vertex_position = add_attribute<Vec3, GraphVertex>(*axis, "position");
 		auto axis_vertex_radius = add_attribute<Scalar, GraphVertex>(*axis, "radius");
 
+		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
+
 		MeshData<MESH>& md = mesh_provider_->mesh_data(*selected_mesh_);
 		const Vec3& bb_min = md.bb_min_;
 		const Vec3& bb_max = md.bb_max_;
 
-		Vec3 center = {0.0, 0.0, 0.0};
+		Vec3 local_min = {1000.f, 1000.f, 1000.f};
+		Vec3 local_max = {0.f, 0.f, 0.f};
 
-		Vec3 local_min = bb_max;
-		Vec3 local_max = bb_min;
+		Vec3 center = {0.0, 0.0, 0.0};
+		Vec3 normal = {0.0, 0.0, 0.0};
 
 		control_set->foreach_cell([&](MeshVertex v) {
-			const Vec3& pos = value<Vec3>(*selected_mesh_, vertex_position, v);
+			const Vec3& pos = value<Vec3>(m, vertex_position, v);
+			const Vec3& norm = value<Vec3>(*selected_mesh_, mesh_vertex_normal, v);
 
 			center += pos;
+			normal += norm;
 
-			for (int i = 0; i < 3; i++)
+			for (size_t j = 0; j < 3; j++)
 			{
-				if (pos[i] < local_min[i])
+				if (pos[j] < local_min[j])
 				{
-					local_min[i] = pos[i];
+					local_min[j] = pos[j];
 				}
 
-				if (pos[i] > local_max[i])
+				if (pos[j] > local_max[j])
 				{
-					local_max[i] = pos[i];
+					local_max[j] = pos[j];
 				}
 			}
 		});
 
 		center /= control_set->size();
+		normal /= control_set->size();
 
-		Vec3 center1 = center + Vec3{bb_min[0], 0.0, 0.0};
-		Vec3 center1bis = center + Vec3{bb_max[0], 0.0, 0.0};
-		Vec3 center2 = (center1bis + center1) * 0.5;
-		Vec3 center0 = (center1bis * 0.25 + center1 * 0.75);
+		Vec3 ray = normal;
+		ray.normalize();
 
-		double center_pos = (local_max[1] + local_min[1]) / 2.0;
+		Eigen::Matrix3f covariance_matrix; 
+		// inspired from https://gist.github.com/atandrau/847214/882418ab34737699a6b1394d3a28c66e2cc0856f
+		for (int i = 0; i < 3; i++)
+			for (int j = 0; j < 3; j++) {
+				covariance_matrix(i,j) = 0.0;
+				control_set->foreach_cell([&](MeshVertex v) {
+					const Vec3& pos = value<Vec3>(m, vertex_position, v);
+					covariance_matrix(i,j) += (center[i] - pos[i]) * 
+												(center[j] - pos[j]);
+				}); 
+				
+			covariance_matrix(i,j) /= control_set->size() -1;
+		}	
 
-		Vec3 oneExtrem = {local_min[0], center_pos, local_min[2]};
-		Vec3 otherExtrem = {local_min[0], center_pos, local_max[2]};
+		Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>> eigen_solver(covariance_matrix);
+		Eigen::Matrix<float, 1, Eigen::Dynamic> eigen_values = eigen_solver.eigenvalues();
+		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> eigen_vectors = eigen_solver.eigenvectors();
+
+
+		Eigen::Vector3f main_direction = cgogn::modeling::sort_eigen_vectors(eigen_values, eigen_vectors); 
+		main_direction.normalize(); 
+
+		const Vec3 axis_center = {center[0] + 0.1f * ray[0], center[1] + 0.1f * ray[1], center[2] + 0.1f * ray[2]};
 
 		std::vector<Vec3> axis_vertices;
-		axis_vertices.push_back(oneExtrem);
-		axis_vertices.push_back(center0);
-		axis_vertices.push_back(otherExtrem);
+		axis_vertices.push_back({axis_center[0]-0.2f*main_direction(0), axis_center[1]-0.2f*main_direction(1), axis_center[2]-0.2f*main_direction(2)}); 
+		axis_vertices.push_back(axis_center);
+		axis_vertices.push_back({axis_center[0]+0.2f*main_direction(0), axis_center[1]+0.2f*main_direction(1), axis_center[2]+0.2f*main_direction(2)}); 
 
 		const auto [it, inserted] =
 			axis_container_.emplace(axis_name, std::make_shared<cgogn::modeling::AxisDeformationTool<MESH>>());

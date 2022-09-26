@@ -35,8 +35,6 @@ namespace modeling
 // CAGE //
 ///////////
 
-
-
 double getAngleBetweenUnitVectors(const Vec3& a, const Vec3& b)
 {
 	return 2.0 * asin((a - b).norm() / 2.0);
@@ -193,6 +191,34 @@ const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2)
 
 	return -MathConstants::ONE_OVER_FOUR_PI * abs(I[0] - I[1] - sqrt_c * beta);
 }
+
+// from https://github.com/diegomazala/pca/blob/master/src/pca.h
+Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>& eigen_values, const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors)
+	{
+		// Stuff below is done to sort eigen values. This can be done in other ways too. 
+		std::vector<std::pair<int, int>> eigen_value_index_vector;
+		for (int i = 0; i < eigen_values.size(); ++i)
+		{
+			eigen_value_index_vector.push_back(std::make_pair(eigen_values[i], i));
+		}
+
+		/*if (order == sort_order::ascending)
+			std::sort(std::begin(eigen_value_index_vector), std::end(eigen_value_index_vector), std::greater<std::pair<int, int>>());
+		else
+			std::sort(std::begin(eigen_value_index_vector), std::end(eigen_value_index_vector), std::less<std::pair<int, int>>());*/
+		
+		std::sort(std::begin(eigen_value_index_vector), std::end(eigen_value_index_vector), std::greater<std::pair<int, int>>());
+
+		auto sorted_eigen_values = Eigen::Matrix<float, 1, Eigen::Dynamic>(eigen_values.cols());
+		auto sorted_eigen_vectors = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>(eigen_vectors.rows(), eigen_vectors.cols());
+		for (int i = 0; i < eigen_values.size(); ++i)
+		{
+			sorted_eigen_values[i] = eigen_values[eigen_value_index_vector[i].second]; //can also be eigen_value_index_vector[i].first
+			sorted_eigen_vectors.col(i) = eigen_vectors.col(eigen_value_index_vector[i].second);
+		}
+
+		return sorted_eigen_vectors.col(0); 
+	}
 
 } // namespace modeling
 
