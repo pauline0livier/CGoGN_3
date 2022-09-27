@@ -516,10 +516,11 @@ private:
 			}
 		}); 
 
-		const Vec3 axis_center = center + (max_normal - center.dot(ray))*ray;
+		const Vec3 axis_center = center + 2.0*(max_normal - center.dot(ray))*ray;
 		const Vec3 extrem_min = axis_center + (min_x - center.dot(main_direction))*main_direction; 
 		const Vec3 extrem_max = axis_center + (max_x - center.dot(main_direction))*main_direction;
 
+		const double width = (extrem_max - extrem_min).norm()/3.0; 
 
 		std::vector<Vec3> axis_vertices;
 		axis_vertices.push_back(extrem_min); 
@@ -561,7 +562,7 @@ private:
 			Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
 			Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
 
-			adt->set_influence_cage_axis(i_cage, i_cage_vertex_position.get(), i_cage_local_vertex_position.get(), i_cage_local_skeleton.get(), bb_min_, bb_max_, main_direction, ray);
+			adt->set_influence_cage_axis(i_cage, i_cage_vertex_position.get(), i_cage_local_vertex_position.get(), i_cage_local_skeleton.get(), bb_min_, bb_max_, main_direction, ray, width);
 
 			mesh_provider_->emit_connectivity_changed(*i_cage);
 			mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
@@ -571,6 +572,11 @@ private:
 
 			CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
 			adt->influence_area_ = &i_set;
+
+			adt->update_influence_area(m, vertex_position.get());
+
+			mesh_provider_->emit_cells_set_changed(m, adt->influence_area_);
+
 
 			boost::synapse::emit<axis_added>(this, adt);
 		}

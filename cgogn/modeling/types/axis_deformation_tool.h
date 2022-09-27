@@ -25,6 +25,7 @@
 #define CGOGN_MODELING_AXIS_DEFORMATION_TOOL_H_
 
 #include <cgogn/modeling/types/space_deformation_tool.h>
+#include <algorithm>
 
 namespace cgogn
 {
@@ -39,7 +40,7 @@ class AxisDeformationTool : public SpaceDeformationTool<MESH>
 	using Graph = cgogn::IncidenceGraph;
 
 public:
-template <typename T>
+	template <typename T>
 	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
 	using MeshVertex = typename mesh_traits<MESH>::Vertex;
 	using MeshFace = typename mesh_traits<MESH>::Face;
@@ -47,35 +48,34 @@ template <typename T>
 	using Vec2 = geometry::Vec2;
 	using Vec3 = geometry::Vec3;
 
-	Graph* control_axis_; 
-	std::shared_ptr<Graph::Attribute<Vec3>> control_axis_vertex_position_; 
+	Graph* control_axis_;
+	std::shared_ptr<Graph::Attribute<Vec3>> control_axis_vertex_position_;
 
-	AxisDeformationTool():SpaceDeformationTool<MESH>(), control_axis_vertex_position_(nullptr)
+	AxisDeformationTool() : SpaceDeformationTool<MESH>(), control_axis_vertex_position_(nullptr)
 	{
-		
 	}
 
 	~AxisDeformationTool()
 	{
-
 	}
 
-	void create_space_tool(Graph* g, 
-		Graph::Attribute<Vec3>* vertex_position, 
-		Graph::Attribute<Scalar>* vertex_radius, 
-		const std::vector<Vec3>& vertex_coords)
+	void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
+						   const std::vector<Vec3>& vertex_coords)
 	{
-		control_axis_ = g; 
-		axis_skeleton_ = cgogn::modeling::create_axis(*g, vertex_position, vertex_radius, vertex_coords); 
+		control_axis_ = g;
+		axis_skeleton_ = cgogn::modeling::create_axis(*g, vertex_position, vertex_radius, vertex_coords);
 
 		control_axis_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
 
-		std::shared_ptr<Graph::Attribute<uint32>> position_indices = cgogn::add_attribute<uint32, Graph::Vertex>(*control_axis_, "position_indices");
-		//cgogn::modeling::set_graph_attribute_position_indices(*control_axis_, position_indices.get()); 
+		std::shared_ptr<Graph::Attribute<uint32>> position_indices =
+			cgogn::add_attribute<uint32, Graph::Vertex>(*control_axis_, "position_indices");
+		// cgogn::modeling::set_graph_attribute_position_indices(*control_axis_, position_indices.get());
 	}
 
-	void set_influence_cage_axis(MESH* m, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* local_vertex_position, Graph::Attribute<uint32>* skeleton_vertex, const Vec3& bb_min,
-								   const Vec3& bb_max, Vec3& main_direction, Vec3& normal)
+	void set_influence_cage_axis(MESH* m, CMap2::Attribute<Vec3>* vertex_position,
+								 CMap2::Attribute<Vec3>* local_vertex_position,
+								 Graph::Attribute<uint32>* skeleton_vertex, const Vec3& bb_min, const Vec3& bb_max,
+								 Vec3& main_direction, Vec3& normal, const double& width)
 	{
 		SpaceDeformationTool<MESH>::influence_cage_ = m;
 		axis_normal_ = normal;
@@ -88,71 +88,104 @@ template <typename T>
 		local_frame_.row(2) = axis_normal_;
 		local_frame_inverse_ = local_frame_.inverse();
 
-		const int array_size = 4*axis_skeleton_.size(); 
+		const int array_size = 4 * axis_skeleton_.size();
 
-		std::vector<Vec3> vertex_coords(array_size); 
+		std::vector<Vec3> vertex_coords(array_size);
 
-		std::vector<Vec3> local_vertex_coords(array_size); 
+		std::vector<Vec3> local_vertex_coords(array_size);
 
-		for (unsigned int v = 0; v < axis_skeleton_.size(); v++ ){
-			const Vec3 position = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[v]); 
+		for (unsigned int v = 0; v < axis_skeleton_.size(); v++)
+		{
+			const Vec3 position = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[v]);
 
 			const Vec3 local_bb_min = local_frame_ * (bb_min - position);
-			const Vec3 local_bb_max = local_frame_ * (bb_max - position);
+			const Vec3 local_bb_max = local_frame_ * (bb_max - position); 
 
-			double min_y, max_y; 
-			if (local_bb_min[1] < local_bb_max[1]){
-				min_y = local_bb_min[1]; 
-				max_y = local_bb_max[1]; 
+			double n_min = std::min(std::abs(local_bb_min[2]), std::abs(local_bb_max[2])); 
+
+			double n_max = std::max(std::abs(local_bb_min[2]), std::abs(local_bb_max[2])); 
+
+			double front_n, back_n; 
+			if (local_bb_min[2] > local_bb_max[2]){
+				front_n = n_min; 
+				back_n = -n_max; 
 			} else {
-				max_y = local_bb_min[1]; 
-				min_y = local_bb_max[1]; 
+				back_n = n_min; 
+				front_n = -n_max;
 			}
 
-			double min_n, max_n; 
-			if (local_bb_min[2] < local_bb_max[2]){
-				min_n = local_bb_min[2]; 
-				max_n = local_bb_max[2]; 
-			} else {
-				max_n = local_bb_min[2]; 
-				min_n = local_bb_max[2]; 
+			//double front_y, back_y; 
+
+			if (v == 1)
+			{
+				local_vertex_coords[4 * v] = {0.0, -width, front_n};
+				local_vertex_coords[4 * v + 1] = {0.0, width, front_n};
+
+				local_vertex_coords[4 * v + 2] = {0.0, -width, back_n};
+				local_vertex_coords[4 * v + 3] = {0.0, width, back_n};
+			}
+			else
+			{
+				double min_x, max_x;
+				if (local_bb_min[0] < local_bb_max[0])
+				{
+					min_x = local_bb_min[0];
+					max_x = local_bb_max[0];
+				}
+				else
+				{
+					max_x = local_bb_min[0];
+					min_x = local_bb_max[0];
+				}
+
+				if (v == 0)
+				{
+					local_vertex_coords[4 * v] = {max_x, -width, front_n};
+					local_vertex_coords[4 * v + 1] = {max_x, width, front_n};
+
+					local_vertex_coords[4 * v + 2] = {max_x, -width, back_n};
+					local_vertex_coords[4 * v + 3] = {max_x, width, back_n};
+				}
+				else
+				{
+					local_vertex_coords[4 * v] = {min_x, -width, front_n};
+					local_vertex_coords[4 * v + 1] = {min_x, width, front_n};
+
+					local_vertex_coords[4 * v + 2] = {min_x, -width, back_n};
+					local_vertex_coords[4 * v + 3] = {min_x, width, back_n};
+				}
 			}
 
-			local_vertex_coords[4*v] = {0.0, min_y, min_n}; 
-			local_vertex_coords[4*v+1] = {0.0, max_y, min_n}; 
+			vertex_coords[4 * v] = (local_frame_inverse_ * local_vertex_coords[4 * v]) + position;
+			vertex_coords[4 * v + 1] = (local_frame_inverse_ * local_vertex_coords[4 * v + 1]) + position;
 
-			local_vertex_coords[4*v+2] = {0.0, min_y, max_n}; 
-			local_vertex_coords[4*v+3] = {0.0, max_y, max_n};
-
-			vertex_coords[4*v] = (local_frame_inverse_*local_vertex_coords[4*v]) + position;
-			vertex_coords[4*v+1] = (local_frame_inverse_*local_vertex_coords[4*v+1]) + position;
-
-			vertex_coords[4*v+2] = (local_frame_inverse_*local_vertex_coords[4*v+2]) + position;
-			vertex_coords[4*v+3] = (local_frame_inverse_*local_vertex_coords[4*v+3]) + position;
+			vertex_coords[4 * v + 2] = (local_frame_inverse_ * local_vertex_coords[4 * v + 2]) + position;
+			vertex_coords[4 * v + 3] = (local_frame_inverse_ * local_vertex_coords[4 * v + 3]) + position;
 		}
 
-		cgogn::modeling::create_axis_box(*m, vertex_position, local_vertex_position, skeleton_vertex, vertex_coords, local_vertex_coords);
+		cgogn::modeling::create_axis_box(*m, vertex_position, local_vertex_position, skeleton_vertex, vertex_coords,
+										 local_vertex_coords);
 
-		SpaceDeformationTool<MESH>::influence_cage_vertex_position_ = cgogn::get_attribute<Vec3, MeshVertex>(*m, "position");
+		SpaceDeformationTool<MESH>::influence_cage_vertex_position_ =
+			cgogn::get_attribute<Vec3, MeshVertex>(*m, "position");
 
 		std::shared_ptr<Attribute<uint32>> position_indices =
 			cgogn::add_attribute<uint32, MeshVertex>(*SpaceDeformationTool<MESH>::influence_cage_, "position_indices");
-		cgogn::modeling::set_attribute_position_indices(*SpaceDeformationTool<MESH>::influence_cage_, position_indices.get());
+		cgogn::modeling::set_attribute_position_indices(*SpaceDeformationTool<MESH>::influence_cage_,
+														position_indices.get());
 
 		std::shared_ptr<Attribute<bool>> marked_vertices =
 			cgogn::add_attribute<bool, MeshVertex>(*SpaceDeformationTool<MESH>::influence_cage_, "marked_vertices");
-		cgogn::modeling::set_attribute_marked_vertices(*SpaceDeformationTool<MESH>::influence_cage_, marked_vertices.get());
+		cgogn::modeling::set_attribute_marked_vertices(*SpaceDeformationTool<MESH>::influence_cage_,
+													   marked_vertices.get());
 	}
 
-private : 
-
-	std::vector<Graph::Vertex> axis_skeleton_; 
+private:
+	std::vector<Graph::Vertex> axis_skeleton_;
 	Vec3 axis_normal_;
 	Eigen::Matrix3d local_frame_;
 	Eigen::Matrix3d local_frame_inverse_;
-
-
-}; 
+};
 
 } // namespace modeling
 

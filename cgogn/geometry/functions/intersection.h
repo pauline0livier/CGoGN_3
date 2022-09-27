@@ -182,8 +182,7 @@ inline bool intersection_line_plane(const Vec3& point_line, const Vec3& dir_line
 }
 
 //https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
-inline bool intersection_ray_sphere(const Vec3& P, const Vec3& Dir, const Vec3& center, const int& radius, 
-									  Vec3* inter = nullptr)
+inline bool intersection_ray_sphere(const Vec3& P, const Vec3& Dir, const Vec3& center, const int& radius, Vec3* inter = nullptr)
 {
 	Vec3 pC = P - center; 
 	double normU2 = Dir.squaredNorm();  
