@@ -198,7 +198,7 @@ private:
 		mesh_provider_->set_mesh_bb_vertex_position(*cage, cage_vertex_position);
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(m);
-		cgogn::modeling::create_box(*cage, cage_vertex_position.get(), md.bb_min_, md.bb_max_);
+		cgogn::modeling::create_bounding_box(*cage, cage_vertex_position.get(), md.bb_min_, md.bb_max_);
 
 		mesh_provider_->emit_connectivity_changed(*cage);
 		mesh_provider_->emit_attribute_changed(*cage, cage_vertex_position.get());
@@ -230,15 +230,24 @@ private:
 			cgogn::add_attribute<Vec3, MeshVertex>(*l_cage, "position");
 		mesh_provider_->set_mesh_bb_vertex_position(*l_cage, l_cage_vertex_position);
 
+		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
+
 		MeshData<MESH>& md = mesh_provider_->mesh_data(m);
 		const Vec3& bb_min = md.bb_min_;
 		const Vec3& bb_max = md.bb_max_;
 
-		Vec3 local_min = {bb_max[0], bb_max[1], bb_max[2]};
-		Vec3 local_max = {bb_min[0], bb_min[1], bb_min[2]};
+		Vec3 local_min = {1000.0, 1000.0, 1000.0};
+		Vec3 local_max = {0.0, 0.0, 0.0};
+
+		Vec3 center = {0.0, 0.0, 0.0};
+		Vec3 normal = {0.0, 0.0, 0.0};
 
 		control_set->foreach_cell([&](MeshVertex v) {
 			const Vec3& pos = value<Vec3>(m, vertex_position, v);
+			const Vec3& norm = value<Vec3>(m, mesh_vertex_normal, v);
+
+			center += pos;
+			normal += norm;
 
 			for (size_t j = 0; j < 3; j++)
 			{
@@ -254,13 +263,19 @@ private:
 			}
 		});
 
+		center /= control_set->size();
+		normal /= control_set->size();
+
+		Vec3 ray = normal;
+		ray.normalize();
+
 		const auto [it, inserted] =
 			cage_container_.emplace(cage_name, std::make_shared<cgogn::modeling::CageDeformationTool<MESH>>());
 		cgogn::modeling::CageDeformationTool<MESH>* cdt = it->second.get();
 
 		if (inserted)
 		{
-			cdt->create_space_tool(l_cage, l_cage_vertex_position.get(), local_min, local_max);
+			cdt->create_space_tool(l_cage, l_cage_vertex_position.get(), local_min, local_max, center, ray);
 
 			mesh_provider_->emit_connectivity_changed(*l_cage);
 			mesh_provider_->emit_attribute_changed(*l_cage, l_cage_vertex_position.get());
@@ -325,7 +340,7 @@ private:
 
 		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
-		MeshData<MESH>& md = mesh_provider_->mesh_data(*selected_mesh_);
+		MeshData<MESH>& md = mesh_provider_->mesh_data(m);
 		const Vec3& bb_min = md.bb_min_;
 		const Vec3& bb_max = md.bb_max_;
 
@@ -336,8 +351,8 @@ private:
 		Vec3 normal = {0.0, 0.0, 0.0};
 
 		control_set->foreach_cell([&](MeshVertex v) {
-			const Vec3& pos = value<Vec3>(*selected_mesh_, vertex_position, v);
-			const Vec3& norm = value<Vec3>(*selected_mesh_, mesh_vertex_normal, v);
+			const Vec3& pos = value<Vec3>(m, vertex_position, v);
+			const Vec3& norm = value<Vec3>(m, mesh_vertex_normal, v);
 
 			center += pos;
 			normal += norm;
@@ -398,8 +413,11 @@ private:
 			mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
 
 			Vec3 i_center = (local_min + local_max) / Scalar(2);
-			Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
-			Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
+			//Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
+			//Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
+
+			Vec3 bb_min_ = ((local_min - i_center) * 2.5f) + i_center;
+			Vec3 bb_max_ = ((local_max - i_center) * 2.5f) + i_center;
 
 			hdt->set_influence_cage_handle(i_cage, i_cage_vertex_position.get(), i_cage_local_vertex_position.get(),
 										   bb_min_, bb_max_, handle_position, ray);
@@ -435,7 +453,7 @@ private:
 
 		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
-		MeshData<MESH>& md = mesh_provider_->mesh_data(*selected_mesh_);
+		MeshData<MESH>& md = mesh_provider_->mesh_data(m);
 		const Vec3& bb_min = md.bb_min_;
 		const Vec3& bb_max = md.bb_max_;
 
@@ -447,7 +465,7 @@ private:
 
 		control_set->foreach_cell([&](MeshVertex v) {
 			const Vec3& pos = value<Vec3>(m, vertex_position, v);
-			const Vec3& norm = value<Vec3>(*selected_mesh_, mesh_vertex_normal, v);
+			const Vec3& norm = value<Vec3>(m, mesh_vertex_normal, v);
 
 			center += pos;
 			normal += norm;
@@ -577,7 +595,6 @@ private:
 
 			mesh_provider_->emit_cells_set_changed(m, adt->influence_area_);
 
-
 			boost::synapse::emit<axis_added>(this, adt);
 		}
 
@@ -635,7 +652,6 @@ private:
 				&control_handle, [&](GraphAttribute<Vec3>* attribute) {
 					if (handle_vertex_position.get() == attribute)
 					{
-
 							selected_hdt_->update_influence_cage_position();
 
 							MESH* i_cage = selected_hdt_->influence_cage_;
@@ -645,10 +661,12 @@ private:
 
 							mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
 
-							/*selected_hdt_->update_deformation_object_mvc(object, object_vertex_position,
+							selected_hdt_->update_deformation_object_mvc(object, object_vertex_position,
 							p.init_position_);
 
-							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());*/
+							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+					} else {
+						std::cout << " no moving " << std::endl; 
 					}
 				});
 	}

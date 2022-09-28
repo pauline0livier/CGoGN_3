@@ -522,7 +522,7 @@ protected:
 			Parameters& p = parameters_[selected_mesh_];
 
 			rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
-			Vec3 t = drag_pos - previous_drag_pos_;
+			Vec3 t = 0.4*(drag_pos - previous_drag_pos_);
 			p.selected_handle_vertices_set_->foreach_cell(
 				[&](Vertex v) { value<Vec3>(*selected_mesh_, p.vertex_position_, v) += t; });
 			//as_rigid_as_possible(*selected_mesh_);

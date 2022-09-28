@@ -72,12 +72,13 @@ public:
 		// cgogn::modeling::set_graph_attribute_position_indices(*control_axis_, position_indices.get());
 	}
 
-	void set_influence_cage_axis(MESH* m, CMap2::Attribute<Vec3>* vertex_position,
+	void set_influence_cage_axis(MESH* m, 
+								CMap2::Attribute<Vec3>* 				   vertex_position,
 								 CMap2::Attribute<Vec3>* local_vertex_position,
 								 Graph::Attribute<uint32>* skeleton_vertex, const Vec3& bb_min, const Vec3& bb_max,
 								 Vec3& main_direction, Vec3& normal, const double& width)
 	{
-		SpaceDeformationTool<MESH>::influence_cage_ = m;
+		this->influence_cage_ = m;
 		axis_normal_ = normal;
 
 		Vec3 v = axis_normal_.cross(main_direction);
@@ -166,17 +167,17 @@ public:
 		cgogn::modeling::create_axis_box(*m, vertex_position, local_vertex_position, skeleton_vertex, vertex_coords,
 										 local_vertex_coords);
 
-		SpaceDeformationTool<MESH>::influence_cage_vertex_position_ =
+		this->influence_cage_vertex_position_ =
 			cgogn::get_attribute<Vec3, MeshVertex>(*m, "position");
 
 		std::shared_ptr<Attribute<uint32>> position_indices =
-			cgogn::add_attribute<uint32, MeshVertex>(*SpaceDeformationTool<MESH>::influence_cage_, "position_indices");
-		cgogn::modeling::set_attribute_position_indices(*SpaceDeformationTool<MESH>::influence_cage_,
+			cgogn::add_attribute<uint32, MeshVertex>(*(this->influence_cage_), "position_indices");
+		cgogn::modeling::set_attribute_position_indices(*(this->influence_cage_),
 														position_indices.get());
 
 		std::shared_ptr<Attribute<bool>> marked_vertices =
-			cgogn::add_attribute<bool, MeshVertex>(*SpaceDeformationTool<MESH>::influence_cage_, "marked_vertices");
-		cgogn::modeling::set_attribute_marked_vertices(*SpaceDeformationTool<MESH>::influence_cage_,
+			cgogn::add_attribute<bool, MeshVertex>(*(this->influence_cage_), "marked_vertices");
+		cgogn::modeling::set_attribute_marked_vertices(*(this->influence_cage_),
 													   marked_vertices.get());
 	}
 

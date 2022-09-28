@@ -58,10 +58,10 @@ public:
 	{
 	}
 
-	void create_space_tool(MESH* m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max)
+	void create_space_tool(MESH* m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& center, const Vec3& normal)
 	{
 		control_cage_ = m;
-		cgogn::modeling::create_box(*m, vertex_position, bb_min, bb_max);
+		cgogn::modeling::create_cage_box(*m, vertex_position, bb_min, bb_max, center, normal);
 
 		control_cage_vertex_position_ = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
 
@@ -84,8 +84,8 @@ public:
 		foreach_cell(*control_cage_, [&](Vertex v) -> bool {
 			const Vec3& cage_point = value<Vec3>(*control_cage_, control_cage_vertex_position_, v);
 
-			value<Vec3>(*SpaceDeformationTool<MESH>::influence_cage_,
-						SpaceDeformationTool<MESH>::influence_cage_vertex_position_, v) =
+			value<Vec3>(*(this->influence_cage_),
+						this->influence_cage_vertex_position_, v) =
 				((cage_point - center_control_cage_) * 1.5) + center_control_cage_;
 
 			return true;
@@ -117,8 +117,8 @@ public:
 			return true;
 		});
 
-		SpaceDeformationTool<MESH>::attenuation_.resize(nbv_object);
-		SpaceDeformationTool<MESH>::attenuation_.setZero();
+		this->attenuation_.resize(nbv_object);
+		this->attenuation_.setZero();
 
 		compute_attenuation_cage(object);
 
@@ -143,9 +143,9 @@ private:
 	{
 		 
 		std::shared_ptr<Attribute<uint32>> cage_face_indices =
-			add_attribute<uint32, Face>(*SpaceDeformationTool<MESH>::influence_cage_, "face_indices");
+			add_attribute<uint32, Face>(*(this->influence_cage_), "face_indices");
 
-		cgogn::modeling::set_attribute_face_indices(*SpaceDeformationTool<MESH>::influence_cage_,
+		cgogn::modeling::set_attribute_face_indices(*(this->influence_cage_),
 													cage_face_indices.get());
 
 		std::shared_ptr<Attribute<uint32>> object_position_indices =
@@ -155,22 +155,22 @@ private:
 			get_attribute<uint32, Vertex>(*control_cage_, "position_indices");
 
 		std::shared_ptr<Attribute<uint32>> i_cage_position_indices =
-			get_attribute<uint32, Vertex>(*SpaceDeformationTool<MESH>::influence_cage_, "position_indices");
+			get_attribute<uint32, Vertex>(*(this->influence_cage_), "position_indices");
 
-		uint32 nbf_cage = 2 * nb_cells<Face>(*SpaceDeformationTool<MESH>::influence_cage_);
-		uint32 nbv_cage = nb_cells<Vertex>(*SpaceDeformationTool<MESH>::influence_cage_);
+		uint32 nbf_cage = 2 * nb_cells<Face>(*(this->influence_cage_));
+		uint32 nbv_cage = nb_cells<Vertex>(*(this->influence_cage_));
 
 		// first loop to find h
 		//
 		float h = 0.0f;
 		float max_dist = 0.0f; 
 		std::vector<Vec2> attenuation_points;
-		SpaceDeformationTool<MESH>::influence_area_->foreach_cell([&](Vertex v) {
+		this->influence_area_->foreach_cell([&](Vertex v) {
 			uint32 surface_point_idx = value<uint32>(object, object_position_indices, v);
 
-			float i_dist = SpaceDeformationTool<MESH>::cage_influence_distance(surface_point_idx, nbf_cage, nbv_cage);
+			float i_dist = this->cage_influence_distance(surface_point_idx, nbf_cage, nbv_cage);
 
-			SpaceDeformationTool<MESH>::attenuation_(surface_point_idx) = (float)sin(0.5*M_PI * (i_dist ));
+			this->attenuation_(surface_point_idx) = (float)sin(0.5*M_PI * (i_dist ));
 			/*if (control_area_validity_(surface_point_idx) == 1.0f)
 			{
 		
@@ -179,7 +179,7 @@ private:
 					h = i_dist;
 				}
 
-				SpaceDeformationTool<MESH>::attenuation_(surface_point_idx) = 1.0f;
+				this->attenuation_(surface_point_idx) = 1.0f;
 			}
 			else
 			{
@@ -194,8 +194,8 @@ private:
 		
 		/*for (unsigned int i = 0; i < attenuation_points.size(); i++)
 		{
-			//SpaceDeformationTool<MESH>::attenuation_(attenuation_points[i][0]) = 0.5f * ((float)sin(M_PI * ((attenuation_points[i][1] / h) - 0.5f))) + 0.5f;
-			SpaceDeformationTool<MESH>::attenuation_(attenuation_points[i][0]) = (float)sin(0.5*M_PI * (attenuation_points[i][1] / h));
+			//this->attenuation_(attenuation_points[i][0]) = 0.5f * ((float)sin(M_PI * ((attenuation_points[i][1] / h) - 0.5f))) + 0.5f;
+			this->attenuation_(attenuation_points[i][0]) = (float)sin(0.5*M_PI * (attenuation_points[i][1] / h));
 		}*/
 	}
 

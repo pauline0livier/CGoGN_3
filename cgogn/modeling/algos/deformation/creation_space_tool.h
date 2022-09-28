@@ -38,7 +38,9 @@ using Scalar = geometry::Scalar;
 
 using Graph = cgogn::IncidenceGraph;
 
-void create_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max); 
+void create_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max); 
+
+void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& center, const Vec3& normal); 
 
 void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* local_vertex_position, const Vec3& handle_position, const double& radius, const Eigen::Matrix3d& frame_inverse, const float& local_min_depth, const float& local_max_depth); 
 
