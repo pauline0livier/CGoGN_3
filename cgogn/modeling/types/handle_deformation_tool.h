@@ -189,7 +189,7 @@ private:
 			double i_dist = point_to_handle.norm();
 			//this->cage_influence_distance(surface_point_idx, nbf_cage, nbv_cage);
 
-			std::cout << i_dist << std::endl; 
+			//std::cout << i_dist << std::endl; 
 			if (i_dist > max_dist){
 				max_dist = i_dist; 
 			}

@@ -61,6 +61,16 @@ target_link_libraries(def_local_tool_PO
 	${CMAKE_DL_LIBS}
 )
 
+add_executable(def_local_tool_PO_update def_local_tool_PO_update.cpp)
+target_link_libraries(def_local_tool_PO_update
+	cgogn::core
+	cgogn::ui
+	cgogn::io
+	cgogn::rendering
+	cgogn::modeling
+	${CMAKE_DL_LIBS}
+)
+
 add_executable(skeleton_extractor skeleton_extractor.cpp)
 target_link_libraries(skeleton_extractor
 	cgogn::core
@@ -101,6 +111,10 @@ if(APPLE)
 		${CARBON}
 	)
 	target_link_libraries(def_local_tool_PO
+		${CORE_FOUNDATION}
+		${CARBON}
+	)
+	target_link_libraries(def_local_tool_PO_update
 		${CORE_FOUNDATION}
 		${CARBON}
 	)

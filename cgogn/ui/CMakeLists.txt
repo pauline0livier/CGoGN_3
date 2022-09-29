@@ -15,6 +15,8 @@ target_sources(${PROJECT_NAME}
 	PRIVATE
 		"${CMAKE_CURRENT_LIST_DIR}/app.h"
 		"${CMAKE_CURRENT_LIST_DIR}/app.cpp"
+		"${CMAKE_CURRENT_LIST_DIR}/app_PO.h"
+		"${CMAKE_CURRENT_LIST_DIR}/app_PO.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/camera.h"
 		"${CMAKE_CURRENT_LIST_DIR}/camera.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/gl_viewer.h"
@@ -23,9 +25,13 @@ target_sources(${PROJECT_NAME}
 		"${CMAKE_CURRENT_LIST_DIR}/inputs.h"
 		"${CMAKE_CURRENT_LIST_DIR}/module.h"
 		"${CMAKE_CURRENT_LIST_DIR}/module.cpp"
+		"${CMAKE_CURRENT_LIST_DIR}/module_PO.h"
+		"${CMAKE_CURRENT_LIST_DIR}/module_PO.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/moving_frame.h"
 		"${CMAKE_CURRENT_LIST_DIR}/view.h"
 		"${CMAKE_CURRENT_LIST_DIR}/view.cpp"
+		"${CMAKE_CURRENT_LIST_DIR}/view_PO.h"
+		"${CMAKE_CURRENT_LIST_DIR}/view_PO.cpp"
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES

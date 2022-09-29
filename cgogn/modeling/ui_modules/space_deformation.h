@@ -123,7 +123,7 @@ public:
 
 	SpaceDeformation(const App& app)
 		: Module(app, "SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), selected_mesh_(nullptr),
-		  selected_cage_(nullptr), selected_handle_(nullptr)
+		  selected_cage_(nullptr), selected_handle_(nullptr), influence_cage_mode_(true)
 	{
 	}
 	~SpaceDeformation()
@@ -413,11 +413,11 @@ private:
 			mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
 
 			Vec3 i_center = (local_min + local_max) / Scalar(2);
-			//Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
-			//Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
+			Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
+			Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
 
-			Vec3 bb_min_ = ((local_min - i_center) * 2.5f) + i_center;
-			Vec3 bb_max_ = ((local_max - i_center) * 2.5f) + i_center;
+			//Vec3 bb_min_ = ((local_min - i_center) * 2.5f) + i_center;
+			//Vec3 bb_max_ = ((local_max - i_center) * 2.5f) + i_center;
 
 			hdt->set_influence_cage_handle(i_cage, i_cage_vertex_position.get(), i_cage_local_vertex_position.get(),
 										   bb_min_, bb_max_, handle_position, ray);
@@ -1018,6 +1018,8 @@ private:
 	GraphDeformation<GRAPH>* graph_deformation_;
 
 	SelectionTool selected_tool_;
+
+	bool influence_cage_mode_; 
 };
 
 } // namespace ui
