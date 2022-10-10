@@ -82,9 +82,9 @@ class SpaceDeformationTool
 
 		influence_cage_vertex_position_ = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
 
-		std::shared_ptr<Attribute<uint32>> position_indices =
-			cgogn::add_attribute<uint32, Vertex>(*influence_cage_, "position_indices");
-		cgogn::modeling::set_attribute_position_indices(*influence_cage_, position_indices.get());
+		std::shared_ptr<Attribute<uint32>> vertex_index =
+			cgogn::add_attribute<uint32, Vertex>(*influence_cage_, "vertex_index");
+		cgogn::modeling::set_attribute_vertex_index(*influence_cage_, vertex_index.get());
 
 		std::shared_ptr<Attribute<bool>> marked_vertices =
 			cgogn::add_attribute<bool, Vertex>(*influence_cage_, "marked_vertices");
@@ -110,11 +110,11 @@ class SpaceDeformationTool
 	void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
 	{
 
-		std::shared_ptr<Attribute<uint32>> object_position_indices =
-			get_attribute<uint32, Vertex>(object, "position_indices");
+		std::shared_ptr<Attribute<uint32>> object_vertex_index =
+			get_attribute<uint32, Vertex>(object, "vertex_index");
 
-		std::shared_ptr<Attribute<uint32>> cage_position_indices =
-			get_attribute<uint32, Vertex>(*influence_cage_, "position_indices");
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+			get_attribute<uint32, Vertex>(*influence_cage_, "vertex_index");
 
 		std::shared_ptr<Attribute<bool>> cage_marked_vertices =
 			get_attribute<bool, Vertex>(*influence_cage_, "marked_vertices");
@@ -127,7 +127,7 @@ class SpaceDeformationTool
 
 		influence_area_->foreach_cell([&](Vertex v) { 
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
-			uint32 surface_point_idx = value<uint32>(object, object_position_indices, v);
+			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
 			DartMarker dm(*influence_cage_);
 			float sumMVC = 0.0;
@@ -142,7 +142,7 @@ class SpaceDeformationTool
 				{
 					const Vec3& cage_point =
 						value<Vec3>(*influence_cage_, influence_cage_vertex_position_, cage_vertex);
-					uint32 cage_point_idx = value<uint32>(*influence_cage_, cage_position_indices, cage_vertex);
+					uint32 cage_point_idx = value<uint32>(*influence_cage_, cage_vertex_index, cage_vertex);
 
 					float mvc_value = compute_mvc(surface_point, d, *influence_cage_, cage_point,
 												  influence_cage_vertex_position_.get());
@@ -158,7 +158,7 @@ class SpaceDeformationTool
 			}
 
 			parallel_foreach_cell(*influence_cage_, [&](Vertex vc) -> bool {
-				uint32 cage_point_idx2 = value<uint32>(*influence_cage_, cage_position_indices, vc);
+				uint32 cage_point_idx2 = value<uint32>(*influence_cage_, cage_vertex_index, vc);
 
 				coords_(surface_point_idx, cage_point_idx2) = coords_(surface_point_idx, cage_point_idx2) / sumMVC;
 
@@ -180,10 +180,10 @@ class SpaceDeformationTool
 	{
 		 
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
-			cgogn::get_attribute<uint32, Vertex>(object, "position_indices");
+			cgogn::get_attribute<uint32, Vertex>(object, "vertex_index");
 
 		std::shared_ptr<Attribute<uint32>> influence_cage_vertex_index =
-			cgogn::get_attribute<uint32, Vertex>(*influence_cage_, "position_indices");
+			cgogn::get_attribute<uint32, Vertex>(*influence_cage_, "vertex_index");
 
 		influence_area_->foreach_cell([&](Vertex v) -> bool {
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
@@ -223,7 +223,7 @@ protected:
 	{
 
 		std::shared_ptr<Attribute<uint32>> cage_position_index =
-			get_attribute<uint32, Vertex>(*influence_cage_, "position_indices");
+			get_attribute<uint32, Vertex>(*influence_cage_, "vertex_index");
 
 		std::shared_ptr<Attribute<uint32>> cage_face_index =
 			get_attribute<uint32, Face>(*influence_cage_, "face_indices");
@@ -275,14 +275,14 @@ private:
 
 		cgogn::modeling::set_attribute_face_indices(*influence_cage_, cage_face_indices.get());
 
-		std::shared_ptr<Attribute<uint32>> object_position_indices =
-			get_attribute<uint32, Vertex>(object, "position_indices");
+		std::shared_ptr<Attribute<uint32>> object_vertex_index =
+			get_attribute<uint32, Vertex>(object, "vertex_index");
 
 		uint32 nbf_cage = 2 * nb_cells<Face>(*influence_cage_);
 		uint32 nbv_cage = nb_cells<Vertex>(*influence_cage_);
 
 		influence_area_->foreach_cell([&](Vertex v) {
-			uint32 surface_point_idx = value<uint32>(object, object_position_indices, v);
+			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
 			float i_dist = cage_influence_distance(surface_point_idx, nbf_cage, nbv_cage);
 
@@ -298,8 +298,6 @@ private:
 
 	bool local_mvc_pt_surface(Vec3 pt)
 	{
-		std::shared_ptr<Attribute<uint32>> i_position_indices =
-			get_attribute<uint32, Vertex>(*influence_cage_, "position_indices");
 
 		std::shared_ptr<Attribute<bool>> cage_vertex_marked =
 			get_attribute<bool, Vertex>(*influence_cage_, "marked_vertices");

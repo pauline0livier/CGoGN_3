@@ -65,9 +65,9 @@ public:
 
 		control_cage_vertex_position_ = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
 
-		std::shared_ptr<Attribute<uint32>> position_indices =
-			cgogn::add_attribute<uint32, Vertex>(*control_cage_, "position_indices");
-		cgogn::modeling::set_attribute_position_indices(*control_cage_, position_indices.get());
+		std::shared_ptr<Attribute<uint32>> vertex_index =
+			cgogn::add_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
+		cgogn::modeling::set_attribute_vertex_index(*control_cage_, vertex_index.get());
 
 		std::shared_ptr<Attribute<bool>> marked_vertices =
 			cgogn::add_attribute<bool, Vertex>(*control_cage_, "marked_vertices");
@@ -95,8 +95,8 @@ public:
 	void set_up_attenuation(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
  
-		std::shared_ptr<Attribute<uint32>> object_position_indices =
-			get_attribute<uint32, Vertex>(object, "position_indices");
+		std::shared_ptr<Attribute<uint32>> object_vertex_index =
+			get_attribute<uint32, Vertex>(object, "vertex_index");
 
 		uint32 nbv_object = nb_cells<Vertex>(object);
 
@@ -110,7 +110,7 @@ public:
 
 			if (inside_cage)
 			{
-				uint32 surface_point_idx = value<uint32>(object, object_position_indices, v);
+				uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 				control_area_validity_(surface_point_idx) = 1.0f;
 			}
 
@@ -148,14 +148,14 @@ private:
 		cgogn::modeling::set_attribute_face_indices(*(this->influence_cage_),
 													cage_face_indices.get());
 
-		std::shared_ptr<Attribute<uint32>> object_position_indices =
-			get_attribute<uint32, Vertex>(object, "position_indices");
+		std::shared_ptr<Attribute<uint32>> object_vertex_index =
+			get_attribute<uint32, Vertex>(object, "vertex_index");
 
-		std::shared_ptr<Attribute<uint32>> cage_position_indices =
-			get_attribute<uint32, Vertex>(*control_cage_, "position_indices");
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+			get_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
 
-		std::shared_ptr<Attribute<uint32>> i_cage_position_indices =
-			get_attribute<uint32, Vertex>(*(this->influence_cage_), "position_indices");
+		std::shared_ptr<Attribute<uint32>> i_cage_vertex_index =
+			get_attribute<uint32, Vertex>(*(this->influence_cage_), "vertex_index");
 
 		uint32 nbf_cage = 2 * nb_cells<Face>(*(this->influence_cage_));
 		uint32 nbv_cage = nb_cells<Vertex>(*(this->influence_cage_));
@@ -166,7 +166,7 @@ private:
 		float max_dist = 0.0f; 
 		std::vector<Vec2> attenuation_points;
 		this->influence_area_->foreach_cell([&](Vertex v) {
-			uint32 surface_point_idx = value<uint32>(object, object_position_indices, v);
+			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
 			float i_dist = this->cage_influence_distance(surface_point_idx, nbf_cage, nbv_cage);
 
@@ -201,8 +201,8 @@ private:
 
 	bool local_mvc_pt_control_area(Vec3 pt)
 	{
-		std::shared_ptr<Attribute<uint32>> i_position_indices =
-			get_attribute<uint32, Vertex>(*control_cage_, "position_indices");
+		std::shared_ptr<Attribute<uint32>> i_vertex_index =
+			get_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
 
 		std::shared_ptr<Attribute<bool>> cage_vertex_marked =
 			get_attribute<bool, Vertex>(*control_cage_, "marked_vertices");

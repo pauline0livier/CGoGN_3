@@ -124,8 +124,8 @@ int main(int argc, char** argv)
 
 	ss.set_vertex_position(*m, vertex_position);
 
-	auto object_position_indices = cgogn::add_attribute<uint32, cgogn::mesh_traits<Mesh>::Vertex>(*m, "position_indices");
-	cgogn::modeling::set_attribute_position_indices(*m, object_position_indices.get()); 
+	auto object_position_indices = cgogn::add_attribute<uint32, cgogn::mesh_traits<Mesh>::Vertex>(*m, "vertex_index");
+	cgogn::modeling::set_attribute_vertex_index(*m, object_position_indices.get()); 
 
 	sd2.set_selected_mesh(*m);
 	sd2.set_vertex_position(*m, vertex_position);

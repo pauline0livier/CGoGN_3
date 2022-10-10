@@ -34,6 +34,7 @@ namespace modeling
 {
 
 using Vec3 = geometry::Vec3; 
+using Scalar = geometry::Scalar;
 
 
 double getAngleBetweenUnitVectors(const Vec3& a, const Vec3& b); 
@@ -46,6 +47,8 @@ const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3&
 const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2); 
      
 Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>& eigen_values, const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors); 
+
+Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::Attribute<Vec3>* face_gradient, const CMap2::Attribute<Vec3>* vertex_position); 
 
 } // namespace modeling
 

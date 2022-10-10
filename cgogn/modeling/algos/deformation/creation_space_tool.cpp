@@ -261,7 +261,7 @@ void create_axis_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2::A
 	value<Vec3>(m, vertex_position, vertices[11]) = vertex_coords[7];
 }
 
-void set_attribute_position_indices(CMap2& cage, CMap2::Attribute<uint32>* position_indices)
+void set_attribute_vertex_index(CMap2& cage, CMap2::Attribute<uint32>* position_indices)
 {
 	uint32 nb_vertices = 0;
 

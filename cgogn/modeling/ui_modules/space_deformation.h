@@ -123,7 +123,7 @@ public:
 
 	SpaceDeformation(const App& app)
 		: Module(app, "SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), selected_mesh_(nullptr),
-		  selected_cage_(nullptr), selected_handle_(nullptr), influence_cage_mode_(true)
+		  selected_cage_(nullptr), selected_handle_(nullptr), influence_cage_mode_(true), selected_tool_area_(nullptr), selected_influence_area_(nullptr)
 	{
 	}
 	~SpaceDeformation()
@@ -148,7 +148,7 @@ public:
 		uint32 nbv_m = nb_cells<MeshVertex>(m);
 		p.init_position_.resize(nbv_m);
 
-		std::shared_ptr<MeshAttribute<uint32>> vertex_index = get_attribute<uint32, MeshVertex>(m, "position_indices");
+		std::shared_ptr<MeshAttribute<uint32>> vertex_index = get_attribute<uint32, MeshVertex>(m, "vertex_index");
 
 		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
 			const Vec3& surface_point = value<Vec3>(m, vertex_position, v);
@@ -203,9 +203,9 @@ private:
 		mesh_provider_->emit_connectivity_changed(*cage);
 		mesh_provider_->emit_attribute_changed(*cage, cage_vertex_position.get());
 
-		std::shared_ptr<MeshAttribute<uint32>> position_indices =
-			cgogn::add_attribute<uint32, MeshVertex>(*cage, "position_indices");
-		cgogn::modeling::set_attribute_position_indices(*cage, position_indices.get());
+		std::shared_ptr<MeshAttribute<uint32>> vertex_index =
+			cgogn::add_attribute<uint32, MeshVertex>(*cage, "vertex_index");
+		cgogn::modeling::set_attribute_vertex_index(*cage, vertex_index.get());
 
 		p.list_cage_.push_back(cage);
 		// p.list_weights_.push_back(Weights());
@@ -328,7 +328,118 @@ private:
 		return l_cage;
 	}
 
-	GRAPH* generate_handle(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
+	std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> generate_handle_tool(MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
+						   CellsSet<MESH, MeshVertex>* handle_set)
+	{
+		int handle_number = handle_container_.size();
+		std::string handle_name = "local_handle" + std::to_string(handle_number);
+		GRAPH* handle = graph_provider_->add_mesh(handle_name);
+
+		auto handle_vertex_position = add_attribute<Vec3, GraphVertex>(*handle, "position");
+		auto handle_vertex_radius = add_attribute<Scalar, GraphVertex>(*handle, "radius");
+
+		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
+
+		MeshData<MESH>& md = mesh_provider_->mesh_data(m);
+		const Vec3& bb_min = md.bb_min_;
+		const Vec3& bb_max = md.bb_max_;
+
+		Vec3 local_min = {1000.f, 1000.f, 1000.f};
+		Vec3 local_max = {0.f, 0.f, 0.f};
+
+		Vec3 center = {0.0, 0.0, 0.0};
+		Vec3 normal = {0.0, 0.0, 0.0};
+
+		handle_set->foreach_cell([&](MeshVertex v) {
+			const Vec3& pos = value<Vec3>(m, vertex_position, v);
+			const Vec3& norm = value<Vec3>(m, mesh_vertex_normal, v);
+
+			center += pos;
+			normal += norm;
+
+			for (size_t j = 0; j < 3; j++)
+			{
+				if (pos[j] < local_min[j])
+				{
+					local_min[j] = pos[j];
+				}
+
+				if (pos[j] > local_max[j])
+				{
+					local_max[j] = pos[j];
+				}
+			}
+		});
+
+		center /= handle_set->size();
+		normal /= handle_set->size();
+
+		Vec3 ray = normal;
+		ray.normalize();
+
+		// const Vec3 handle_position = center;
+		const Vec3 handle_position = {center[0] + 0.1f * ray[0], center[1] + 0.1f * ray[1], center[2] + 0.1f * ray[2]};
+
+		const Vec3 inner_handle_position = {center[0] - 2.f * ray[0], center[1] - 2.f * ray[1],
+											center[2] - 2.f * ray[2]};
+
+		 
+		MeshVertex closest_vertex; 
+		double min_dist = 1000000;
+		handle_set->foreach_cell([&](MeshVertex v) {
+			const Vec3& pos = value<Vec3>(m, vertex_position, v);
+			
+			double dist = (pos - handle_position).squaredNorm(); 
+			if (dist < min_dist){
+				min_dist = dist; 
+				closest_vertex = v; 
+			}
+
+		});
+
+
+		const auto [it, inserted] =
+			handle_container_.emplace(handle_name, std::make_shared<cgogn::modeling::HandleDeformationTool<MESH>>());
+		cgogn::modeling::HandleDeformationTool<MESH>* hdt = it->second.get();
+
+		if (inserted)
+		{
+
+			hdt->create_space_tool(handle, handle_vertex_position.get(), handle_vertex_radius.get(), handle_position,
+								   inner_handle_position);
+
+			hdt -> set_handle_mesh_vertex(closest_vertex); 
+
+			graph_provider_->emit_connectivity_changed(*handle);
+			graph_provider_->emit_attribute_changed(*handle, handle_vertex_position.get());
+			graph_provider_->emit_attribute_changed(*handle, handle_vertex_radius.get());
+
+			View* v1 = app_.current_view();
+			graph_render_->set_vertex_position(*v1, *handle, handle_vertex_position);
+
+			graph_selection_->set_vertex_position(*handle, handle_vertex_position);
+
+			auto object_geodesic = get_or_add_attribute<Scalar, MeshVertex>(*selected_mesh_, "geodesic_distance");
+			
+			hdt->set_geodesic_distance(m, vertex_position);
+			mesh_provider_->emit_attribute_changed(m, object_geodesic.get());
+			
+
+			boost::synapse::emit<handle_added>(this, hdt);
+		}
+
+		return handle_container_[handle_name];
+	}
+
+	void bind_handle_influence_area(MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position, CellsSet<MESH, MeshVertex>* influence_set){
+
+		selected_hdt_->influence_area_ = influence_set;
+		selected_hdt_->set_influence_area(m, vertex_position);
+
+		mesh_provider_->emit_cells_set_changed(m, selected_hdt_->influence_area_);
+	}
+
+	/*GRAPH* generate_handle(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
 						   CellsSet<MESH, MeshVertex>* control_set)
 	{
 		int handle_number = handle_container_.size();
@@ -439,7 +550,7 @@ private:
 		}
 
 		return handle;
-	}
+	}*/
 
 	GRAPH* generate_axis(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
 						 CellsSet<MESH, MeshVertex>* control_set)
@@ -677,7 +788,7 @@ private:
 		std::shared_ptr<MeshAttribute<Vec3>> gamma_color =
 			cgogn::add_attribute<Vec3, MeshVertex>(object, "color_gamma");
 		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
-			get_attribute<uint32, MeshVertex>(object, "position_indices");
+			get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
 		Parameters& p = parameters_[&object];
 
@@ -896,19 +1007,35 @@ protected:
 
 				if (selected_tool_ == Handle)
 				{
-					CellsSet<MESH, MeshVertex>* control_set = nullptr;
 
-					imgui_combo_cells_set(md, control_set, "Control ",
-										  [&](CellsSet<MESH, MeshVertex>* cs) { control_set = cs; });
+					imgui_combo_cells_set(md, selected_tool_area_, "Handle ",
+										  [&](CellsSet<MESH, MeshVertex>* cs) { selected_tool_area_ = cs; });
 
-					if (control_set && control_set->size() > 0)
-					{
-
-						generate_handle(*selected_mesh_, p.vertex_position_, control_set);
-					}
+					if (selected_tool_area_){
+						selected_hdt_ = generate_handle_tool(*selected_mesh_, p.vertex_position_, selected_tool_area_);
+					}			  
 
 					ImGui::Separator();
 					ImGui::Text("Binding");
+					
+					imgui_combo_cells_set(md, selected_influence_area_, "Influence ",
+										  [&](CellsSet<MESH, MeshVertex>* cs) { selected_influence_area_ = cs; });
+
+					if (selected_tool_area_ && selected_influence_area_)
+					{
+						std::cout << "ready to bind" << std::endl; 
+						bind_handle_influence_area(*selected_mesh_, p.vertex_position_, selected_influence_area_); 
+						std::cout << "ok binding" << std::endl; 
+						//generate_handle_tool(*selected_mesh_, p.vertex_position_, selected_tool_area_, selected_influence_area_);
+						//bind_handle_influence_area(); 
+
+						//displayGammaColor(*selected_mesh_);
+						selected_tool_area_ = nullptr; 
+						selected_influence_area_ = nullptr; 
+					}
+
+					ImGui::Separator();
+					/*ImGui::Text("Binding");
 
 
 					if (handle_container_.size() > 0)
@@ -973,7 +1100,7 @@ protected:
 
 						
 						}
-					}
+					}*/
 				}
 
 				if (selected_tool_ == Axis)
@@ -1016,6 +1143,9 @@ private:
 
 	SurfaceDeformation<MESH>* surface_deformation_;
 	GraphDeformation<GRAPH>* graph_deformation_;
+
+	CellsSet<MESH, MeshVertex>* selected_tool_area_;
+	CellsSet<MESH, MeshVertex>* selected_influence_area_;
 
 	SelectionTool selected_tool_;
 

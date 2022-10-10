@@ -67,9 +67,9 @@ public:
 
 		control_axis_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
 
-		std::shared_ptr<Graph::Attribute<uint32>> position_indices =
-			cgogn::add_attribute<uint32, Graph::Vertex>(*control_axis_, "position_indices");
-		// cgogn::modeling::set_graph_attribute_position_indices(*control_axis_, position_indices.get());
+		std::shared_ptr<Graph::Attribute<uint32>> vertex_index =
+			cgogn::add_attribute<uint32, Graph::Vertex>(*control_axis_, "vertex_index");
+		// cgogn::modeling::set_graph_attribute_vertex_index(*control_axis_, vertex_index.get());
 	}
 
 	void set_influence_cage_axis(MESH* m, 
@@ -170,10 +170,10 @@ public:
 		this->influence_cage_vertex_position_ =
 			cgogn::get_attribute<Vec3, MeshVertex>(*m, "position");
 
-		std::shared_ptr<Attribute<uint32>> position_indices =
-			cgogn::add_attribute<uint32, MeshVertex>(*(this->influence_cage_), "position_indices");
-		cgogn::modeling::set_attribute_position_indices(*(this->influence_cage_),
-														position_indices.get());
+		std::shared_ptr<Attribute<uint32>> vertex_index =
+			cgogn::add_attribute<uint32, MeshVertex>(*(this->influence_cage_), "vertex_index");
+		cgogn::modeling::set_attribute_vertex_index(*(this->influence_cage_),
+														vertex_index.get());
 
 		std::shared_ptr<Attribute<bool>> marked_vertices =
 			cgogn::add_attribute<bool, MeshVertex>(*(this->influence_cage_), "marked_vertices");
