@@ -123,7 +123,7 @@ public:
 
 	SpaceDeformation(const App& app)
 		: Module(app, "SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), selected_mesh_(nullptr),
-		  selected_cage_(nullptr), selected_handle_(nullptr), influence_cage_mode_(true), selected_tool_area_(nullptr), selected_influence_area_(nullptr)
+		  selected_cage_(nullptr), selected_handle_(nullptr), influence_cage_mode_(true)
 	{
 	}
 	~SpaceDeformation()
@@ -431,14 +431,6 @@ private:
 		return handle_container_[handle_name];
 	}
 
-	void bind_handle_influence_area(MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position, CellsSet<MESH, MeshVertex>* influence_set){
-
-		selected_hdt_->influence_area_ = influence_set;
-		selected_hdt_->set_influence_area(m, vertex_position);
-
-		mesh_provider_->emit_cells_set_changed(m, selected_hdt_->influence_area_);
-	}
-
 	/*GRAPH* generate_handle(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
 						   CellsSet<MESH, MeshVertex>* control_set)
 	{
@@ -712,6 +704,9 @@ private:
 		return axis;
 	}
 
+
+/// BIND 
+
 	void bind_influence_cage_mvc(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 								 MESH& control_cage, const std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position)
 
@@ -782,6 +777,39 @@ private:
 				});
 	}
 
+	void bind_handle_influence_area(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, CellsSet<MESH, MeshVertex>* influence_set, GRAPH& control_handle,
+	const std::shared_ptr<GraphAttribute<Vec3>>& handle_vertex_position){
+
+		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
+		CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
+		selected_hdt_->influence_area_ = &i_set;
+
+		selected_hdt_->set_influence_area(object, object_vertex_position, influence_set);
+
+		mesh_provider_->emit_cells_set_changed(object, selected_hdt_->influence_area_);
+
+		displayGammaColor(*selected_mesh_);
+
+		Parameters& p = parameters_[&object];
+
+		selected_hdt_->handle_attribute_update_connection_ =
+			boost::synapse::connect<typename MeshProvider<GRAPH>::template attribute_changed_t<Vec3>>(
+				&control_handle, [&](GraphAttribute<Vec3>* attribute) {
+					if (handle_vertex_position.get() == attribute)
+					{
+
+						selected_hdt_->update_deformation_object(object, object_vertex_position, p.init_position_);
+
+						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+
+					} else {
+						std::cout << " no moving " << std::endl; 
+					}
+				});
+
+
+	}
+
 	void displayGammaColor(MESH& object)
 	{
 
@@ -795,32 +823,33 @@ private:
 		foreach_cell(object, [&](MeshVertex v) -> bool {
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
-			float gamma_value = 0.f;
+			double gamma_value = 0.0;
 
-			for (auto& [name, cdt] : cage_container_)
+			/*for (auto& [name, cdt] : cage_container_)
 			{
 				gamma_value += cdt->attenuation_(surface_point_idx);
-			}
+			}*/
 
 			for (auto& [name, hdt] : handle_container_)
 			{
 				gamma_value += hdt->attenuation_(surface_point_idx);
+			
 			}
 
-			for (auto& [name, adt] : axis_container_)
+			/*for (auto& [name, adt] : axis_container_)
 			{
 				gamma_value += adt->attenuation_(surface_point_idx);
-			}
+			}*/
 
 			Vec3 color;
-			if (gamma_value <= 0.f)
-				color = {0.f, 0.f, 0.f};
+			if (gamma_value <= 0.0)
+				color = {0.0, 0.0, 0.0};
 			else
 			{
-				gamma_value = (gamma_value > 1.f) ? 1.f : gamma_value;
-				color[0] = (1.f + std::sin((gamma_value - 0.5f) * M_PI)) / 2.f;
-				color[1] = std::sin((gamma_value + 2.f) * M_PI);
-				color[2] = (1.f + std::sin((gamma_value + 0.5f) * M_PI)) / 2.f;
+				gamma_value = (gamma_value > 1.0) ? 1.0 : gamma_value;
+				color[0] = (1.0 + std::sin((gamma_value - 0.5) * M_PI)) / 2.0;
+				color[1] = std::sin((gamma_value + 2.0) * M_PI);
+				color[2] = (1.0 + std::sin((gamma_value + 0.5) * M_PI)) / 2.0;
 			}
 
 			value<Vec3>(object, gamma_color, v) = color;
@@ -1008,30 +1037,32 @@ protected:
 				if (selected_tool_ == Handle)
 				{
 
-					imgui_combo_cells_set(md, selected_tool_area_, "Handle ",
-										  [&](CellsSet<MESH, MeshVertex>* cs) { selected_tool_area_ = cs; });
+					CellsSet<MESH, MeshVertex>* control_set = nullptr;
 
-					if (selected_tool_area_){
-						selected_hdt_ = generate_handle_tool(*selected_mesh_, p.vertex_position_, selected_tool_area_);
+					imgui_combo_cells_set(md, control_set, "Handle ",
+										  [&](CellsSet<MESH, MeshVertex>* cs) { control_set = cs; });
+
+					if (control_set && control_set -> size() > 0 ){
+						selected_hdt_ = generate_handle_tool(*selected_mesh_, p.vertex_position_, control_set);
+
+						control_set = nullptr; 
 					}			  
 
 					ImGui::Separator();
 					ImGui::Text("Binding");
+
+					CellsSet<MESH, MeshVertex>* influence_set = nullptr;
 					
-					imgui_combo_cells_set(md, selected_influence_area_, "Influence ",
-										  [&](CellsSet<MESH, MeshVertex>* cs) { selected_influence_area_ = cs; });
+					imgui_combo_cells_set(md, influence_set, "Influence ",
+										  [&](CellsSet<MESH, MeshVertex>* cs) { influence_set = cs; });
 
-					if (selected_tool_area_ && selected_influence_area_)
+					if (selected_hdt_ && influence_set)
 					{
-						std::cout << "ready to bind" << std::endl; 
-						bind_handle_influence_area(*selected_mesh_, p.vertex_position_, selected_influence_area_); 
-						std::cout << "ok binding" << std::endl; 
-						//generate_handle_tool(*selected_mesh_, p.vertex_position_, selected_tool_area_, selected_influence_area_);
-						//bind_handle_influence_area(); 
-
-						//displayGammaColor(*selected_mesh_);
-						selected_tool_area_ = nullptr; 
-						selected_influence_area_ = nullptr; 
+				 
+						bind_handle_influence_area(*selected_mesh_, p.vertex_position_, influence_set, *selected_hdt_->control_handle_,
+							selected_hdt_->control_handle_vertex_position_); 
+						
+						influence_set = nullptr; 
 					}
 
 					ImGui::Separator();
@@ -1143,9 +1174,6 @@ private:
 
 	SurfaceDeformation<MESH>* surface_deformation_;
 	GraphDeformation<GRAPH>* graph_deformation_;
-
-	CellsSet<MESH, MeshVertex>* selected_tool_area_;
-	CellsSet<MESH, MeshVertex>* selected_influence_area_;
 
 	SelectionTool selected_tool_;
 
