@@ -143,7 +143,7 @@ private:
 					Parameters& p = parameters_[m];
 					if (p.vertex_position_.get() == attribute)
 					{
-						p.vertex_base_size_ = float32(geometry::mean_edge_length(*m, p.vertex_position_.get()) / 6);
+						p.vertex_base_size_ = 0.3; //float32(geometry::mean_edge_length(*m, p.vertex_position_.get()) / 6);
 						p.update_selected_vertices_vbo();
 					}
 
@@ -171,7 +171,7 @@ public:
 		p.vertex_position_ = vertex_position;
 		if (p.vertex_position_)
 		{
-			p.vertex_base_size_ = float32(geometry::mean_edge_length(m, p.vertex_position_.get()) / 6); // 6 ???
+			p.vertex_base_size_ = 0.3; //float32(geometry::mean_edge_length(m, p.vertex_position_.get()) / 6); // 6 ???
 			p.update_selected_vertices_vbo(); 
 		}
 

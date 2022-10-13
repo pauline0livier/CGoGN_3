@@ -69,12 +69,14 @@ public:
 	}
 
 	void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
-						   const Vec3& center1, const Vec3& center2)
+						   const Vec3& center1, const Vec3& center2, const Vec3& normal)
 	{
 		control_handle_ = g;
 		handle_vertex_ = cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, center1, center2);
 
 		control_handle_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
+
+		handle_normal_ = normal; 
 	}
 
 	void set_geodesic_distance(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position){
@@ -83,14 +85,13 @@ public:
 
 	void set_influence_area(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position, cgogn::ui::CellsSet<MESH, MeshVertex>* influence_set)
 	{
-		std::cout << "pass here" << std::endl; 
+		 
 		influence_set->foreach_cell([&](MeshVertex v) -> bool {
 
 			influence_area_->select(v);
 			return true; 
 		}); 
-
-		std::cout << "ok set influence area" << std::endl; 
+ 
 		uint32 nbv_object = nb_cells<MeshVertex>(object);
 
 		attenuation_.resize(nbv_object);
@@ -113,11 +114,11 @@ public:
 	{
 		 
 		 // deformation 
-		 Vec3 handle_new_position = value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_vertex_);
+		const Vec3 handle_new_position = value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_vertex_);
 
-		 Vec3 deformation = handle_new_position - handle_position_; 
+		const Vec3 deformation = handle_normal_; //(handle_new_position - handle_position_); 
 
-		 handle_position_ = handle_new_position; 
+		handle_position_ = handle_new_position; 
 
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
 			cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");

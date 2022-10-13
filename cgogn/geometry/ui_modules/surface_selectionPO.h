@@ -285,6 +285,14 @@ public:
 		}
 	}
 
+	void clear_selected_vertices_set(const MESH& m){
+		Parameters& p = parameters_[&m];
+
+		p.selected_vertices_set_->clear();
+		mesh_provider_->emit_cells_set_changed(m, p.selected_vertices_set_);
+
+	}
+
 protected:
 	void init() override
 	{

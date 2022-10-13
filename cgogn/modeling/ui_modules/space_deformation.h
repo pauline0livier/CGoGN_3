@@ -378,7 +378,7 @@ private:
 		ray.normalize();
 
 		// const Vec3 handle_position = center;
-		const Vec3 handle_position = {center[0] + 0.1f * ray[0], center[1] + 0.1f * ray[1], center[2] + 0.1f * ray[2]};
+		const Vec3 handle_position = center; //{center[0] + 0.1f * ray[0], center[1] + 0.1f * ray[1], center[2] + 0.1f * ray[2]};
 
 		const Vec3 inner_handle_position = {center[0] - 2.f * ray[0], center[1] - 2.f * ray[1],
 											center[2] - 2.f * ray[2]};
@@ -406,7 +406,7 @@ private:
 		{
 
 			hdt->create_space_tool(handle, handle_vertex_position.get(), handle_vertex_radius.get(), handle_position,
-								   inner_handle_position);
+								   inner_handle_position, ray);
 
 			hdt -> set_handle_mesh_vertex(closest_vertex); 
 
@@ -418,6 +418,10 @@ private:
 			graph_render_->set_vertex_position(*v1, *handle, handle_vertex_position);
 
 			graph_selection_->set_vertex_position(*handle, handle_vertex_position);
+
+			graph_deformation_->set_vertex_position(*handle, handle_vertex_position);
+
+			graph_deformation_->set_displacement_normal(*handle, ray);
 
 			auto object_geodesic = get_or_add_attribute<Scalar, MeshVertex>(*selected_mesh_, "geodesic_distance");
 			
@@ -1063,6 +1067,8 @@ protected:
 							selected_hdt_->control_handle_vertex_position_); 
 						
 						influence_set = nullptr; 
+
+						surface_selection_->clear_selected_vertices_set(*selected_mesh_);
 					}
 
 					ImGui::Separator();

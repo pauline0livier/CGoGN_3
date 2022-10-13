@@ -528,20 +528,22 @@ protected:
 		{
 			Parameters& p = parameters_[selected_mesh_];
 
-			rendering::GLVec3d drag_pos = (view->unproject(x, y, drag_z_));
-			Vec3 t = (drag_pos - previous_drag_pos_);//0.4*
+			rendering::GLVec3d drag_pos = 0.4*(view->unproject(x, y, drag_z_));
+			Vec3 t = (drag_pos - previous_drag_pos_);//0.4*(drag_pos - previous_drag_pos_);
 			Vec3 t_bis = t.dot(p.normal_)*p.normal_; 
 			p.selected_handle_vertices_set_->foreach_cell(
 				[&](Vertex v) { 
-					 
-					value<Vec3>(*selected_mesh_, p.vertex_position_, v) += p.normal_; //t_bis; 
+					
+					std::cout << "init value " << value<Vec3>(*selected_mesh_, p.vertex_position_, v) << std::endl; 
+					value<Vec3>(*selected_mesh_, p.vertex_position_, v) = value<Vec3>(*selected_mesh_, p.vertex_position_, v) + t_bis; 
+
+					std::cout << "inter value " << value<Vec3>(*selected_mesh_, p.vertex_position_, v); 
 				
 				});
-			//as_rigid_as_possible(*selected_mesh_);	
-			previous_drag_pos_ = previous_drag_pos_ + p.normal_;//drag_pos;//previous_drag_pos_ + t_bis;
-		
-			mesh_provider_->emit_attribute_changed(*selected_mesh_, p.vertex_position_.get());
+			//as_rigid_as_possible(*selected_mesh_);
+			previous_drag_pos_ = previous_drag_pos_ + t_bis;
 
+			mesh_provider_->emit_attribute_changed(*selected_mesh_, p.vertex_position_.get());
 		}
 
 		if (rotating_)

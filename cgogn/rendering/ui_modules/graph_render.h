@@ -142,7 +142,7 @@ private:
 				boost::synapse::connect<typename MeshProvider<MESH>::connectivity_changed>(m, [this, v, m]() {
 					Parameters& p = parameters_[v][m];
 					if (p.vertex_position_)
-						p.vertex_base_size_ = float32(geometry::mean_edge_length(*m, p.vertex_position_.get()) / 7.0);
+						p.vertex_base_size_ = 0.3; //float32(geometry::mean_edge_length(*m, p.vertex_position_.get()) / 7.0);
 					if (p.vertex_base_size_ == 0.0)
 					{
 						MeshData<MESH>& md = mesh_provider_->mesh_data(*m);
@@ -156,8 +156,8 @@ private:
 						Parameters& p = parameters_[v][m];
 						if (p.vertex_position_.get() == attribute)
 						{
-							p.vertex_base_size_ =
-								float32(geometry::mean_edge_length(*m, p.vertex_position_.get()) / 7.0);
+							p.vertex_base_size_ = 0.3; 
+								//float32(geometry::mean_edge_length(*m, p.vertex_position_.get()) / 7.0);
 							if (p.vertex_base_size_ == 0.0)
 							{
 								MeshData<MESH>& md = mesh_provider_->mesh_data(*m);
@@ -181,7 +181,9 @@ public:
 		{
 			MeshData<MESH>& md = mesh_provider_->mesh_data(m);
 			p.vertex_position_vbo_ = md.update_vbo(p.vertex_position_.get(), true);
-			p.vertex_base_size_ = float32(geometry::mean_edge_length(m, p.vertex_position_.get()) / 7.0);
+			p.vertex_base_size_ = 0.3; 
+			
+			//float32(geometry::mean_edge_length(m, p.vertex_position_.get()) / 7.0);
 			if (p.vertex_base_size_ == 0.0)
 				p.vertex_base_size_ = float32((md.bb_max_ - md.bb_min_).norm() / 20.0);
 		}
