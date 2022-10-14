@@ -534,11 +534,11 @@ protected:
 			p.selected_handle_vertices_set_->foreach_cell(
 				[&](Vertex v) { 
 					 
-					value<Vec3>(*selected_mesh_, p.vertex_position_, v) += p.normal_; //t_bis; 
+					value<Vec3>(*selected_mesh_, p.vertex_position_, v) += t_bis; //p.normal_; //t_bis; 
 				
 				});
 			//as_rigid_as_possible(*selected_mesh_);	
-			previous_drag_pos_ = previous_drag_pos_ + p.normal_;//drag_pos;//previous_drag_pos_ + t_bis;
+			previous_drag_pos_ = previous_drag_pos_ + t_bis;//drag_pos;//previous_drag_pos_ + t_bis;
 		
 			mesh_provider_->emit_attribute_changed(*selected_mesh_, p.vertex_position_.get());
 

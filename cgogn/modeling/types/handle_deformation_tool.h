@@ -77,6 +77,7 @@ public:
 		control_handle_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
 
 		handle_normal_ = normal; 
+		handle_position_ = center1; 
 	}
 
 	void set_geodesic_distance(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position){
@@ -116,7 +117,7 @@ public:
 		 // deformation 
 		const Vec3 handle_new_position = value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_vertex_);
 
-		const Vec3 deformation = handle_normal_; //(handle_new_position - handle_position_); 
+		const Vec3 deformation = (handle_new_position - handle_position_); 
 
 		handle_position_ = handle_new_position; 
 
