@@ -851,6 +851,11 @@ private:
 
 	}
 
+	void updateDeformationObject(MESH& object)
+	{
+		
+	}
+
 	void displayGammaColor(MESH& object)
 	{
 
