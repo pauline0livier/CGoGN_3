@@ -91,7 +91,7 @@ class SpaceDeformation : public Module
 
 	struct Parameters
 	{
-		Parameters() : vertex_position_(nullptr), new_cage_(false), nb_cage(0)
+		Parameters() : vertex_position_(nullptr), new_cage_(false), nb_cage(0), nb_tool_(0)
 		{
 		}
 
@@ -109,11 +109,24 @@ class SpaceDeformation : public Module
 
 		std::shared_ptr<MeshAttribute<Vec3>> gammaColor;
 
+		std::vector<Scalar> current_pos_factor_; 
+		std::vector<std::vector<Scalar>> weight_matrix_;
+		std::vector<Vec3> deformation_vector_; 
+		std::vector<Scalar> init_pos_factor_;  
+
+		/*Eigen::VectorXd current_pos_factor_; 
+		Eigen::MatrixXd weight_matrix_; 
+		Eigen::MatrixXd deformation_matrix_; 
+		Eigen::VectorXd init_pos_factor_; 
+		Eigen::MatrixXd init_position_; */
+
 		bool new_cage_;
 
 		std::shared_ptr<boost::synapse::connection> cells_set_connection_;
 
 		int nb_cage;
+
+		int nb_tool_; 
 	};
 
 public:
@@ -133,6 +146,7 @@ public:
 	void init_mesh(MESH* m)
 	{
 		Parameters& p = parameters_[m];
+		p.nb_tool_ = 100; 
 	}
 
 	void set_selected_mesh(MESH& m)
@@ -157,6 +171,29 @@ public:
 			p.init_position_[surface_point_idx] = surface_point;
 			return true;
 		});
+
+		p.current_pos_factor_.resize(nbv_m);
+		std::fill(p.current_pos_factor_.begin(), p.current_pos_factor_.end(), 0.0);
+		
+		p.init_pos_factor_.resize(nbv_m);
+		std::fill(p.init_pos_factor_.begin(), p.init_pos_factor_.end(), 1.0);
+
+		p.deformation_vector_.resize(p.nb_tool_);
+		for (uint32_t i = 0; i < p.deformation_vector_.size(); i++){
+			p.deformation_vector_[i] = {0.0, 0.0, 0.0}; 
+		}
+		
+		p.weight_matrix_ = std::vector<std::vector<Scalar>>(nbv_m, std::vector<Scalar>(p.nb_tool_));
+		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
+			uint32 surface_point_idx = value<uint32>(m, vertex_index, v);
+
+			std::fill(std::begin(p.weight_matrix_[surface_point_idx]), std::end(p.weight_matrix_[surface_point_idx]), 0);;
+			return true;
+		});
+
+
+		//std::fill(vect.begin(), vect.end(), value);
+
 	}
 
 	template <typename FUNC>
