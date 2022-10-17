@@ -818,7 +818,7 @@ private:
 	{
 
 		std::shared_ptr<MeshAttribute<Vec3>> gamma_color =
-			cgogn::add_attribute<Vec3, MeshVertex>(object, "color_gamma");
+			cgogn::get_or_add_attribute<Vec3, MeshVertex>(object, "color_gamma");
 		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
 			get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
@@ -1062,7 +1062,6 @@ protected:
 
 					if (selected_hdt_ && influence_set)
 					{
-				 
 						bind_handle_influence_area(*selected_mesh_, p.vertex_position_, influence_set, *selected_hdt_->control_handle_,
 							selected_hdt_->control_handle_vertex_position_); 
 						

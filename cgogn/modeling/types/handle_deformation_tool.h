@@ -134,7 +134,7 @@ public:
 			Vec3 new_pos_ = surface_point + deformation; 
 			new_pos_ = new_pos_ * current_attenuation;
 
-			Vec3 current_pos = (1.0 - current_attenuation) * init_position[vidx];
+			Vec3 current_pos = (1.0 - current_attenuation) * init_position[vidx]; //surface_point; 
 
 			value<Vec3>(object, object_vertex_position, v) = new_pos_ + current_pos;
 
