@@ -60,6 +60,8 @@ public:
 	std::shared_ptr<Graph::Attribute<Vec3>> control_handle_vertex_position_;
 	std::shared_ptr<boost::synapse::connection> handle_attribute_update_connection_;
 
+	int id_; 
+
 	HandleDeformationTool() : control_handle_vertex_position_(nullptr),influence_area_(nullptr)
 	{
 	}
@@ -69,7 +71,7 @@ public:
 	}
 
 	void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
-						   const Vec3& center1, const Vec3& center2, const Vec3& normal)
+						   const Vec3& center1, const Vec3& center2, const Vec3& normal, const int& handle_number)
 	{
 		control_handle_ = g;
 		handle_vertex_ = cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, center1, center2);
@@ -78,6 +80,7 @@ public:
 
 		handle_normal_ = normal; 
 		handle_position_ = center1; 
+		id_ = handle_number; 
 	}
 
 	void set_geodesic_distance(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position){
@@ -98,7 +101,7 @@ public:
 		attenuation_.resize(nbv_object);
 		attenuation_.setZero();
 
-		compute_attenuation(object, vertex_position);
+		compute_attenuation(object, vertex_position); 
 	}
 
 	void set_up_attenuation(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
@@ -109,6 +112,16 @@ public:
 
 	void set_handle_mesh_vertex(const MeshVertex& m_v){
 		handle_mesh_vertex_ = m_v; 
+	}
+
+	const Vec3 get_handle_deformation(){
+		const Vec3 handle_new_position = value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_vertex_);
+
+		const Vec3 deformation = (handle_new_position - handle_position_); 
+
+		handle_position_ = handle_new_position; 
+
+		return deformation; 
 	}
 
 	void update_deformation_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position, const std::vector<Vec3>& init_position )
@@ -134,7 +147,9 @@ public:
 			Vec3 new_pos_ = surface_point + deformation; 
 			new_pos_ = new_pos_ * current_attenuation;
 
-			Vec3 current_pos = (1.0 - current_attenuation) * (0.1*init_position[vidx] + 0.9*surface_point); 
+			Vec3 current_pos = (1.0 - current_attenuation) * surface_point; //
+			//init_position[vidx]; 
+			//(0.1*init_position[vidx] + 0.9*surface_point); 
 
 			value<Vec3>(object, object_vertex_position, v) = new_pos_ + current_pos;
 

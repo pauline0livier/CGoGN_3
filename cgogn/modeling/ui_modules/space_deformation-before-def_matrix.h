@@ -110,14 +110,15 @@ class SpaceDeformation : public Module
 		std::shared_ptr<MeshAttribute<Vec3>> gammaColor;
 
 		std::vector<std::vector<Scalar>> weight_matrix_;
-		std::vector<std::vector<Scalar>> weight_matrix_update_;
-		std::vector<Vec3> deformation_vector_;
-		std::vector<Vec3> update_deformation_vector_;
+		std::vector<std::vector<Scalar>> weight_matrix_update_; 
+		std::vector<Vec3> deformation_vector_; 
+		std::vector<Vec3> update_deformation_vector_; 
 
-		/*Eigen::VectorXd current_pos_factor_;
-		Eigen::MatrixXd weight_matrix_;
-		Eigen::MatrixXd deformation_matrix_;
-		Eigen::VectorXd init_pos_factor_;
+
+		/*Eigen::VectorXd current_pos_factor_; 
+		Eigen::MatrixXd weight_matrix_; 
+		Eigen::MatrixXd deformation_matrix_; 
+		Eigen::VectorXd init_pos_factor_; 
 		Eigen::MatrixXd init_position_; */
 
 		bool new_cage_;
@@ -126,9 +127,9 @@ class SpaceDeformation : public Module
 
 		int nb_cage;
 
-		int nb_tool_;
+		int nb_tool_; 
 
-		int nb_max_tool_;
+		int nb_max_tool_; 
 	};
 
 public:
@@ -148,7 +149,7 @@ public:
 	void init_mesh(MESH* m)
 	{
 		Parameters& p = parameters_[m];
-		p.nb_max_tool_ = 100;
+		p.nb_max_tool_ = 100; 
 	}
 
 	void set_selected_mesh(MESH& m)
@@ -173,33 +174,31 @@ public:
 			p.init_position_[surface_point_idx] = surface_point;
 			return true;
 		});
-
+		
 		p.deformation_vector_.resize(p.nb_max_tool_);
-		for (uint32_t i = 0; i < p.deformation_vector_.size(); i++)
-		{
-			p.deformation_vector_[i] = {0.0, 0.0, 0.0};
+		for (uint32_t i = 0; i < p.deformation_vector_.size(); i++){
+			p.deformation_vector_[i] = {0.0, 0.0, 0.0}; 
 		}
 
 		p.update_deformation_vector_.resize(p.nb_max_tool_);
-		for (uint32_t i = 0; i < p.update_deformation_vector_.size(); i++)
-		{
-			p.update_deformation_vector_[i] = {0.0, 0.0, 0.0};
+		for (uint32_t i = 0; i < p.update_deformation_vector_.size(); i++){
+			p.update_deformation_vector_[i] = {0.0, 0.0, 0.0}; 
 		}
-
+		
 		p.weight_matrix_ = std::vector<std::vector<Scalar>>(nbv_m, std::vector<Scalar>(p.nb_max_tool_));
 		p.weight_matrix_update_ = std::vector<std::vector<Scalar>>(nbv_m, std::vector<Scalar>(p.nb_max_tool_));
 		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
 			uint32 surface_point_idx = value<uint32>(m, vertex_index, v);
 
-			std::fill(std::begin(p.weight_matrix_[surface_point_idx]), std::end(p.weight_matrix_[surface_point_idx]),
-					  0);
+			std::fill(std::begin(p.weight_matrix_[surface_point_idx]), std::end(p.weight_matrix_[surface_point_idx]), 0);
 
-			std::fill(std::begin(p.weight_matrix_update_[surface_point_idx]),
-					  std::end(p.weight_matrix_update_[surface_point_idx]), 0);
+			std::fill(std::begin(p.weight_matrix_update_[surface_point_idx]), std::end(p.weight_matrix_update_[surface_point_idx]), 0);
 			return true;
 		});
 
-		// std::fill(vect.begin(), vect.end(), value);
+
+		//std::fill(vect.begin(), vect.end(), value);
+
 	}
 
 	template <typename FUNC>
@@ -371,8 +370,8 @@ private:
 		return l_cage;
 	}
 
-	std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> generate_handle_tool(
-		MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position, CellsSet<MESH, MeshVertex>* handle_set)
+	std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> generate_handle_tool(MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
+						   CellsSet<MESH, MeshVertex>* handle_set)
 	{
 		int handle_number = handle_container_.size();
 		std::string handle_name = "local_handle" + std::to_string(handle_number);
@@ -421,24 +420,25 @@ private:
 		ray.normalize();
 
 		// const Vec3 handle_position = center;
-		const Vec3 handle_position =
-			center; //{center[0] + 0.1f * ray[0], center[1] + 0.1f * ray[1], center[2] + 0.1f * ray[2]};
+		const Vec3 handle_position = center; //{center[0] + 0.1f * ray[0], center[1] + 0.1f * ray[1], center[2] + 0.1f * ray[2]};
 
 		const Vec3 inner_handle_position = {center[0] - 2.f * ray[0], center[1] - 2.f * ray[1],
 											center[2] - 2.f * ray[2]};
 
-		MeshVertex closest_vertex;
+		 
+		MeshVertex closest_vertex; 
 		double min_dist = 1000000;
 		handle_set->foreach_cell([&](MeshVertex v) {
 			const Vec3& pos = value<Vec3>(m, vertex_position, v);
-
-			double dist = (pos - handle_position).squaredNorm();
-			if (dist < min_dist)
-			{
-				min_dist = dist;
-				closest_vertex = v;
+			
+			double dist = (pos - handle_position).squaredNorm(); 
+			if (dist < min_dist){
+				min_dist = dist; 
+				closest_vertex = v; 
 			}
+
 		});
+
 
 		const auto [it, inserted] =
 			handle_container_.emplace(handle_name, std::make_shared<cgogn::modeling::HandleDeformationTool<MESH>>());
@@ -448,9 +448,9 @@ private:
 		{
 
 			hdt->create_space_tool(handle, handle_vertex_position.get(), handle_vertex_radius.get(), handle_position,
-								   inner_handle_position, ray, nb_tool);
+								   inner_handle_position, ray);
 
-			hdt->set_handle_mesh_vertex(closest_vertex);
+			hdt -> set_handle_mesh_vertex(closest_vertex); 
 
 			graph_provider_->emit_connectivity_changed(*handle);
 			graph_provider_->emit_attribute_changed(*handle, handle_vertex_position.get());
@@ -466,13 +466,14 @@ private:
 			graph_deformation_->set_displacement_normal(*handle, ray);
 
 			auto object_geodesic = get_or_add_attribute<Scalar, MeshVertex>(*selected_mesh_, "geodesic_distance");
-
+			
 			hdt->set_geodesic_distance(m, vertex_position);
 			mesh_provider_->emit_attribute_changed(m, object_geodesic.get());
+			
 
 			boost::synapse::emit<handle_added>(this, hdt);
 
-			nb_tool++;
+			nb_tool ++; 
 		}
 
 		return handle_container_[handle_name];
@@ -640,64 +641,60 @@ private:
 		Vec3 ray = normal;
 		ray.normalize();
 
-		Eigen::Matrix3f covariance_matrix;
+		Eigen::Matrix3f covariance_matrix; 
 		// inspired from https://gist.github.com/atandrau/847214/882418ab34737699a6b1394d3a28c66e2cc0856f
 		for (int i = 0; i < 3; i++)
-			for (int j = 0; j < 3; j++)
-			{
-				covariance_matrix(i, j) = 0.0;
+			for (int j = 0; j < 3; j++) {
+				covariance_matrix(i,j) = 0.0;
 				control_set->foreach_cell([&](MeshVertex v) {
 					const Vec3& pos = value<Vec3>(m, vertex_position, v);
-					covariance_matrix(i, j) += (center[i] - pos[i]) * (center[j] - pos[j]);
-				});
+					covariance_matrix(i,j) += (center[i] - pos[i]) * 
+												(center[j] - pos[j]);
+				}); 
+				
+			covariance_matrix(i,j) /= control_set->size() -1;
+		}	
 
-				covariance_matrix(i, j) /= control_set->size() - 1;
-			}
-
-		Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>> eigen_solver(
-			covariance_matrix);
+		Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>> eigen_solver(covariance_matrix);
 		Eigen::Matrix<float, 1, Eigen::Dynamic> eigen_values = eigen_solver.eigenvalues();
 		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> eigen_vectors = eigen_solver.eigenvectors();
 
-		Eigen::Vector3f main_eigen_vector = cgogn::modeling::sort_eigen_vectors(eigen_values, eigen_vectors);
+		Eigen::Vector3f main_eigen_vector = cgogn::modeling::sort_eigen_vectors(eigen_values, eigen_vectors); 
 		main_eigen_vector.normalize();
 
-		Vec3 main_direction = {main_eigen_vector[0], main_eigen_vector[1], main_eigen_vector[2]};
+		Vec3 main_direction = {main_eigen_vector[0], main_eigen_vector[1], main_eigen_vector[2]}; 
 
-		// loop on control set to find extremum points and height
-		double min_x = 1000, max_x = 0.0, max_normal = center.dot(ray);
+		// loop on control set to find extremum points and height 
+		double min_x = 1000, max_x = 0.0, max_normal = center.dot(ray); 
 		control_set->foreach_cell([&](MeshVertex v) {
 			const Vec3& pos = value<Vec3>(m, vertex_position, v);
 
-			double x_value = pos.dot(main_direction);
-			double n_value = pos.dot(ray);
+			double x_value = pos.dot(main_direction); 
+			double n_value = pos.dot(ray); 
 
-			if (x_value > max_x)
-			{
-				max_x = x_value;
+			if (x_value > max_x){
+				max_x = x_value; 
+			} 
+
+			if (x_value < min_x){
+				min_x = x_value; 
 			}
 
-			if (x_value < min_x)
-			{
-				min_x = x_value;
+			if (n_value > max_normal){
+				max_normal = n_value; 
 			}
+		}); 
 
-			if (n_value > max_normal)
-			{
-				max_normal = n_value;
-			}
-		});
+		const Vec3 axis_center = center + 2.0*(max_normal - center.dot(ray))*ray;
+		const Vec3 extrem_min = axis_center + (min_x - center.dot(main_direction))*main_direction; 
+		const Vec3 extrem_max = axis_center + (max_x - center.dot(main_direction))*main_direction;
 
-		const Vec3 axis_center = center + 2.0 * (max_normal - center.dot(ray)) * ray;
-		const Vec3 extrem_min = axis_center + (min_x - center.dot(main_direction)) * main_direction;
-		const Vec3 extrem_max = axis_center + (max_x - center.dot(main_direction)) * main_direction;
-
-		const double width = (extrem_max - extrem_min).norm() / 3.0;
+		const double width = (extrem_max - extrem_min).norm()/3.0; 
 
 		std::vector<Vec3> axis_vertices;
-		axis_vertices.push_back(extrem_min);
+		axis_vertices.push_back(extrem_min); 
 		axis_vertices.push_back(axis_center);
-		axis_vertices.push_back(extrem_max);
+		axis_vertices.push_back(extrem_max); 
 
 		const auto [it, inserted] =
 			axis_container_.emplace(axis_name, std::make_shared<cgogn::modeling::AxisDeformationTool<MESH>>());
@@ -717,8 +714,10 @@ private:
 
 			graph_selection_->set_vertex_position(*axis, axis_vertex_position);
 
-			MESH* i_cage = mesh_initialize vector of vectorAttribute < Vec3 >> i_cage_vertex_position =
-							   cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "position");
+			MESH* i_cage = mesh_provider_->add_mesh("i_cage" + axis_number);
+
+			std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
+				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "position");
 
 			std::shared_ptr<MeshAttribute<Vec3>> i_cage_local_vertex_position =
 				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "local_position");
@@ -732,8 +731,7 @@ private:
 			Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
 			Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
 
-			adt->set_influence_cage_axis(i_cage, i_cage_vertex_position.get(), i_cage_local_vertex_position.get(),
-										 i_cage_local_skeleton.get(), bb_min_, bb_max_, main_direction, ray, width);
+			adt->set_influence_cage_axis(i_cage, i_cage_vertex_position.get(), i_cage_local_vertex_position.get(), i_cage_local_skeleton.get(), bb_min_, bb_max_, main_direction, ray, width);
 
 			mesh_provider_->emit_connectivity_changed(*i_cage);
 			mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
@@ -747,537 +745,496 @@ private:
 			adt->update_influence_area(m, vertex_position.get());
 
 			mesh_provider_->emit_cells_set_changed(m, adt->influence_area_);
-			initialize vector of vector
 
-				/// BIND
+			boost::synapse::emit<axis_added>(this, adt);
+		}
 
-				void
-				bind_influence_cage_mvc(
-					MESH & object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
-					MESH& control_cage, const std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position)
+		return axis;
+	}
 
-			{
-				selected_cdt_->bind_mvc(object, object_vertex_position);
-				selected_cdt_->set_up_attenuation(object, object_vertex_position);
 
-				displayGammaColor(object);
+/// BIND 
 
-				Parameters& p = parameters_[&object];
+	void bind_influence_cage_mvc(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
+								 MESH& control_cage, const std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position)
 
-				selected_cdt_->cage_attribute_update_connection_ =
-					boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
-						&control_cage, [&](MeshAttribute<Vec3>* attribute) {
-							if (cage_vertex_position.get() == attribute)
-							{
+	{
+		selected_cdt_->bind_mvc(object, object_vertex_position);
+		selected_cdt_->set_up_attenuation(object, object_vertex_position);
 
-								selected_cdt_->update_influence_cage_position();
+		displayGammaColor(object);
 
-								MESH* i_cage = selected_cdt_->influence_cage_;
+		Parameters& p = parameters_[&object];
 
-								std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
-									get_attribute<Vec3, MeshVertex>(*i_cage, "position");
-
-								mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
-
-								selected_cdt_->update_deformation_object_mvc(object, object_vertex_position,
-																			 p.init_position_);
-
-								mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
-							}
-						});
-			}
-
-			void bind_influence_cage_mvc_handle(
-				MESH & object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
-				GRAPH& control_handle, const std::shared_ptr<GraphAttribute<Vec3>>& handle_vertex_position)
-
-			{
-				selected_hdt_->bind_mvc(object, object_vertex_position);
-				selected_hdt_->set_up_attenuation(object, object_vertex_position);
-
-				displayGammaColor(object);
-
-				Parameters& p = parameters_[&object];
-
-				selected_hdt_->handle_attribute_update_connection_ =
-					boost::synapse::connect<typename MeshProvider<GRAPH>::template attribute_changed_t<Vec3>>(
-						&control_handle, [&](GraphAttribute<Vec3>* attribute) {
-							if (handle_vertex_position.get() == attribute)
-							{
-								selected_hdt_->update_influence_cage_position();
-
-								MESH* i_cage = selected_hdt_->influence_cage_;
-
-								std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
-									get_attribute<Vec3, MeshVertex>(*i_cage, "position");
-
-								mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
-
-								selected_hdt_->update_deformation_object_mvc(object, object_vertex_position,
-																			 p.init_position_);
-
-								mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
-							}
-							else
-							{
-								std::cout << " no moving " << std::endl;
-							}
-						});
-			}
-
-			void bind_handle_influence_area(MESH & object,
-											const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
-											CellsSet<MESH, MeshVertex>* influence_set, GRAPH& control_handle,
-											const std::shared_ptr<GraphAttribute<Vec3>>& handle_vertex_position)
-			{
-
-				MeshData<MESH>& md = mesh_provider_->mesh_data(object);
-				CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
-				selected_hdt_->influence_area_ = &i_set;
-
-				Parameters& p = parameters_[&object];
-
-				selected_hdt_->set_influence_area(object, object_vertex_position, influence_set);
-
-				mesh_provider_->emit_cells_set_changed(object, selected_hdt_->influence_area_);
-
-				displayGammaColor(*selected_mesh_);
-
-				std::shared_ptr<Attribute<uint32>> object_vertex_index =
-					cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
-
-				selected_hdt_->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
-					uint32 vidx = value<uint32>(object, object_vertex_index, v);
-
-					// attenuation_(vidx);
-					p.weight_matrix_update[vidx][selected_hdt->id_] = selected_hdt_->attenuation_(vidx);
-
-					// default beta at 0.5
-					p.weight_matrix_[vidx][selected_id_] = (1.0 - 0.5 + 0.5 * selected_hdt_->attenuation_(vidx));
-
-					return true;
-				});
-
-				selected_hdt_->handle_attribute_update_connection_ =
-					boost::synapse::connect<typename MeshProvider<GRAPH>::template attribute_changed_t<Vec3>>(
-						&control_handle, [&](GraphAttribute<Vec3>* attribute) {
-							if (handle_vertex_position.get() == attribute)
-							{
-
-								// determine deformation
-								const Vec3 deformation = selected_hdt->get_handle_deformation();
-
-								// selected_hdt_->update_deformation_object(object, object_vertex_position,
-								// p.init_position_);
-								std::shared_ptr<Attribute<uint32>> object_vertex_index =
-									cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
-
-								influence_area_->foreach_cell([&](MeshVertex v) -> bool {
-									uint32 vidx = value<uint32>(object, object_vertex_index, v);
-
-									// update handle deformation
-
-									Vec3 new_pos_ = p.weight_matrix_[vidx].dot(deformation_vector_) + 
-									selected_hdt->attenuation[vidx]*deformation;  
-
-									value<Vec3>(object, object_vertex_position, v) = new_pos_ + p.init_pos[vidx];
-
-									p.deformation_vector[vidx] = p.weight_matrix[vidx][selected_hdt_->id_]*deformation_vector[vidx]
-
-									return true;
-								});
-
-								mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
-							}
-							else
-							{
-								std::cout << " no moving " << std::endl;
-							}
-						});
-			}
-
-			void updateDeformationObject(MESH & object)
-			{
-			}
-
-			void displayGammaColor(MESH & object)
-			{
-
-				std::shared_ptr<MeshAttribute<Vec3>> gamma_color =
-					cgogn::get_or_add_attribute<Vec3, MeshVertex>(object, "color_gamma");
-				std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
-					get_attribute<uint32, MeshVertex>(object, "vertex_index");
-
-				Parameters& p = parameters_[&object];
-
-				foreach_cell(object, [&](MeshVertex v) -> bool {
-					uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
-
-					double gamma_value = 0.0;
-
-					/*for (auto& [name, cdt] : cage_container_)
+		selected_cdt_->cage_attribute_update_connection_ =
+			boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
+				&control_cage, [&](MeshAttribute<Vec3>* attribute) {
+					if (cage_vertex_position.get() == attribute)
 					{
-						gamma_value += cdt->attenuation_(surface_point_idx);
-					}*/
 
-					for (auto& [name, hdt] : handle_container_)
-					{
-						gamma_value += hdt->attenuation_(surface_point_idx);
+						selected_cdt_->update_influence_cage_position();
+
+						MESH* i_cage = selected_cdt_->influence_cage_;
+
+						std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
+							get_attribute<Vec3, MeshVertex>(*i_cage, "position");
+
+						mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
+
+						selected_cdt_->update_deformation_object_mvc(object, object_vertex_position, p.init_position_);
+
+						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
 					}
+				});
+	}
 
-					/*for (auto& [name, adt] : axis_container_)
-					{
-						gamma_value += adt->attenuation_(surface_point_idx);
-					}*/
+	void bind_influence_cage_mvc_handle(MESH& object,
+										const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
+										GRAPH& control_handle,
+										const std::shared_ptr<GraphAttribute<Vec3>>& handle_vertex_position)
 
-					Vec3 color;
-					if (gamma_value <= 0.0)
-						color = {0.0, 0.0, 0.0};
-					else
+	{
+		selected_hdt_->bind_mvc(object, object_vertex_position);
+		selected_hdt_->set_up_attenuation(object, object_vertex_position);
+
+		displayGammaColor(object);
+
+		Parameters& p = parameters_[&object];
+
+		selected_hdt_->handle_attribute_update_connection_ =
+			boost::synapse::connect<typename MeshProvider<GRAPH>::template attribute_changed_t<Vec3>>(
+				&control_handle, [&](GraphAttribute<Vec3>* attribute) {
+					if (handle_vertex_position.get() == attribute)
 					{
-						gamma_value = (gamma_value > 1.0) ? 1.0 : gamma_value;
-						color[0] = (1.0 + std::sin((gamma_value - 0.5) * M_PI)) / 2.0;
-						color[1] = std::sin((gamma_value + 2.0) * M_PI);
-						color[2] = (1.0 + std::sin((gamma_value + 0.5) * M_PI)) / 2.0;
+							selected_hdt_->update_influence_cage_position();
+
+							MESH* i_cage = selected_hdt_->influence_cage_;
+
+							std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
+								get_attribute<Vec3, MeshVertex>(*i_cage, "position");
+
+							mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
+
+							selected_hdt_->update_deformation_object_mvc(object, object_vertex_position,
+							p.init_position_);
+
+							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+					} else {
+						std::cout << " no moving " << std::endl; 
 					}
+				});
+	}
 
-					value<Vec3>(object, gamma_color, v) = color;
+	void bind_handle_influence_area(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position, CellsSet<MESH, MeshVertex>* influence_set, GRAPH& control_handle,
+	const std::shared_ptr<GraphAttribute<Vec3>>& handle_vertex_position){
 
-					return true;
+		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
+		CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
+		selected_hdt_->influence_area_ = &i_set;
+
+		Parameters& p = parameters_[&object];
+
+		selected_hdt_->set_influence_area(object, object_vertex_position, influence_set);
+
+		mesh_provider_->emit_cells_set_changed(object, selected_hdt_->influence_area_);
+
+		displayGammaColor(*selected_mesh_);
+
+		selected_hdt_->handle_attribute_update_connection_ =
+			boost::synapse::connect<typename MeshProvider<GRAPH>::template attribute_changed_t<Vec3>>(
+				&control_handle, [&](GraphAttribute<Vec3>* attribute) {
+					if (handle_vertex_position.get() == attribute)
+					{
+
+						selected_hdt_->update_deformation_object(object, object_vertex_position, p.init_position_);
+
+						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+
+					} else {
+						std::cout << " no moving " << std::endl; 
+					}
 				});
 
-				View* v1 = app_.current_view();
-				surface_render_->set_vertex_color(*v1, object, gamma_color);
+
+	}
+
+	void updateDeformationObject(MESH& object)
+	{
+		
+	}
+
+	void displayGammaColor(MESH& object)
+	{
+
+		std::shared_ptr<MeshAttribute<Vec3>> gamma_color =
+			cgogn::get_or_add_attribute<Vec3, MeshVertex>(object, "color_gamma");
+		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
+			get_attribute<uint32, MeshVertex>(object, "vertex_index");
+
+		Parameters& p = parameters_[&object];
+
+		foreach_cell(object, [&](MeshVertex v) -> bool {
+			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
+
+			double gamma_value = 0.0;
+
+			/*for (auto& [name, cdt] : cage_container_)
+			{
+				gamma_value += cdt->attenuation_(surface_point_idx);
+			}*/
+
+			for (auto& [name, hdt] : handle_container_)
+			{
+				gamma_value += hdt->attenuation_(surface_point_idx);
+			
 			}
 
-		protected:
-			void init() override
+			/*for (auto& [name, adt] : axis_container_)
 			{
-				mesh_provider_ = static_cast<ui::MeshProvider<MESH>*>(
-					app_.module("MeshProvider (" + std::string{mesh_traits<MESH>::name} + ")"));
-				mesh_provider_->foreach_mesh([this](MESH& m, const std::string&) { init_mesh(&m); });
-				connections_.push_back(boost::synapse::connect<typename MeshProvider<MESH>::mesh_added>(
-					mesh_provider_, this, &SpaceDeformation<MESH, GRAPH>::init_mesh));
+				gamma_value += adt->attenuation_(surface_point_idx);
+			}*/
 
-				graph_provider_ = static_cast<ui::MeshProvider<GRAPH>*>(
-					app_.module("MeshProvider (" + std::string{mesh_traits<GRAPH>::name} + ")"));
-
-				surface_render_ = static_cast<ui::SurfaceRender<MESH>*>(
-					app_.module("SurfaceRender (" + std::string{mesh_traits<MESH>::name} + ")"));
-
-				graph_render_ = static_cast<ui::SurfaceRender<GRAPH>*>(
-					app_.module("SurfaceRender (" + std::string{mesh_traits<GRAPH>::name} + ")"));
-
-				surface_diff_pptes_ = static_cast<ui::SurfaceDifferentialProperties<MESH>*>(
-					app_.module("SurfaceDifferentialProperties (" + std::string{mesh_traits<MESH>::name} + ")"));
-
-				surface_selection_ = static_cast<ui::SurfaceSelectionPO<MESH>*>(
-					app_.module("SurfaceSelectionPO (" + std::string{mesh_traits<MESH>::name} + ")"));
-
-				graph_selection_ = static_cast<ui::GraphSelection<GRAPH>*>(
-					app_.module("GraphSelection (" + std::string{mesh_traits<GRAPH>::name} + ")"));
-
-				surface_deformation_ = static_cast<ui::SurfaceDeformation<MESH>*>(
-					app_.module("SurfaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
-
-				graph_deformation_ = static_cast<ui::GraphDeformation<GRAPH>*>(
-					app_.module("GraphDeformation (" + std::string{mesh_traits<GRAPH>::name} + ")"));
+			Vec3 color;
+			if (gamma_value <= 0.0)
+				color = {0.0, 0.0, 0.0};
+			else
+			{
+				gamma_value = (gamma_value > 1.0) ? 1.0 : gamma_value;
+				color[0] = (1.0 + std::sin((gamma_value - 0.5) * M_PI)) / 2.0;
+				color[1] = std::sin((gamma_value + 2.0) * M_PI);
+				color[2] = (1.0 + std::sin((gamma_value + 0.5) * M_PI)) / 2.0;
 			}
 
-			void left_panel() override
-			{
-				imgui_mesh_selector(mesh_provider_, selected_mesh_, "Object", [&](MESH& m) {
-					selected_mesh_ = &m;
-					mesh_provider_->mesh_data(m).outlined_until_ = App::frame_time_ + 1.0;
-				});
+			value<Vec3>(object, gamma_color, v) = color;
 
-				if (selected_mesh_)
+			return true;
+		});
+
+		View* v1 = app_.current_view();
+		surface_render_->set_vertex_color(*v1, object, gamma_color);
+	}
+
+protected:
+	void init() override
+	{
+		mesh_provider_ = static_cast<ui::MeshProvider<MESH>*>(
+			app_.module("MeshProvider (" + std::string{mesh_traits<MESH>::name} + ")"));
+		mesh_provider_->foreach_mesh([this](MESH& m, const std::string&) { init_mesh(&m); });
+		connections_.push_back(boost::synapse::connect<typename MeshProvider<MESH>::mesh_added>(
+			mesh_provider_, this, &SpaceDeformation<MESH, GRAPH>::init_mesh));
+
+		graph_provider_ = static_cast<ui::MeshProvider<GRAPH>*>(
+			app_.module("MeshProvider (" + std::string{mesh_traits<GRAPH>::name} + ")"));
+
+		surface_render_ = static_cast<ui::SurfaceRender<MESH>*>(
+			app_.module("SurfaceRender (" + std::string{mesh_traits<MESH>::name} + ")"));
+
+		graph_render_ = static_cast<ui::SurfaceRender<GRAPH>*>(
+			app_.module("SurfaceRender (" + std::string{mesh_traits<GRAPH>::name} + ")"));
+
+		surface_diff_pptes_ = static_cast<ui::SurfaceDifferentialProperties<MESH>*>(
+			app_.module("SurfaceDifferentialProperties (" + std::string{mesh_traits<MESH>::name} + ")"));
+
+		surface_selection_ = static_cast<ui::SurfaceSelectionPO<MESH>*>(
+			app_.module("SurfaceSelectionPO (" + std::string{mesh_traits<MESH>::name} + ")"));
+
+		graph_selection_ = static_cast<ui::GraphSelection<GRAPH>*>(
+			app_.module("GraphSelection (" + std::string{mesh_traits<GRAPH>::name} + ")"));
+
+		surface_deformation_ = static_cast<ui::SurfaceDeformation<MESH>*>(
+			app_.module("SurfaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
+
+		graph_deformation_ = static_cast<ui::GraphDeformation<GRAPH>*>(
+			app_.module("GraphDeformation (" + std::string{mesh_traits<GRAPH>::name} + ")"));
+	}
+
+	void left_panel() override
+	{
+		imgui_mesh_selector(mesh_provider_, selected_mesh_, "Object", [&](MESH& m) {
+			selected_mesh_ = &m;
+			mesh_provider_->mesh_data(m).outlined_until_ = App::frame_time_ + 1.0;
+		});
+
+		if (selected_mesh_)
+		{
+			MeshData<MESH>& md = mesh_provider_->mesh_data(*selected_mesh_);
+			Parameters& p = parameters_[selected_mesh_];
+
+			imgui_combo_attribute<MeshVertex, Vec3>(*selected_mesh_, p.vertex_position_, "Position",
+													[&](const std::shared_ptr<MeshAttribute<Vec3>>& attribute) {
+														set_vertex_position(*selected_mesh_, attribute);
+													});
+			if (p.vertex_position_)
+			{
+				ImGui::Separator();
+				ImGui::Text("Global");
+				if (ImGui::Button("Generate global cage"))
 				{
-					MeshData<MESH>& md = mesh_provider_->mesh_data(*selected_mesh_);
-					Parameters& p = parameters_[selected_mesh_];
+					generate_global_cage(*selected_mesh_, p.vertex_position_, p.nb_cage);
 
-					imgui_combo_attribute<MeshVertex, Vec3>(*selected_mesh_, p.vertex_position_, "Position",
-															[&](const std::shared_ptr<MeshAttribute<Vec3>>& attribute) {
-																set_vertex_position(*selected_mesh_, attribute);
-															});
-					if (p.vertex_position_)
+					p.nb_cage++;
+				}
+
+				ImGui::Separator();
+				ImGui::Text("Local");
+
+				ImGui::RadioButton("Handle", reinterpret_cast<int*>(&selected_tool_), Handle);
+				ImGui::SameLine();
+				ImGui::RadioButton("Axis", reinterpret_cast<int*>(&selected_tool_), Axis);
+				ImGui::SameLine();
+				ImGui::RadioButton("Cage", reinterpret_cast<int*>(&selected_tool_), Cage);
+
+				if (selected_tool_ == Cage)
+				{
+					CellsSet<MESH, MeshVertex>* control_set = nullptr;
+
+					imgui_combo_cells_set(md, control_set, "Control ",
+										  [&](CellsSet<MESH, MeshVertex>* cs) { control_set = cs; });
+
+					bool newCage = false;
+
+					if (control_set && control_set->size() > 0)
 					{
-						ImGui::Separator();
-						ImGui::Text("Global");
-						if (ImGui::Button("Generate global cage"))
+						MESH* l_cage = generate_local_cage(*selected_mesh_, p.vertex_position_, control_set);
+					}
+
+					ImGui::Separator();
+					ImGui::Text("Binding");
+
+					if (cage_container_.size() > 0)
+					{
+
+						SpaceDeformation<MESH, GRAPH>* space_deformation = static_cast<SpaceDeformation<MESH, GRAPH>*>(
+							app_.module("SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
+						if (imgui_cage_selector(space_deformation, selected_cage_, "Cage",
+												 [&](MESH& m) { selected_cage_ = &m; }))
 						{
-							generate_global_cage(*selected_mesh_, p.vertex_position_, p.nb_cage);
+							
+							const std::string cage_name = mesh_provider_->mesh_name(*selected_cage_);
 
-							p.nb_cage++;
-						}
+							std::string prefix = "local_cage";
 
-						ImGui::Separator();
-						ImGui::Text("Local");
-
-						ImGui::RadioButton("Handle", reinterpret_cast<int*>(&selected_tool_), Handle);
-						ImGui::SameLine();
-						ImGui::RadioButton("Axis", reinterpret_cast<int*>(&selected_tool_), Axis);
-						ImGui::SameLine();
-						ImGui::RadioButton("Cage", reinterpret_cast<int*>(&selected_tool_), Cage);
-
-						if (selected_tool_ == Cage)
-						{
-							CellsSet<MESH, MeshVertex>* control_set = nullptr;
-
-							imgui_combo_cells_set(md, control_set, "Control ",
-												  [&](CellsSet<MESH, MeshVertex>* cs) { control_set = cs; });
-
-							bool newCage = false;
-
-							if (control_set && control_set->size() > 0)
-							{
-								MESH* l_cage = generate_local_cage(*selected_mesh_, p.vertex_position_, control_set);
-							}
-
-							ImGui::Separator();
-							ImGui::Text("Binding");
-
-							if (cage_container_.size() > 0)
+							if (cage_name.size() > 0 && std::mismatch(prefix.begin(), prefix.end(), cage_name.begin()).first == prefix.end())
 							{
 
-								SpaceDeformation<MESH, GRAPH>* space_deformation =
-									static_cast<SpaceDeformation<MESH, GRAPH>*>(
-										app_.module("SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
-								if (imgui_cage_selector(space_deformation, selected_cage_, "Cage",
-														[&](MESH& m) { selected_cage_ = &m; }))
+								// inspired from https://github.com/ocornut/imgui/issues/1658
+								const char* items[] = {"MVC", "Green"};
+								std::string current_item = "MVC";
+								ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
+
+								ImGuiStyle& style = ImGui::GetStyle();
+								float w = ImGui::CalcItemWidth();
+								float spacing = style.ItemInnerSpacing.x;
+								float button_sz = ImGui::GetFrameHeight();
+								ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
+								if (ImGui::BeginCombo("##custom combo", current_item.c_str(),
+													  ImGuiComboFlags_NoArrowButton))
+								{
+									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+									{
+										bool is_selected = (current_item == items[n]);
+										if (ImGui::Selectable(items[n], is_selected))
+											current_item = items[n];
+										if (is_selected)
+											ImGui::SetItemDefaultFocus();
+									}
+									ImGui::EndCombo();
+								}
+
+								std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> cdt =
+								 cage_container_[cage_name];
+								selected_cdt_ = cage_container_[cage_name];
+								if (ImGui::Button("Bind object"))
 								{
 
-									const std::string cage_name = mesh_provider_->mesh_name(*selected_cage_);
-
-									std::string prefix = "local_cage";
-
-									if (cage_name.size() > 0 &&
-										std::mismatch(prefix.begin(), prefix.end(), cage_name.begin()).first ==
-											prefix.end())
+									if (current_item == "MVC")
 									{
+										bind_influence_cage_mvc(*selected_mesh_, p.vertex_position_, *selected_cage_,selected_cdt_->control_cage_vertex_position_); 
+									
+									}
 
-										// inspired from https://github.com/ocornut/imgui/issues/1658
-										const char* items[] = {"MVC", "Green"};
-										std::string current_item = "MVC";
-										ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
-
-										ImGuiStyle& style = ImGui::GetStyle();
-										float w = ImGui::CalcItemWidth();
-										float spacing = style.ItemInnerSpacing.x;
-										float button_sz = ImGui::GetFrameHeight();
-										ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
-										if (ImGui::BeginCombo("##custom combo", current_item.c_str(),
-															  ImGuiComboFlags_NoArrowButton))
+									else if (current_item == "Green")
+									{
+										/*if (!cd.local_def)
 										{
-											for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-											{
-												bool is_selected = (current_item == items[n]);
-												if (ImGui::Selectable(items[n], is_selected))
-													current_item = items[n];
-												if (is_selected)
-													ImGui::SetItemDefaultFocus();
-											}
-											ImGui::EndCombo();
+											bind_object_green(*selected_mesh_, p.vertex_position_, *selected_cage_,
+															  cd.cage_vertex_position_);
 										}
-
-										std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> cdt =
-											cage_container_[cage_name];
-										selected_cdt_ = cage_container_[cage_name];
-										if (ImGui::Button("Bind object"))
+										else
 										{
+											bind_local_green(*selected_mesh_, p.vertex_position_, *selected_cage_,
+															 cd.cage_vertex_position_);
+										}*/
 
-											if (current_item == "MVC")
-											{
-												bind_influence_cage_mvc(*selected_mesh_, p.vertex_position_,
-																		*selected_cage_,
-																		selected_cdt_->control_cage_vertex_position_);
-											}
-
-											else if (current_item == "Green")
-											{
-												/*if (!cd.local_def)
-												{
-													bind_object_green(*selected_mesh_, p.vertex_position_,
-												*selected_cage_, cd.cage_vertex_position_);
-												}
-												else
-												{
-													bind_local_green(*selected_mesh_, p.vertex_position_,
-												*selected_cage_, cd.cage_vertex_position_);
-												}*/
-
-												std::cout << "green" << std::endl;
-											}
-											else
-											{
-												std::cout << "not available yet" << std::endl;
-											}
-										}
-
-										/*ImGui::Separator();
-											float new_smoothing_factor = selected_cdt_->smoothing_factor_;
-											ImGui::SliderFloat("Attenuation factor", &new_smoothing_factor, 0.0f, 1.0f);
-
-											if (new_smoothing_factor != selected_cdt_->smoothing_factor_){
-												selected_cdt_->smoothing_factor_ = new_smoothing_factor;
-												selected_cdt_->update_attenuation(*selected_mesh_);
-											}*/
+										std::cout << "green" << std::endl;
+									}
+									 else
+									{
+										std::cout << "not available yet" << std::endl;
 									}
 								}
-							}
-						}
 
-						if (selected_tool_ == Handle)
-						{
+								/*ImGui::Separator();
+									float new_smoothing_factor = selected_cdt_->smoothing_factor_;
+									ImGui::SliderFloat("Attenuation factor", &new_smoothing_factor, 0.0f, 1.0f);
 
-							CellsSet<MESH, MeshVertex>* control_set = nullptr;
-
-							imgui_combo_cells_set(md, control_set, "Handle ",
-												  [&](CellsSet<MESH, MeshVertex>* cs) { control_set = cs; });
-
-							if (control_set && control_set->size() > 0)
-							{
-								selected_hdt_ = generate_handle_tool(*selected_mesh_, p.vertex_position_, control_set);
-
-								control_set = nullptr;
-							}
-
-							ImGui::Separator();
-							ImGui::Text("Binding");
-
-							CellsSet<MESH, MeshVertex>* influence_set = nullptr;
-
-							imgui_combo_cells_set(md, influence_set, "Influence ",
-												  [&](CellsSet<MESH, MeshVertex>* cs) { influence_set = cs; });
-
-							if (selected_hdt_ && influence_set)
-							{
-								bind_handle_influence_area(*selected_mesh_, p.vertex_position_, influence_set,
-														   *selected_hdt_->control_handle_,
-														   selected_hdt_->control_handle_vertex_position_);
-
-								influence_set = nullptr;
-
-								surface_selection_->clear_selected_vertices_set(*selected_mesh_);
-							}
-
-							ImGui::Separator();
-							/*ImGui::Text("Binding");
-
-
-							if (handle_container_.size() > 0)
-							{
-								SpaceDeformation<MESH, GRAPH>* space_deformation = static_cast<SpaceDeformation<MESH,
-							GRAPH>*>( app_.module("SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
-								if (!imgui_handle_selector(space_deformation, selected_handle_, "Handle",
-														   [&](GRAPH& g) { selected_handle_ = &g; }))
-								{
-									//std::cout << " there is a bug" << std::endl;
-								}
-								else
-								{
-
-									const std::string handle_name = graph_provider_->mesh_name(*selected_handle_);
-
-									std::string prefix = "local_handle";
-
-									if (handle_name.size() > 0 &&
-										 std::mismatch(prefix.begin(), prefix.end(), handle_name.begin()).first ==
-							prefix.end())
-									{
-										const char* items[] = {"MVC", "Green"};
-										std::string current_item = "MVC";
-										ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
-
-										ImGuiStyle& style = ImGui::GetStyle();
-										float w = ImGui::CalcItemWidth();
-										float spacing = style.ItemInnerSpacing.x;
-										float button_sz = ImGui::GetFrameHeight();
-										ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
-										if (ImGui::BeginCombo("##custom combo", current_item.c_str(),
-															  ImGuiComboFlags_NoArrowButton))
-										{
-											for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-											{
-												bool is_selected = (current_item == items[n]);
-												if (ImGui::Selectable(items[n], is_selected))
-													current_item = items[n];
-												if (is_selected)
-													ImGui::SetItemDefaultFocus();
-											}
-											ImGui::EndCombo();
-										}
-
-										selected_hdt_ = handle_container_[handle_name];
-										if (ImGui::Button("Bind object"))
-										{
-
-											if (current_item == "MVC")
-											{
-												bind_influence_cage_mvc_handle(*selected_mesh_, p.vertex_position_,
-																			   *selected_handle_,
-																			   selected_hdt_->control_handle_vertex_position_);
-											}
-
-											else
-											{
-												std::cout << "not available yet" << std::endl;
-											}
-										}
-								}
-
-
-								}
-							}*/
-						}
-
-						if (selected_tool_ == Axis)
-						{
-							CellsSet<MESH, MeshVertex>* control_set = nullptr;
-
-							imgui_combo_cells_set(md, control_set, "Control ",
-												  [&](CellsSet<MESH, MeshVertex>* cs) { control_set = cs; });
-
-							if (control_set && control_set->size() > 0)
-							{
-
-								generate_axis(*selected_mesh_, p.vertex_position_, control_set);
+									if (new_smoothing_factor != selected_cdt_->smoothing_factor_){
+										selected_cdt_->smoothing_factor_ = new_smoothing_factor;
+										selected_cdt_->update_attenuation(*selected_mesh_);
+									}*/
 							}
 						}
 					}
 				}
+
+				if (selected_tool_ == Handle)
+				{
+
+					CellsSet<MESH, MeshVertex>* control_set = nullptr;
+
+					imgui_combo_cells_set(md, control_set, "Handle ",
+										  [&](CellsSet<MESH, MeshVertex>* cs) { control_set = cs; });
+
+					if (control_set && control_set -> size() > 0 ){
+						selected_hdt_ = generate_handle_tool(*selected_mesh_, p.vertex_position_, control_set);
+
+						control_set = nullptr; 
+					}			  
+
+					ImGui::Separator();
+					ImGui::Text("Binding");
+
+					CellsSet<MESH, MeshVertex>* influence_set = nullptr;
+					
+					imgui_combo_cells_set(md, influence_set, "Influence ",
+										  [&](CellsSet<MESH, MeshVertex>* cs) { influence_set = cs; });
+
+					if (selected_hdt_ && influence_set)
+					{
+						bind_handle_influence_area(*selected_mesh_, p.vertex_position_, influence_set, *selected_hdt_->control_handle_,
+							selected_hdt_->control_handle_vertex_position_); 
+						
+						influence_set = nullptr; 
+
+						surface_selection_->clear_selected_vertices_set(*selected_mesh_);
+					}
+
+					ImGui::Separator();
+					/*ImGui::Text("Binding");
+
+
+					if (handle_container_.size() > 0)
+					{
+						SpaceDeformation<MESH, GRAPH>* space_deformation = static_cast<SpaceDeformation<MESH, GRAPH>*>(
+							app_.module("SpaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
+						if (!imgui_handle_selector(space_deformation, selected_handle_, "Handle",
+												   [&](GRAPH& g) { selected_handle_ = &g; }))
+						{
+							//std::cout << " there is a bug" << std::endl;
+						}
+						else
+						{
+	 
+							const std::string handle_name = graph_provider_->mesh_name(*selected_handle_);
+
+							std::string prefix = "local_handle";
+					
+							if (handle_name.size() > 0 &&
+								 std::mismatch(prefix.begin(), prefix.end(), handle_name.begin()).first == prefix.end())
+							{ 
+								const char* items[] = {"MVC", "Green"};
+								std::string current_item = "MVC";
+								ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
+
+								ImGuiStyle& style = ImGui::GetStyle();
+								float w = ImGui::CalcItemWidth();
+								float spacing = style.ItemInnerSpacing.x;
+								float button_sz = ImGui::GetFrameHeight();
+								ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
+								if (ImGui::BeginCombo("##custom combo", current_item.c_str(),
+													  ImGuiComboFlags_NoArrowButton))
+								{
+									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+									{
+										bool is_selected = (current_item == items[n]);
+										if (ImGui::Selectable(items[n], is_selected))
+											current_item = items[n];
+										if (is_selected)
+											ImGui::SetItemDefaultFocus();
+									}
+									ImGui::EndCombo();
+								}
+
+								selected_hdt_ = handle_container_[handle_name];
+								if (ImGui::Button("Bind object"))
+								{
+
+									if (current_item == "MVC")
+									{
+										bind_influence_cage_mvc_handle(*selected_mesh_, p.vertex_position_,
+																	   *selected_handle_,
+																	   selected_hdt_->control_handle_vertex_position_);
+									}
+
+									else
+									{
+										std::cout << "not available yet" << std::endl;
+									}
+								}
+						}
+
+						
+						}
+					}*/
+				}
+
+				if (selected_tool_ == Axis)
+				{
+					CellsSet<MESH, MeshVertex>* control_set = nullptr;
+
+					imgui_combo_cells_set(md, control_set, "Control ",
+										  [&](CellsSet<MESH, MeshVertex>* cs) { control_set = cs; });
+
+					if (control_set && control_set->size() > 0)
+					{
+
+						generate_axis(*selected_mesh_, p.vertex_position_, control_set);
+					}
+				}
 			}
+		}
+	}
 
-		private:
-			MESH* selected_mesh_;
-			MESH* selected_cage_;
-			GRAPH* selected_handle_;
+private:
+	MESH* selected_mesh_;
+	MESH* selected_cage_;
+	GRAPH* selected_handle_;
 
-			std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> selected_cdt_;
-			std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> selected_hdt_;
-			std::unordered_map<const MESH*, Parameters> parameters_;
+	std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> selected_cdt_;
+	std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> selected_hdt_;
+	std::unordered_map<const MESH*, Parameters> parameters_;
 
-			std::vector<std::shared_ptr<boost::synapse::connection>> connections_;
-			MeshProvider<MESH>* mesh_provider_;
-			MeshProvider<GRAPH>* graph_provider_;
+	std::vector<std::shared_ptr<boost::synapse::connection>> connections_;
+	MeshProvider<MESH>* mesh_provider_;
+	MeshProvider<GRAPH>* graph_provider_;
 
-			SurfaceRender<MESH>* surface_render_;
-			SurfaceRender<GRAPH>* graph_render_;
+	SurfaceRender<MESH>* surface_render_;
+	SurfaceRender<GRAPH>* graph_render_;
 
-			SurfaceDifferentialProperties<MESH>* surface_diff_pptes_;
+	SurfaceDifferentialProperties<MESH>* surface_diff_pptes_;
 
-			SurfaceSelectionPO<MESH>* surface_selection_;
-			GraphSelection<GRAPH>* graph_selection_;
+	SurfaceSelectionPO<MESH>* surface_selection_;
+	GraphSelection<GRAPH>* graph_selection_;
 
-			SurfaceDeformation<MESH>* surface_deformation_;
-			GraphDeformation<GRAPH>* graph_deformation_;
+	SurfaceDeformation<MESH>* surface_deformation_;
+	GraphDeformation<GRAPH>* graph_deformation_;
 
-			SelectionTool selected_tool_;
+	SelectionTool selected_tool_;
 
-			bool influence_cage_mode_;
-		};
+	bool influence_cage_mode_; 
+};
 
-	} // namespace ui
+} // namespace ui
 
 } // namespace cgogn
 
