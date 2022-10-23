@@ -109,10 +109,10 @@ class SpaceDeformation : public Module
 
 		std::shared_ptr<MeshAttribute<Vec3>> gammaColor;
 
-		std::vector<std::vector<Scalar>> weight_matrix_;
-		std::vector<std::vector<Scalar>> weight_matrix_update_;
-		std::vector<Vec3> deformation_vector_;
-		std::vector<Vec3> update_deformation_vector_;
+		std::vector<std::vector<Vec3>> current_deformation_matrix_;
+		std::vector<std::vector<Vec3>> new_deformation_matrix_;
+		std::vector<Scalar> current_deformation_factor_vector_;
+		std::vector<Scalar> update_deformation_factor_vector_;
 
 		/*Eigen::VectorXd current_pos_factor_;
 		Eigen::MatrixXd weight_matrix_;
@@ -174,16 +174,12 @@ public:
 			return true;
 		});
 
-		p.deformation_vector_.resize(p.nb_max_tool_);
-		for (uint32_t i = 0; i < p.deformation_vector_.size(); i++)
+		p.current_deformation_factor_vector_.resize(p.nb_max_tool_); 
+		p.new_deformation_factor_vector_.resize(p.nb_max_tool_);
+		for (uint32_t i = 0; i < p.current_deformation_factor_vector_.size(); i++)
 		{
-			p.deformation_vector_[i] = {0.0, 0.0, 0.0};
-		}
-
-		p.update_deformation_vector_.resize(p.nb_max_tool_);
-		for (uint32_t i = 0; i < p.update_deformation_vector_.size(); i++)
-		{
-			p.update_deformation_vector_[i] = {0.0, 0.0, 0.0};
+			p.current_deformation_factor_vector_[i] = 0.0;
+			p.current_deformation_factor_vector_[i] = 0.0;
 		}
 
 		p.weight_matrix_ = std::vector<std::vector<Scalar>>(nbv_m, std::vector<Scalar>(p.nb_max_tool_));
@@ -192,10 +188,10 @@ public:
 			uint32 surface_point_idx = value<uint32>(m, vertex_index, v);
 
 			std::fill(std::begin(p.weight_matrix_[surface_point_idx]), std::end(p.weight_matrix_[surface_point_idx]),
-					  0);
+					  {0.0, 0.0, 0.0});
 
 			std::fill(std::begin(p.weight_matrix_update_[surface_point_idx]),
-					  std::end(p.weight_matrix_update_[surface_point_idx]), 0);
+					  std::end(p.weight_matrix_update_[surface_point_idx]), {0.0, 0.0, 0.0});
 			return true;
 		});
 
@@ -853,7 +849,7 @@ private:
 					p.weight_matrix_update[vidx][selected_hdt->id_] = selected_hdt_->attenuation_(vidx);
 
 					// default beta at 0.5
-					p.weight_matrix_[vidx][selected_id_] = (1.0 - 0.5 + 0.5 * selected_hdt_->attenuation_(vidx));
+					p.weight_matrix_[vidx][selected_id_] =
 
 					return true;
 				});
@@ -1281,4 +1277,4 @@ private:
 
 } // namespace cgogn
 
-#endif // CGOGN_MODULE_CAGE_DEFORMATION_H_
+#endif // CGOGN_MODULE_CAGE_DEFORMATION_H_ 
