@@ -846,7 +846,7 @@ private:
 					uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
 					// attenuation_(vidx);
-					p.weight_matrix_update[vidx][selected_hdt->id_] = selected_hdt_->attenuation_(vidx);
+					p.new_deformation_factor_vector[selected_hdt->id_] = selected_hdt_->attenuation_(vidx);
 
 					// default beta at 0.5
 					p.weight_matrix_[vidx][selected_id_] =
