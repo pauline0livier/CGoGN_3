@@ -448,7 +448,7 @@ private:
 		{
 
 			hdt->create_space_tool(handle, handle_vertex_position.get(), handle_vertex_radius.get(), handle_position,
-								   inner_handle_position, ray);
+								   inner_handle_position, ray,0);
 
 			hdt -> set_handle_mesh_vertex(closest_vertex); 
 
@@ -473,7 +473,7 @@ private:
 
 			boost::synapse::emit<handle_added>(this, hdt);
 
-			nb_tool ++; 
+			//nb_tool ++; 
 		}
 
 		return handle_container_[handle_name];
