@@ -56,7 +56,6 @@ public:
 	Graph* control_handle_;
 	cgogn::ui::CellsSet<MESH, MeshVertex>* influence_area_;
 	Eigen::VectorXd attenuation_;
-	Eigen::VectorXd attenuation_mixed_;
 
 	std::shared_ptr<Graph::Attribute<Vec3>> control_handle_vertex_position_;
 	std::shared_ptr<boost::synapse::connection> handle_attribute_update_connection_;
@@ -101,9 +100,6 @@ public:
 
 		attenuation_.resize(nbv_object);
 		attenuation_.setZero();
-
-		attenuation_mixed_.resize(nbv_object);
-		attenuation_mixed_.setZero();
 
 		compute_attenuation(object, vertex_position); 
 	}
@@ -202,15 +198,10 @@ private:
  
 		});
 
-		// set beta to 0.5 by default
-		const Scalar beta = 0.5; 
-
 		influence_area_->foreach_cell([&](MeshVertex v) {
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
 			attenuation_(surface_point_idx) = 1.0 - pow((attenuation_(surface_point_idx) / max_dist),2);
-
-			attenuation_mixed_(surface_point_idx) = 1 - beta + attenuation_(surface_point_idx) * beta; 
 
 		});
 	}
