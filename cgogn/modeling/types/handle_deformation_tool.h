@@ -201,7 +201,12 @@ private:
 		influence_area_->foreach_cell([&](MeshVertex v) {
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
-			attenuation_(surface_point_idx) = 1.0 - pow((attenuation_(surface_point_idx) / max_dist),2);
+			//attenuation_(surface_point_idx) = 1.0 - pow((attenuation_(surface_point_idx) / max_dist),2);
+
+			//attenuation_(surface_point_idx) = pow(1.0 - (attenuation_(surface_point_idx) / max_dist),5);
+
+			attenuation_(surface_point_idx) = 1.0 - (attenuation_(surface_point_idx) / max_dist);
+
 
 		});
 	}

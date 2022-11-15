@@ -351,9 +351,9 @@ private:
 		return l_cage;
 	}
 
-	//std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> 
-	const std::string
-	generate_handle_tool(
+	//
+	//const std::string
+	std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> generate_handle_tool(
 		MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position, CellsSet<MESH, MeshVertex>* handle_set)
 	{
 		int handle_number = handle_container_.size();
@@ -459,8 +459,8 @@ private:
 			p.nb_tool_++;
 		}
 
-		//return handle_container_[handle_name];
-		return handle_name; 
+		return handle_container_[handle_name];
+		//return handle_name; 
 	}
 
 	/*GRAPH* generate_handle(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
@@ -817,18 +817,21 @@ private:
 
 	void bind_handle_influence_area(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 									CellsSet<MESH, MeshVertex>* influence_set, GRAPH& control_handle,
-									const std::shared_ptr<GraphAttribute<Vec3>>& handle_vertex_position, std::string handle_name)
+									const std::shared_ptr<GraphAttribute<Vec3>>& handle_vertex_position)
 	{
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 		CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
-		handle_container_[handle_name]->influence_area_ = &i_set;
+		//handle_container_[handle_name]->influence_area_ = &i_set;
+		selected_hdt_->influence_area_ = &i_set;
 
 		Parameters& p = parameters_[&object];
 
-		handle_container_[handle_name]->set_influence_area(object, object_vertex_position, influence_set);
+		//handle_container_[handle_name]->set_influence_area(object, object_vertex_position, influence_set);
+		selected_hdt_->set_influence_area(object, object_vertex_position, influence_set);
 
-		mesh_provider_->emit_cells_set_changed(object, handle_container_[handle_name]->influence_area_);
+		//mesh_provider_->emit_cells_set_changed(object, handle_container_[handle_name]->influence_area_);
+		mesh_provider_->emit_cells_set_changed(object,selected_hdt_->influence_area_);
 
 		displayGammaColor(*selected_mesh_);
 
@@ -858,14 +861,14 @@ private:
 			/*return true;
 		});*/
 
-		handle_container_[handle_name]->handle_attribute_update_connection_ =
+		selected_hdt_->handle_attribute_update_connection_ =
 			boost::synapse::connect<typename MeshProvider<GRAPH>::template attribute_changed_t<Vec3>>(
 				&control_handle, [&](GraphAttribute<Vec3>* attribute) {
 
 					if (handle_vertex_position.get() == attribute)
 					{
 
-						const Vec3 new_deformation = handle_container_[handle_name]->get_handle_deformation(); 
+						const Vec3 new_deformation = selected_hdt_->get_handle_deformation(); 
 						/*p.deformation_vector_(selected_hdt_->id_, 0) += new_deformation[0]; 
 						p.deformation_vector_(selected_hdt_->id_, 1) += new_deformation[1]; 
 						p.deformation_vector_(selected_hdt_->id_, 2) += new_deformation[2]; */
@@ -874,10 +877,10 @@ private:
 						std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
 							cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
-						handle_container_[handle_name]->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
+						selected_hdt_->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
 							uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
-							value<Vec3>(object, object_vertex_position, v) += handle_container_[handle_name]->attenuation_[vidx]*new_deformation; 
+							value<Vec3>(object, object_vertex_position, v) += selected_hdt_->attenuation_[vidx]*new_deformation; 
 							/*p.attenuation_matrix_(vidx, selected_hdt_->id_)*new_deformation;  */               
 							
 							return true;
@@ -1143,8 +1146,8 @@ protected:
 
 					if (control_set && control_set->size() > 0)
 					{
-						//selected_hdt_ = generate_handle_tool(*selected_mesh_, p.vertex_position_, control_set);
-						handle_name = generate_handle_tool(*selected_mesh_, p.vertex_position_, control_set);
+						selected_hdt_ = generate_handle_tool(*selected_mesh_, p.vertex_position_, control_set);
+						//handle_name = generate_handle_tool(*selected_mesh_, p.vertex_position_, control_set);
 
 						
 					}
@@ -1158,13 +1161,13 @@ protected:
 										  [&](CellsSet<MESH, MeshVertex>* cs) { influence_set = cs; });
 
 					// A FIXER
-					if (control_set && influence_set)
+					if (selected_hdt_ && influence_set)
 					{
-						std::cout << "ok for here" << std::endl; 
-						std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> current_handle = handle_container_[handle_name]; 
+						
+						//std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> current_handle = handle_container_[handle_name]; 
 						bind_handle_influence_area(*selected_mesh_, p.vertex_position_, influence_set,
-												   *current_handle->control_handle_,
-												   current_handle->control_handle_vertex_position_, handle_name);
+												   *(selected_hdt_->control_handle_),
+												   selected_hdt_->control_handle_vertex_position_);
 
 						influence_set = nullptr;
 
