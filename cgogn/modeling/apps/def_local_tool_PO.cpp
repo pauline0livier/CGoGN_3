@@ -32,9 +32,11 @@
 #include <cgogn/geometry/ui_modules/graph_selection.h>
 #include <cgogn/modeling/ui_modules/surface_deformation.h>
 #include <cgogn/modeling/ui_modules/graph_deformation.h>
-#include <cgogn/modeling/ui_modules/space_deformation.h>
+
 #include <cgogn/rendering/ui_modules/surface_render.h>
 #include <cgogn/rendering/ui_modules/graph_render.h>
+
+#include <cgogn/modeling/ui_modules/multi_tools_deformation.h>
 
 #include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 
@@ -62,9 +64,7 @@ int main(int argc, char** argv)
 	 
 	if (argc < 2)
 		//filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/low-poly-fox-by-pixelmannen.obj");
-		//filename = std::string(DEFAULT_MESH_PATH) + std::string("off/horse.off");
-		filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/sphere.obj");
-		//filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/capsule.obj");
+		filename = std::string(DEFAULT_MESH_PATH) + std::string("off/horse.off"); 
 	else
 		filename = std::string(argv[1]);
 
@@ -89,7 +89,7 @@ int main(int argc, char** argv)
 	cgogn::ui::SurfaceSelectionPO<Mesh> ss(app);
 	cgogn::ui::GraphSelection<Graph> ssg(app);
 
-	cgogn::ui::SpaceDeformation<Mesh, Graph> sd2(app);
+	cgogn::ui::MultiToolsDeformation<Mesh, Graph> sd2(app);
 
 	app.init_modules();
 
@@ -112,7 +112,6 @@ int main(int argc, char** argv)
 		std::cout << "File could not be loaded" << std::endl;
 		return 1;
 	}
-
 	auto vertex_position = cgogn::get_attribute<Vec3, cgogn::mesh_traits<Mesh>::Vertex>(*m, "position");
 	auto vertex_normal = cgogn::add_attribute<Vec3, cgogn::mesh_traits<Mesh>::Vertex>(*m, "normal");
 

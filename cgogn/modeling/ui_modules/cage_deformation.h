@@ -31,9 +31,9 @@
 
 #include <cgogn/core/functions/mesh_ops/volume.h>
 
+#include <cgogn/geometry/algos/normal.h>
 #include <cgogn/geometry/functions/angle.h>
 #include <cgogn/geometry/types/vector_traits.h>
-#include <cgogn/geometry/algos/normal.h>
 
 #include <boost/synapse/connect.hpp>
 
@@ -162,8 +162,9 @@ const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3&
 
 		const auto tan_part = 2 * sqrt_c * std::atan2(sqrt_c * C, sqrt(lambda + SS * c));
 
-		const auto log_part = log((2 * sqrt_lambda * SS / (std::pow(1.0 - C, 2)) *
-								   (1.0 - ((2 * c * C) / ((c * (1 + C) + lambda + sqrt((lambda * lambda) + (lambda * c * SS))))))));
+		const auto log_part =
+			log((2 * sqrt_lambda * SS / (std::pow(1.0 - C, 2)) *
+				 (1.0 - ((2 * c * C) / ((c * (1 + C) + lambda + sqrt((lambda * lambda) + (lambda * c * SS))))))));
 
 		I[i] = (-sign * 0.5) * (tan_part + (sqrt_lambda * log_part));
 	}
@@ -172,17 +173,18 @@ const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3&
 }
 
 // https://github.com/blaisebundle/green_cage_deformer/blob/master/src/green_cage_deformer.cc
-namespace {
-	const Vec3 NULL_VECTOR(0.0, 0.0, 0);
-	constexpr auto TOLERANCE = 1e-6;
-}
+namespace
+{
+const Vec3 NULL_VECTOR(0.0, 0.0, 0);
+constexpr auto TOLERANCE = 1e-6;
+} // namespace
 
-
-namespace MathConstants {
-	constexpr auto PI = 3.14159265358979323846;
-	constexpr auto ONE_OVER_FOUR_PI = 0.07957747154594767;
-	constexpr auto SQRT8 = 2.828427124746190097603;
-};
+namespace MathConstants
+{
+constexpr auto PI = 3.14159265358979323846;
+constexpr auto ONE_OVER_FOUR_PI = 0.07957747154594767;
+constexpr auto SQRT8 = 2.828427124746190097603;
+}; // namespace MathConstants
 
 const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2)
 {
@@ -191,19 +193,22 @@ const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2)
 	const auto v1_p = v1 - p;
 	const auto v2_p = v2 - p;
 
-	const auto alpha = std::acos(std::min(std::max(((v2_v1).dot((p_v1))) / ((v2_v1).norm() * (p_v1).norm()), -1.0), 1.0));
-	if (abs(alpha - MathConstants::PI) < TOLERANCE || abs(alpha) < TOLERANCE) {
+	const auto alpha =
+		std::acos(std::min(std::max(((v2_v1).dot((p_v1))) / ((v2_v1).norm() * (p_v1).norm()), -1.0), 1.0));
+	if (abs(alpha - MathConstants::PI) < TOLERANCE || abs(alpha) < TOLERANCE)
+	{
 		return 0.0;
 	}
 
-	const auto beta = std::acos(std::min(std::max((((v1_p).dot((v2_p)))) / ((v1_p).norm() * (v2_p).norm()), -1.0), 1.0));
+	const auto beta =
+		std::acos(std::min(std::max((((v1_p).dot((v2_p)))) / ((v1_p).norm() * (v2_p).norm()), -1.0), 1.0));
 	const auto lambda = p_v1.squaredNorm() * std::sin(alpha) * std::sin(alpha);
 	const auto c = p.squaredNorm();
 
 	const auto sqrt_c = sqrt(c);
 	const auto sqrt_lambda = sqrt(lambda);
 
-	const std::array<double, 2> theta{ MathConstants::PI - alpha, MathConstants::PI - alpha - beta };
+	const std::array<double, 2> theta{MathConstants::PI - alpha, MathConstants::PI - alpha - beta};
 	std::array<double, 2> I;
 
 	for (size_t i = 0; i < 2; ++i)
@@ -212,18 +217,18 @@ const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2)
 		const auto C = std::cos(theta[i]);
 		const auto sign = S < 0 ? -1.0 : 1.0;
 
-		const auto SS = S*S;
+		const auto SS = S * S;
 		const auto half_sign = (-sign * 0.5);
 		const auto tan_part = (2 * sqrt_c * std::atan2((sqrt_c * C), sqrt(lambda + (SS * c))));
-		const auto log_part = log(((2 * sqrt_lambda * SS) / std::pow(1.0 - C, 2)) * (1.0 - ((2 * c * C) / ((c*(1 + C) + lambda + sqrt((lambda * lambda) + (lambda * c * SS)))))));
+		const auto log_part =
+			log(((2 * sqrt_lambda * SS) / std::pow(1.0 - C, 2)) *
+				(1.0 - ((2 * c * C) / ((c * (1 + C) + lambda + sqrt((lambda * lambda) + (lambda * c * SS)))))));
 
 		I[i] = half_sign * (tan_part + (sqrt_lambda * log_part));
 	}
 
 	return -MathConstants::ONE_OVER_FOUR_PI * abs(I[0] - I[1] - sqrt_c * beta);
 }
-
-
 
 template <typename MESH>
 
@@ -449,10 +454,11 @@ public:
 			return true;
 		});
 
-		std::shared_ptr<Attribute<std::vector<Vec3>>> cage_face_normal = add_attribute<std::vector<Vec3>, Face>(cage, "face_normal");
+		std::shared_ptr<Attribute<std::vector<Vec3>>> cage_face_normal =
+			add_attribute<std::vector<Vec3>, Face>(cage, "face_normal");
 
-		std::shared_ptr<Attribute<std::vector<Vec3>>> cage_face_edge = add_attribute<std::vector<Vec3>, Face>(cage, "face_edge");
-
+		std::shared_ptr<Attribute<std::vector<Vec3>>> cage_face_edge =
+			add_attribute<std::vector<Vec3>, Face>(cage, "face_edge");
 
 		uint32 nbv_object = nb_cells<Vertex>(object);
 		uint32 nbv_cage = nb_cells<Vertex>(cage);
@@ -460,133 +466,136 @@ public:
 		uint32 nbf_cage = nb_cells<Face>(cage); // Warning valid only for square face (1 face = 2 triangles)
 
 		p.coords_.resize(nbv_object, nbv_cage);
-		p.coords_.setZero(); 
+		p.coords_.setZero();
 
 		p.n_coords_.resize(nbv_object, nbf_cage);
 		p.n_coords_.setZero();
-	
+
 		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
 			foreach_cell(cage, [&](Face fc) -> bool {
-
 				uint32 cage_face_idx = value<uint32>(cage, cage_face_index, fc);
 
-				//Dart d1 = fc.dart; 
+				// Dart d1 = fc.dart;
 
-				std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(cage, fc); 
+				std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(cage, fc);
 
-				// triangle 1 
-				//const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[0], face_vertices_[3], face_vertices_[1]}; 
-				const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[1], face_vertices_[3], face_vertices_[0]}; 
-				const std::vector<Vec3> t1_values = {value<Vec3>(cage, cage_vertex_position, triangle1[0]), 
-				value<Vec3>(cage, cage_vertex_position, triangle1[1]), value<Vec3>(cage, cage_vertex_position, triangle1[2])}; 
+				// triangle 1
+				// const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[0], face_vertices_[3],
+				// face_vertices_[1]};
+				const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[1], face_vertices_[3], face_vertices_[0]};
+				const std::vector<Vec3> t1_values = {value<Vec3>(cage, cage_vertex_position, triangle1[0]),
+													 value<Vec3>(cage, cage_vertex_position, triangle1[1]),
+													 value<Vec3>(cage, cage_vertex_position, triangle1[2])};
 
-				Vec3 t1_normal = (cgogn::geometry::normal(t1_values[0], t1_values[1], t1_values[2])).normalized(); 
+				Vec3 t1_normal = (cgogn::geometry::normal(t1_values[0], t1_values[1], t1_values[2])).normalized();
 
-				//const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[3], face_vertices_[2], face_vertices_[1]}; 
-				const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[1], face_vertices_[2], face_vertices_[3]}; 
-				const std::vector<Vec3> t2_values = {value<Vec3>(cage, cage_vertex_position, triangle2[0]), 
-				value<Vec3>(cage, cage_vertex_position, triangle2[1]), value<Vec3>(cage, cage_vertex_position, triangle2[2])}; 
+				// const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[3], face_vertices_[2],
+				// face_vertices_[1]};
+				const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[1], face_vertices_[2], face_vertices_[3]};
+				const std::vector<Vec3> t2_values = {value<Vec3>(cage, cage_vertex_position, triangle2[0]),
+													 value<Vec3>(cage, cage_vertex_position, triangle2[1]),
+													 value<Vec3>(cage, cage_vertex_position, triangle2[2])};
 
 				Vec3 t2_normal = (cgogn::geometry::normal(t2_values[0], t2_values[1], t2_values[2])).normalized();
 
-				
 				value<std::vector<Vec3>>(cage, cage_face_normal, fc) = {t1_normal, t2_normal};
 
-				value<std::vector<Vec3>>(cage, cage_face_edge, fc) = {t1_values[1] - t1_values[0], t1_values[2] - t1_values[1], 
-																		t2_values[1] - t2_values[0], t2_values[2] - t2_values[1]};
+				value<std::vector<Vec3>>(cage, cage_face_edge,
+										 fc) = {t1_values[1] - t1_values[0], t1_values[2] - t1_values[1],
+												t2_values[1] - t2_values[0], t2_values[2] - t2_values[1]};
 
-				std::vector<Vec3> t1_vj(3); 
-				std::vector<Vec3> t2_vj(3); 
+				std::vector<Vec3> t1_vj(3);
+				std::vector<Vec3> t2_vj(3);
 				for (size_t l = 0; l < 3; ++l)
 				{
-					t1_vj[l] = t1_values[l] - surface_point; 
-					t2_vj[l] = t2_values[l] - surface_point; 
+					t1_vj[l] = t1_values[l] - surface_point;
+					t2_vj[l] = t2_values[l] - surface_point;
 				}
 
-				const Vec3 t1_p_ = (t1_vj[0].dot(t1_normal))*t1_normal; 
-				const Vec3 t2_p_ = (t2_vj[0].dot(t2_normal))*t2_normal; 
+				const Vec3 t1_p_ = (t1_vj[0].dot(t1_normal)) * t1_normal;
+				const Vec3 t2_p_ = (t2_vj[0].dot(t2_normal)) * t2_normal;
 
+				Vec3 t1_I = {0.0, 0.0, 0.0};
+				std::vector<double> t1_II(3);
+				Vec3 t1_s = {0.0, 0.0, 0.0};
+				std::vector<Vec3> t1_N(3);
 
-				Vec3 t1_I = {0.0, 0.0, 0.0}; 
-				std::vector<double> t1_II(3); 
-				Vec3 t1_s = {0.0, 0.0, 0.0}; 
-				std::vector<Vec3> t1_N(3); 
-
-				Vec3 t2_I = {0.0, 0.0, 0.0}; 
-				std::vector<double> t2_II(3); 
-				Vec3 t2_s = {0.0, 0.0, 0.0}; 
-				std::vector<Vec3> t2_N(3); 
+				Vec3 t2_I = {0.0, 0.0, 0.0};
+				std::vector<double> t2_II(3);
+				Vec3 t2_s = {0.0, 0.0, 0.0};
+				std::vector<Vec3> t2_N(3);
 
 				for (size_t k = 0; k < 3; ++k)
 				{
-					const auto t1_v0 = t1_vj[k]; 
-					const auto t1_v1 = t1_vj[(k+1)%3]; 
+					const auto t1_v0 = t1_vj[k];
+					const auto t1_v1 = t1_vj[(k + 1) % 3];
 
-					const auto t1_vjpt = ((t1_v0 - t1_p_).cross((t1_v1 - t1_p_))).dot(t1_normal); 
+					const auto t1_vjpt = ((t1_v0 - t1_p_).cross((t1_v1 - t1_p_))).dot(t1_normal);
 					t1_s[k] = t1_vjpt < 0 ? -1.0 : 1.0;
-					//I[l] = GCTriInt(p_, v0, v1, {0.0f, 0.0f, 0.0f}); 
-					//II[l] = GCTriInt({0.0f, 0.0f, 0.0f}, v1, v0, {0.0f, 0.0f, 0.0f}); 
-					t1_I[k] = GCTriInt2(t1_p_, t1_v0, t1_v1); 
-					t1_II[k] = GCTriInt2(NULL_VECTOR, t1_v1, t1_v0); 
-					t1_N[k] = (t1_v1.cross(t1_v0)).normalized(); 
+					// I[l] = GCTriInt(p_, v0, v1, {0.0f, 0.0f, 0.0f});
+					// II[l] = GCTriInt({0.0f, 0.0f, 0.0f}, v1, v0, {0.0f, 0.0f, 0.0f});
+					t1_I[k] = GCTriInt2(t1_p_, t1_v0, t1_v1);
+					t1_II[k] = GCTriInt2(NULL_VECTOR, t1_v1, t1_v0);
+					t1_N[k] = (t1_v1.cross(t1_v0)).normalized();
 
-					const auto t2_v0 = t2_vj[k]; 
-					const auto t2_v1 = t2_vj[(k+1)%3]; 
+					const auto t2_v0 = t2_vj[k];
+					const auto t2_v1 = t2_vj[(k + 1) % 3];
 
-					const auto t2_vjpt = ((t2_v0 - t2_p_).cross((t2_v1 - t2_p_))).dot(t2_normal); 
+					const auto t2_vjpt = ((t2_v0 - t2_p_).cross((t2_v1 - t2_p_))).dot(t2_normal);
 					t2_s[k] = t2_vjpt < 0 ? -1.0 : 1.0;
-					//I[l] = GCTriInt(p_, v0, v1, {0.0f, 0.0f, 0.0f}); 
-					//II[l] = GCTriInt({0.0f, 0.0f, 0.0f}, v1, v0, {0.0f, 0.0f, 0.0f}); 
-					t2_I[k] = GCTriInt2(t2_p_, t2_v0, t2_v1); 
-					t2_II[k] = GCTriInt2(NULL_VECTOR, t2_v1, t2_v0); 
-					t2_N[k] = (t2_v1.cross(t2_v0)).normalized(); 
-		
+					// I[l] = GCTriInt(p_, v0, v1, {0.0f, 0.0f, 0.0f});
+					// II[l] = GCTriInt({0.0f, 0.0f, 0.0f}, v1, v0, {0.0f, 0.0f, 0.0f});
+					t2_I[k] = GCTriInt2(t2_p_, t2_v0, t2_v1);
+					t2_II[k] = GCTriInt2(NULL_VECTOR, t2_v1, t2_v0);
+					t2_N[k] = (t2_v1.cross(t2_v0)).normalized();
 				}
-				
-				const auto t1_I_ = -abs(t1_s.dot(t1_I)); 
-				const auto t2_I_ = -abs(t2_s.dot(t2_I)); 
 
-				p.n_coords_(surface_point_idx, cage_face_idx) = {-t1_I_, -t2_I_}; 
+				const auto t1_I_ = -abs(t1_s.dot(t1_I));
+				const auto t2_I_ = -abs(t2_s.dot(t2_I));
 
-				Vec3 t1_w = t1_I_*t1_normal;
-				Vec3 t2_w = t2_I_*t2_normal;
+				p.n_coords_(surface_point_idx, cage_face_idx) = {-t1_I_, -t2_I_};
+
+				Vec3 t1_w = t1_I_ * t1_normal;
+				Vec3 t2_w = t2_I_ * t2_normal;
 				for (size_t a = 0; a < 3; ++a)
 				{
 					t1_w += (t1_II[a] * t1_N[a]);
 					t2_w += (t2_II[a] * t2_N[a]);
 				}
-				 
-				if (t1_w.norm() > DBL_EPSILON){
+
+				if (t1_w.norm() > DBL_EPSILON)
+				{
 					for (size_t l = 0; l < 3; l++)
 					{
 						const uint32 cage_vertex_idx = value<uint32>(cage, cage_vertex_index, triangle1[l]);
 
-						const auto Nl1 = t1_N[(l+1)%3]; 
-						const auto num = Nl1.dot(t1_w); 
-						const auto denom = Nl1.dot(t1_vj[l]); 
+						const auto Nl1 = t1_N[(l + 1) % 3];
+						const auto num = Nl1.dot(t1_w);
+						const auto denom = Nl1.dot(t1_vj[l]);
 
-						p.coords_(surface_point_idx, cage_vertex_idx) = p.coords_(surface_point_idx, cage_vertex_idx) + num/denom; 
-
+						p.coords_(surface_point_idx, cage_vertex_idx) =
+							p.coords_(surface_point_idx, cage_vertex_idx) + num / denom;
 					}
 				}
 
-				if (t2_w.norm() > DBL_EPSILON){
+				if (t2_w.norm() > DBL_EPSILON)
+				{
 					for (size_t l = 0; l < 3; l++)
 					{
 						const uint32 cage_vertex_idx = value<uint32>(cage, cage_vertex_index, triangle2[l]);
 
-						const auto Nl1 = t2_N[(l+1)%3]; 
-						const auto num = Nl1.dot(t2_w); 
-						const auto denom = Nl1.dot(t2_vj[l]); 
+						const auto Nl1 = t2_N[(l + 1) % 3];
+						const auto num = Nl1.dot(t2_w);
+						const auto denom = Nl1.dot(t2_vj[l]);
 
-						p.coords_(surface_point_idx, cage_vertex_idx) = p.coords_(surface_point_idx, cage_vertex_idx) + num/denom; 
-
+						p.coords_(surface_point_idx, cage_vertex_idx) =
+							p.coords_(surface_point_idx, cage_vertex_idx) + num / denom;
 					}
 				}
-				
+
 				return true;
 			});
 
@@ -598,7 +607,7 @@ public:
 				&cage, [&](Attribute<Vec3>* attribute) {
 					if (p.cage_vertex_position_.get() == attribute)
 					{
-						
+
 						std::shared_ptr<Attribute<uint32>> object_vertex_index =
 							cgogn::get_attribute<uint32, Vertex>(object, "weight_index");
 
@@ -619,7 +628,7 @@ public:
 
 							Vec3 new_pos_update_ = {0.0, 0.0, 0.0};
 
-							const auto sqrt8 = sqrt(8); 
+							const auto sqrt8 = sqrt(8);
 
 							foreach_cell(cage, [&](Vertex cv) -> bool {
 								const Vec3& cage_point = value<Vec3>(cage, cage_vertex_position, cv);
@@ -634,43 +643,54 @@ public:
 							foreach_cell(cage, [&](Face cf) -> bool {
 								uint32 cage_face_idx = value<uint32>(cage, cage_face_index, cf);
 
-								std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(cage, cf); 
+								std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(cage, cf);
 
-								const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[1], face_vertices_[3], face_vertices_[0]}; 
-								const std::vector<Vec3> t1_values = {value<Vec3>(cage, cage_vertex_position, triangle1[0]), 
-								value<Vec3>(cage, cage_vertex_position, triangle1[1]), value<Vec3>(cage, cage_vertex_position, triangle1[2])}; 
+								const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[1], face_vertices_[3],
+								face_vertices_[0]};
+								const std::vector<Vec3> t1_values = {
+									value<Vec3>(cage, cage_vertex_position, triangle1[0]),
+									value<Vec3>(cage, cage_vertex_position, triangle1[1]),
+									value<Vec3>(cage, cage_vertex_position, triangle1[2])};
 
-								const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[1], face_vertices_[2], face_vertices_[3]}; 
-								const std::vector<Vec3> t2_values = {value<Vec3>(cage, cage_vertex_position, triangle2[0]), 
-								value<Vec3>(cage, cage_vertex_position, triangle2[1]), value<Vec3>(cage, cage_vertex_position, triangle2[2])}; 
+								const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[1], face_vertices_[2],
+										face_vertices_[3]};
+								const std::vector<Vec3> t2_values = {
+									value<Vec3>(cage, cage_vertex_position, triangle2[0]),
+									value<Vec3>(cage, cage_vertex_position, triangle2[1]),
+									value<Vec3>(cage, cage_vertex_position, triangle2[2])};
 
-								const auto t1_normal = value<std::vector<Vec3>>(cage, cage_face_normal, cf)[0]; 
-								const auto t2_normal = value<std::vector<Vec3>>(cage, cage_face_normal, cf)[1]; 
+								const auto t1_normal = value<std::vector<Vec3>>(cage, cage_face_normal, cf)[0];
+								const auto t2_normal = value<std::vector<Vec3>>(cage, cage_face_normal, cf)[1];
 
-								// update triangle 1 
-								const auto t1_u0 = value<std::vector<Vec3>>(cage, cage_face_edge, cf)[0]; 
+								// update triangle 1
+								const auto t1_u0 = value<std::vector<Vec3>>(cage, cage_face_edge, cf)[0];
 								const auto t1_v0 = value<std::vector<Vec3>>(cage, cage_face_edge, cf)[1];
 
-								const auto t1_u1 = t1_values[1] - t1_values[0]; 
+								const auto t1_u1 = t1_values[1] - t1_values[0];
 								const auto t1_v1 = t1_values[2] - t1_values[1];
 
-								const auto area_face = (t1_u0.cross(t1_v0)).norm()*0.5; 
+								const auto area_face = (t1_u0.cross(t1_v0)).norm() * 0.5;
 
-								double t1_sj = sqrt((t1_u1.squaredNorm()) * (t1_v0.squaredNorm()) - 2.0 * (t1_u1.dot(t1_v1)) * (t1_u0.dot(t1_v0)) + (t1_v1.squaredNorm()) * (t1_u0.squaredNorm())) / (sqrt8 * area_face);
-								
-								new_norm_update_ += p.n_coords_(vidx, cage_face_idx)[0] * t1_sj * t1_normal; 
+								double t1_sj = sqrt((t1_u1.squaredNorm()) * (t1_v0.squaredNorm()) -
+													2.0 * (t1_u1.dot(t1_v1)) * (t1_u0.dot(t1_v0)) +
+													(t1_v1.squaredNorm()) * (t1_u0.squaredNorm())) /
+											   (sqrt8 * area_face);
 
+								new_norm_update_ += p.n_coords_(vidx, cage_face_idx)[0] * t1_sj * t1_normal;
 
 								// update triangle 2
-								const auto t2_u0 = value<std::vector<Vec3>>(cage, cage_face_edge, cf)[2]; 
+								const auto t2_u0 = value<std::vector<Vec3>>(cage, cage_face_edge, cf)[2];
 								const auto t2_v0 = value<std::vector<Vec3>>(cage, cage_face_edge, cf)[3];
 
-								const auto t2_u1 = t2_values[1] - t2_values[0]; 
+								const auto t2_u1 = t2_values[1] - t2_values[0];
 								const auto t2_v1 = t2_values[2] - t2_values[1];
 
-								double t2_sj = sqrt((t2_u1.squaredNorm()) * (t2_v0.squaredNorm()) - 2.0 * (t2_u1.dot(t2_v1)) * (t2_u0.dot(t2_v0)) + (t2_v1.squaredNorm()) * (t2_u0.squaredNorm())) / (sqrt8 * area_face);
-								
-								new_norm_update_ += p.n_coords_(vidx, cage_face_idx)[1] * t2_sj * t2_normal; 
+								double t2_sj = sqrt((t2_u1.squaredNorm()) * (t2_v0.squaredNorm()) -
+													2.0 * (t2_u1.dot(t2_v1)) * (t2_u0.dot(t2_v0)) +
+													(t2_v1.squaredNorm()) * (t2_u0.squaredNorm())) /
+											   (sqrt8 * area_face);
+
+								new_norm_update_ += p.n_coords_(vidx, cage_face_idx)[1] * t2_sj * t2_normal;
 
 								return true;
 							});

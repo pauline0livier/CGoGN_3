@@ -84,6 +84,7 @@ public:
 			supported_formats_ = &supported_surface_formats_;
 		if constexpr (mesh_traits<MESH>::dimension == 3)
 			supported_formats_ = &supported_volume_formats_;
+
 	}
 
 	~MeshProvider()
