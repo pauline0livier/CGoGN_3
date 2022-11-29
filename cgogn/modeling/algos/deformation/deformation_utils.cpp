@@ -61,10 +61,6 @@ float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage, const Vec
 		Vec3 vj = value<Vec3>(cage, cage_position, CMap2::Vertex(phi1(cage, it)));
 		Vec3 vk = value<Vec3>(cage, cage_position, CMap2::Vertex(phi_1(cage, it)));
 
-		// double Bjk = cgogn::geometry::angle((vj - surface_point), (vk - surface_point));
-		// double Bij = cgogn::geometry::angle((vi - surface_point), (vj - surface_point));
-		// double Bki = cgogn::geometry::angle((vk - surface_point), (vi - surface_point));
-
 		Vec3 ei = (vi - surface_point).normalized();
 		Vec3 ej = (vj - surface_point).normalized();
 		Vec3 ek = (vk - surface_point).normalized();
