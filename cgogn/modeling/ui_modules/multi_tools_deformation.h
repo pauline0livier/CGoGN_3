@@ -112,7 +112,7 @@ class MultiToolsDeformation : public ViewModule
 		Parameters()
 			: vertex_position_(nullptr), new_cage_(false), nb_cage(0), nb_max_tool_(0), nb_tool_(0),
 			  selection_method_(SingleCell), selecting_cell_(VertexSelect), selected_vertices_set_(nullptr),
-			  vertex_scale_factor_(1.0), sphere_scale_factor_(10.0), object_update_(false)
+			  vertex_scale_factor_(1.0), sphere_scale_factor_(10.0), object_update_(false), back_selection_(false)
 		{
 			param_point_sprite_ = rendering::ShaderPointSprite::generate_param();
 			param_point_sprite_->color_ = rendering::GLColor(1, 0, 0, 0.65f);
@@ -160,6 +160,8 @@ class MultiToolsDeformation : public ViewModule
 		int nb_max_tool_;
 
 		bool object_update_; 
+
+		bool back_selection_; 
 
 		std::unique_ptr<rendering::ShaderPointSprite::Param> param_point_sprite_;
 
@@ -1080,7 +1082,6 @@ protected:
 																		p.vertex_base_size_ * p.sphere_scale_factor_,
 																		p.vertex_position_.get());
 
-						bool back_side = false; //(picked.size() > 1);
 
 						switch (p.selecting_cell_)
 						{
@@ -1103,7 +1104,7 @@ protected:
 									});
 									break;
 								}
-								if (!back_side)
+								if (!p.back_selection_)
 								{
 									mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_vertices_set_);
 								}
@@ -1111,7 +1112,7 @@ protected:
 							break;
 						}
 
-						if (back_side)
+						if (p.back_selection_)
 						{
 
 							CellCache<MESH> cache_back_ = geometry::within_sphere(
@@ -1244,10 +1245,10 @@ protected:
 
 				if (selected_tool_ == Cage)
 				{
-					CellsSet<MESH, MeshVertex>* control_set = nullptr;
-
+					
 					ImGui::Separator();
 					p.selection_method_ = WithinSphere;
+					p.back_selection_ = true; 
 
 					ImGui::SliderFloat("Sphere radius", &(p.sphere_scale_factor_), 10.0f, 100.0f);
 
@@ -1276,18 +1277,22 @@ protected:
 						for (View* v : linked_views_)
 							v->request_update();
 					}
-						
+
+					CellsSet<MESH, MeshVertex>* control_set = nullptr;
+					
+					if (ImGui::Button("Accept control set##vertices_set")){
+						control_set = p.selected_vertices_set_; 
+
+						MESH* l_cage = generate_local_cage(*selected_mesh_, p.vertex_position_, control_set);
+
+						p.selected_vertices_set_ = nullptr; 
+					}
 
 					/*imgui_combo_cells_set(md, control_set, "Control ",
 										  [&](CellsSet<MESH, MeshVertex>* cs) { control_set = cs; });*/
 
 					bool newCage = false;
 					p.object_update_ = false; 
-
-					if (control_set && control_set->size() > 0)
-					{
-						MESH* l_cage = generate_local_cage(*selected_mesh_, p.vertex_position_, control_set);
-					}
 
 					ImGui::Separator();
 					ImGui::Text("Binding");
