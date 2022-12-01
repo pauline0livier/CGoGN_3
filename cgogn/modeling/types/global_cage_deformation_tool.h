@@ -342,7 +342,7 @@ public:
 		std::shared_ptr<Attribute<std::vector<Vec3>>> cage_face_edge =
 			cgogn::get_attribute<std::vector<Vec3>, Face>(*global_cage_, "face_edge");
 
-		foreach_cell(object, [&](Vertex v) -> bool {
+		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
 			Vec3 new_pos_update_ = {0.0, 0.0, 0.0};
@@ -357,7 +357,7 @@ public:
 				new_pos_update_ += global_cage_coords_(vidx, cage_point_idx) * cage_point;
 
 				return true;
-			});
+			}); 
 
 			Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
 

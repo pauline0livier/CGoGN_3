@@ -106,6 +106,8 @@ int main(int argc, char** argv)
 	v1->link_module(&ss);
 	v1->link_module(&ssg);
 
+	v1->link_module(&sd2); 
+
 	Mesh* m = mp.load_surface_from_file(filename);
 	if (!m)
 	{
