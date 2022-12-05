@@ -129,7 +129,7 @@ int main(int argc, char** argv)
 	auto object_position_indices = cgogn::add_attribute<uint32, cgogn::mesh_traits<Mesh>::Vertex>(*m, "vertex_index");
 	cgogn::modeling::set_attribute_vertex_index(*m, object_position_indices.get()); 
 
-	sd2.set_selected_mesh(*m);
+	sd2.set_model(*m);
 	sd2.set_vertex_position(*m, vertex_position);
 
 	return app.launch();

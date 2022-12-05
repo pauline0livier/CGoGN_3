@@ -130,14 +130,36 @@ bool imgui_mesh_selector(MESH_PROVIDER<MESH>* mesh_provider, const MESH* selecte
 }
 
 using Graph = cgogn::IncidenceGraph;
-template <template <typename MESH, typename Graph> typename SPACE_DEFORMATION, typename MESH, typename FUNC>
-bool imgui_cage_selector(SPACE_DEFORMATION<MESH,Graph>* space_deformation, const MESH* selected_mesh, const std::string& label,
+template <template <typename MESH, typename Graph> typename MULTI_TOOLS_DEFORMATION, typename MESH, typename FUNC>
+bool imgui_local_cage_selector(MULTI_TOOLS_DEFORMATION<MESH,Graph>* multi_tools_deformation, const MESH* selected_mesh, const std::string& label,
 						 const FUNC& on_change)
 {
 	static_assert(is_func_parameter_same<FUNC, MESH&>::value, "Wrong function parameter type");
-	if (ImGui::ListBoxHeader(label.c_str(), space_deformation->cage_container_.size()))
+	if (ImGui::ListBoxHeader(label.c_str(), multi_tools_deformation->cage_container_.size()))
 	{
-		space_deformation->foreach_cage([&](MESH& m, const std::string& name) {
+		multi_tools_deformation->foreach_local_cage([&](MESH& m, const std::string& name) {
+			if (ImGui::Selectable(name.c_str(), &m == selected_mesh))
+			{
+				if (&m != selected_mesh)
+					on_change(m);
+			}
+		});
+		ImGui::ListBoxFooter();
+		return true;
+		
+	}
+	return false;
+}
+
+using Graph = cgogn::IncidenceGraph;
+template <template <typename MESH, typename Graph> typename MULTI_TOOLS_DEFORMATION, typename MESH, typename FUNC>
+bool imgui_cage_selector(MULTI_TOOLS_DEFORMATION<MESH,Graph>* multi_tools_deformation, const MESH* selected_mesh, const std::string& label,
+						 const FUNC& on_change)
+{
+	static_assert(is_func_parameter_same<FUNC, MESH&>::value, "Wrong function parameter type");
+	if (ImGui::ListBoxHeader(label.c_str(), multi_tools_deformation->cage_container_.size() + multi_tools_deformation->global_cage_container_.size()))
+	{
+		multi_tools_deformation->foreach_cage([&](MESH& m, const std::string& name) {
 			if (ImGui::Selectable(name.c_str(), &m == selected_mesh))
 			{
 				if (&m != selected_mesh)
