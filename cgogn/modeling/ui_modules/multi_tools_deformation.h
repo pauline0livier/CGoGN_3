@@ -175,6 +175,8 @@ class MultiToolsDeformation : public ViewModule
 
 		SelectionMethod selection_method_;
 		SelectingCell selecting_cell_;
+
+		std::shared_ptr<boost::synapse::connection> cells_set_connection_bis;
 	};
 
 public:
@@ -186,7 +188,7 @@ public:
 
 	MultiToolsDeformation(const App& app)
 		: ViewModule(app, "MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), model_(nullptr),
-		  selected_mesh_(nullptr), selected_cage_(nullptr), selected_handle_(nullptr), influence_cage_mode_(true)
+		  selected_mesh_(nullptr), selected_cage_(nullptr), selected_handle_(nullptr), influence_cage_mode_(true), dragging_(false), rotating_(false)
 	{
 	}
 
@@ -223,6 +225,15 @@ public:
 							v->request_update();
 					}
 				}));
+
+		p.cells_set_connection_bis =
+			boost::synapse::connect<typename MeshProvider<MESH>::template cells_set_changed<MeshVertex>>(
+				m, [this, m](CellsSet<MESH, MeshVertex>* set) {
+					Parameters& p = parameters_[m];
+					if (p.selected_vertices_set_ == set)
+					    std::cout << "ok " << std::endl; 
+						//p.solver_ready_ = false;
+				});
 	}
 
 	void set_model(MESH& m)
@@ -307,7 +318,7 @@ private:
 			cgogn::add_attribute<Vec3, MeshVertex>(*cage, "position");
 		mesh_provider_->set_mesh_bb_vertex_position(*cage, cage_vertex_position);
 
-		set_vertex_position(*cage, cage_vertex_position); 
+		set_vertex_position(*cage, cage_vertex_position);
 
 		const auto [it, inserted] = global_cage_container_.emplace(
 			cage_name, std::make_shared<cgogn::modeling::GlobalCageDeformationTool<MESH>>());
@@ -349,7 +360,7 @@ private:
 			cgogn::add_attribute<Vec3, MeshVertex>(*l_cage, "position");
 		mesh_provider_->set_mesh_bb_vertex_position(*l_cage, l_cage_vertex_position);
 
-		set_vertex_position(*l_cage, l_cage_vertex_position); 
+		set_vertex_position(*l_cage, l_cage_vertex_position);
 
 		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
@@ -1169,6 +1180,109 @@ protected:
 		}
 	}
 
+	void key_press_event(View* view, int32 key_code) override
+	{
+		if (key_code == GLFW_KEY_D)
+		{
+			if (selected_mesh_)
+			{
+				Parameters& p = parameters_[selected_mesh_];
+				if (p.vertex_position_ && p.selected_vertices_set_ && p.selected_vertices_set_->size() > 0)
+				{
+					drag_z_ = 0.0;
+					p.selected_vertices_set_->foreach_cell([&](MeshVertex v) {
+						const Vec3& pos = value<Vec3>(*selected_mesh_, p.vertex_position_, v);
+						rendering::GLVec4d vec(pos[0], pos[1], pos[2], 1.0);
+						vec = view->projection_matrix_d() * view->modelview_matrix_d() * vec;
+						vec /= vec[3];
+						drag_z_ += (1.0 + vec[2]) / 2.0;
+					});
+					drag_z_ /= p.selected_vertices_set_->size();
+					previous_drag_pos_ = view->unproject(view->previous_mouse_x(), view->previous_mouse_y(), drag_z_);
+					dragging_ = true;
+				}
+			}
+		}
+		else if (key_code == GLFW_KEY_R)
+		{
+			/*if (selected_mesh_)
+			{
+				Parameters& p = parameters_[selected_mesh_];
+				if (p.vertex_position_ && p.selected_vertices_set_ &&
+					p.selected_vertices_set_->size() > 0)
+				{
+					rotation_center_.setZero();
+					p.selected_vertices_set_->foreach_cell(
+						[&](Vertex v) { rotation_center_ += value<Vec3>(*selected_mesh_, p.vertex_position_, v); });
+					rotation_center_ /= p.selected_vertices_set_->size();
+					rotating_ = true;
+				}
+			}*/
+		}
+	}
+
+	void key_release_event(View* view, int32 key_code) override
+	{
+		unused_parameters(view);
+		if (key_code == GLFW_KEY_D)
+		{
+			if (dragging_)
+				dragging_ = false;
+		}
+		else if (key_code == GLFW_KEY_R)
+		{
+			if (rotating_)
+				rotating_ = false;
+		}
+	}
+
+	void mouse_move_event(View* view, int32 x, int32 y) override
+	{
+		if (dragging_)
+		{
+			Parameters& p = parameters_[selected_mesh_];
+
+			rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
+			Vec3 t = drag_pos - previous_drag_pos_;
+			p.selected_vertices_set_->foreach_cell(
+				[&](MeshVertex v) { value<Vec3>(*selected_mesh_, p.vertex_position_, v) += t; });
+			//as_rigid_as_possible(*selected_mesh_);
+			previous_drag_pos_ = drag_pos;
+
+			mesh_provider_->emit_attribute_changed(*selected_mesh_, p.vertex_position_.get());
+		}
+
+		/*if (rotating_)
+		{
+			Parameters& p = parameters_[selected_mesh_];
+
+			float64 dx = float64(x - view->previous_mouse_x());
+			float64 dy = float64(y - view->previous_mouse_y());
+			if (std::abs(dx) + std::abs(dy) > 0.0)
+			{
+				rendering::GLVec3d axis(dy, dx, 0.0);
+				float64 spinning_speed = axis.norm();
+				axis /= spinning_speed;
+				spinning_speed *= 0.005;
+				rendering::Transfo3d inv_camera = view->camera().frame_.inverse();
+				rendering::Transfo3d sm(Eigen::AngleAxisd(2.0 * spinning_speed, axis));
+				rendering::Transfo3d rot((inv_camera * sm * view->camera().frame_).linear());
+
+				rendering::Transfo3d M =
+					Eigen::Translation3d(rotation_center_) * rot * Eigen::Translation3d(-rotation_center_);
+
+				p.selected_handle_vertices_set_->foreach_cell([&](Vertex v) {
+					Vec3& pos = value<Vec3>(*selected_mesh_, p.vertex_position_, v);
+					pos = M * pos;
+				});
+
+				as_rigid_as_possible(*selected_mesh_);
+
+				mesh_provider_->emit_attribute_changed(*selected_mesh_, p.vertex_position_.get());
+			}
+		}*/
+	}
+
 	void draw(View* view) override
 	{
 		for (auto& [m, p] : parameters_)
@@ -1196,7 +1310,7 @@ protected:
 
 		bool need_update = false;
 
-		selected_mesh_ = model_; 
+		selected_mesh_ = model_;
 
 		if (model_)
 		{
@@ -1265,6 +1379,7 @@ protected:
 				if (selected_tool_ == Cage)
 				{
 
+					selected_mesh_ = model_;
 					ImGui::Separator();
 					model_p.selection_method_ = WithinSphere;
 					model_p.back_selection_ = true;
@@ -1273,11 +1388,12 @@ protected:
 
 					if (ImGui::Button("Create control set##vertices_set"))
 						model_md.template add_cells_set<MeshVertex>();
-					imgui_combo_cells_set(model_md, model_p.selected_vertices_set_, "Sets", [&](CellsSet<MESH, MeshVertex>* cs) {
-						model_p.selected_vertices_set_ = cs;
-						model_p.update_selected_vertices_vbo();
-						need_update = true;
-					});
+					imgui_combo_cells_set(model_md, model_p.selected_vertices_set_, "Sets",
+										  [&](CellsSet<MESH, MeshVertex>* cs) {
+											  model_p.selected_vertices_set_ = cs;
+											  model_p.update_selected_vertices_vbo();
+											  need_update = true;
+										  });
 
 					if (model_p.selected_vertices_set_)
 					{
@@ -1409,7 +1525,7 @@ protected:
 
 				if (selected_tool_ == Handle)
 				{
-
+					selected_mesh_ = model_;
 					CellsSet<MESH, MeshVertex>* control_set = nullptr;
 
 					imgui_combo_cells_set(model_md, control_set, "Handle ",
@@ -1517,6 +1633,7 @@ protected:
 
 				if (selected_tool_ == Axis)
 				{
+					selected_mesh_ = model_;
 					CellsSet<MESH, MeshVertex>* control_set = nullptr;
 
 					imgui_combo_cells_set(model_md, control_set, "Control ",
@@ -1541,19 +1658,28 @@ protected:
 
 				if (deformed_tool_ == Cage)
 				{
-					if ((cage_container_.size() +  global_cage_container_.size() ) > 0 )
+
+					if ((cage_container_.size() + global_cage_container_.size()) > 0)
 					{
 						MultiToolsDeformation<MESH, GRAPH>* multi_tools_deformation =
 							static_cast<MultiToolsDeformation<MESH, GRAPH>*>(
 								app_.module("MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
 
 						imgui_cage_selector(multi_tools_deformation, selected_cage_, "Cage",
-											[&](MESH& m) { selected_cage_ = &m; });
+											[&](MESH& m) { 
+												if (selected_cage_){
+													Parameters& old_p = parameters_[selected_cage_];
+													old_p.selected_vertices_set_ = nullptr; 
+												}
+												selected_cage_ = &m; });
 
 						if (selected_cage_)
 						{
 
-							selected_mesh_ = selected_cage_; 
+							Parameters& old_p = parameters_[selected_mesh_];
+							old_p.selected_vertices_set_ = nullptr; 
+
+							selected_mesh_ = selected_cage_;
 							Parameters& cage_p = parameters_[selected_mesh_];
 
 							const std::string cage_name = mesh_provider_->mesh_name(*selected_cage_);
@@ -1590,7 +1716,8 @@ protected:
 									if (ImGui::Button("Clear cage selection##vertices_set"))
 									{
 										cage_p.selected_vertices_set_->clear();
-										mesh_provider_->emit_cells_set_changed(*selected_cage_, cage_p.selected_vertices_set_);
+										mesh_provider_->emit_cells_set_changed(*selected_cage_,
+																			   cage_p.selected_vertices_set_);
 									}
 								}
 								ImGui::TextUnformatted("Drawing parameters");
@@ -1666,39 +1793,45 @@ protected:
 		}
 	}
 
-private : 
-MESH* model_;
+private:
+	MESH* model_;
 
-MESH* selected_mesh_;
-MESH* selected_cage_;
-GRAPH* selected_handle_;
+	MESH* selected_mesh_;
+	MESH* selected_cage_;
+	GRAPH* selected_handle_;
 
-std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> selected_cdt_;
-std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> selected_gcdt_;
-std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> selected_hdt_;
-std::unordered_map<const MESH*, Parameters> parameters_;
+	std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> selected_cdt_;
+	std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> selected_gcdt_;
+	std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> selected_hdt_;
+	std::unordered_map<const MESH*, Parameters> parameters_;
 
-std::vector<std::shared_ptr<boost::synapse::connection>> connections_;
-std::unordered_map<const MESH*, std::vector<std::shared_ptr<boost::synapse::connection>>> mesh_connections_;
+	std::vector<std::shared_ptr<boost::synapse::connection>> connections_;
+	std::unordered_map<const MESH*, std::vector<std::shared_ptr<boost::synapse::connection>>> mesh_connections_;
 
-MeshProvider<MESH>* mesh_provider_;
-MeshProvider<GRAPH>* graph_provider_;
+	MeshProvider<MESH>* mesh_provider_;
+	MeshProvider<GRAPH>* graph_provider_;
 
-SurfaceRender<MESH>* surface_render_;
-SurfaceRender<GRAPH>* graph_render_;
+	SurfaceRender<MESH>* surface_render_;
+	SurfaceRender<GRAPH>* graph_render_;
 
-SurfaceDifferentialProperties<MESH>* surface_diff_pptes_;
+	SurfaceDifferentialProperties<MESH>* surface_diff_pptes_;
 
-SurfaceSelectionPO<MESH>* surface_selection_;
-GraphSelection<GRAPH>* graph_selection_;
+	SurfaceSelectionPO<MESH>* surface_selection_;
+	GraphSelection<GRAPH>* graph_selection_;
 
-SurfaceDeformation<MESH>* surface_deformation_;
-GraphDeformation<GRAPH>* graph_deformation_;
+	SurfaceDeformation<MESH>* surface_deformation_;
+	GraphDeformation<GRAPH>* graph_deformation_;
 
-SelectionTool selected_tool_;
-SelectionTool deformed_tool_;
+	SelectionTool selected_tool_;
+	SelectionTool deformed_tool_;
 
-bool influence_cage_mode_;
+	bool influence_cage_mode_;
+
+	bool dragging_;
+	float64 drag_z_;
+	bool rotating_;
+	Vec3 rotation_center_;
+	rendering::GLVec3d previous_drag_pos_;
 };
 
 } // namespace ui
