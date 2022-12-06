@@ -109,6 +109,35 @@ void imgui_combo_cells_set(MeshData<MESH>& md, const CellsSet<MESH, CELL>* selec
 	}
 }
 
+template <typename CELL, typename GRAPH, typename FUNC>
+void imgui_combo_cells_set_graph(MeshData<GRAPH>& md, const CellsSet<GRAPH, CELL>* selected_set, const std::string& label,
+						   const FUNC& on_change)
+{
+	static_assert(is_func_parameter_same<FUNC, CellsSet<GRAPH, CELL>*>::value, "Wrong function CellsSet parameter type");
+
+	if (ImGui::BeginCombo(label.c_str(), selected_set ? selected_set->name().c_str() : "-- select --"))
+	{
+		md.template foreach_cells_set<CELL>([&](CellsSet<GRAPH, CELL>& cs) {
+			bool is_selected = &cs == selected_set;
+			if (ImGui::Selectable(cs.name().c_str(), is_selected))
+			{
+				if (&cs != selected_set)
+					on_change(&cs);
+			}
+			if (is_selected)
+				ImGui::SetItemDefaultFocus();
+		});
+		ImGui::EndCombo();
+	}
+	if (selected_set)
+	{
+		double X_button_width = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2;
+		ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - X_button_width);
+		if (ImGui::Button(("X##" + label).c_str()))
+			on_change(nullptr);
+	}
+}
+
 template <template <typename MESH> typename MESH_PROVIDER, typename MESH, typename FUNC>
 bool imgui_mesh_selector(MESH_PROVIDER<MESH>* mesh_provider, const MESH* selected_mesh, const std::string& label,
 						 const FUNC& on_change)
