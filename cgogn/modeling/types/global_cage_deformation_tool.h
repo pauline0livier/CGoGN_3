@@ -70,7 +70,6 @@ public:
 
 	GlobalCageDeformationTool() : global_cage_vertex_position_(nullptr)
 	{
-
 	}
 
 	~GlobalCageDeformationTool()
@@ -325,6 +324,34 @@ public:
 		});
 	}
 
+	void update_mvc(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position)
+	{
+		std::shared_ptr<Attribute<uint32>> object_vertex_index =
+			get_attribute<uint32, Vertex>(object, "vertex_index");
+
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
+
+		parallel_foreach_cell(object, [&](Vertex v) -> bool {
+			uint32 vidx = value<uint32>(object, object_vertex_index, v);
+
+			Vec3 new_pos_ = {0.0, 0.0, 0.0};
+
+			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
+				const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cv);
+
+				uint32 cage_point_idx = value<uint32>(*global_cage_, cage_vertex_index, cv);
+
+				new_pos_ += global_cage_coords_(vidx, cage_point_idx) * cage_point;
+
+				return true;
+			});
+
+			value<Vec3>(object, object_vertex_position, v) = new_pos_;
+			return true;
+		});
+	}
+
 	void update_green(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position)
 	{
 
@@ -357,7 +384,7 @@ public:
 				new_pos_update_ += global_cage_coords_(vidx, cage_point_idx) * cage_point;
 
 				return true;
-			}); 
+			});
 
 			Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
 
@@ -397,7 +424,7 @@ public:
 						 (t1_v1.squaredNorm()) * (t1_u0.squaredNorm())) /
 					(sqrt8 * area_face);
 
-				new_norm_update_ += global_cage_normal_coords_(vidx, cage_face_idx)[0] * t1_sj * t1_normal; 
+				new_norm_update_ += global_cage_normal_coords_(vidx, cage_face_idx)[0] * t1_sj * t1_normal;
 
 				// update triangle 2
 				const auto t2_u0 = value<std::vector<Vec3>>(*global_cage_, cage_face_edge, cf)[2];
@@ -423,7 +450,6 @@ public:
 	}
 
 private:
-	
 };
 
 } // namespace modeling

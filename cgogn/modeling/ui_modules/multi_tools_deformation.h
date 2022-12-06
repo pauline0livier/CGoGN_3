@@ -163,6 +163,8 @@ class MultiToolsDeformation : public ViewModule
 
 		bool back_selection_;
 
+		std::string name_; 
+
 		std::unique_ptr<rendering::ShaderPointSprite::Param> param_point_sprite_;
 
 		float32 vertex_scale_factor_;
@@ -188,7 +190,8 @@ public:
 
 	MultiToolsDeformation(const App& app)
 		: ViewModule(app, "MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), model_(nullptr),
-		  selected_mesh_(nullptr), selected_cage_(nullptr), selected_handle_(nullptr), influence_cage_mode_(true), dragging_(false), rotating_(false)
+		  selected_mesh_(nullptr), selected_cage_(nullptr), selected_handle_(nullptr), influence_cage_mode_(true),
+		  dragging_(false), rotating_(false)
 	{
 	}
 
@@ -231,8 +234,8 @@ public:
 				m, [this, m](CellsSet<MESH, MeshVertex>* set) {
 					Parameters& p = parameters_[m];
 					if (p.selected_vertices_set_ == set)
-					    std::cout << "ok " << std::endl; 
-						//p.solver_ready_ = false;
+						std::cout << "ok " << std::endl;
+					// p.solver_ready_ = false;
 				});
 	}
 
@@ -759,30 +762,7 @@ private:
 							std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> current_gcdt =
 								global_cage_container_["global_cage"];
 
-							std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
-								get_attribute<uint32, MeshVertex>(object, "vertex_index");
-
-							std::shared_ptr<MeshAttribute<uint32>> cage_vertex_index =
-								get_attribute<uint32, MeshVertex>(global_cage, "vertex_index");
-
-							parallel_foreach_cell(object, [&](MeshVertex v) -> bool {
-								uint32 vidx = value<uint32>(object, object_vertex_index, v);
-
-								Vec3 new_pos_ = {0.0, 0.0, 0.0};
-
-								foreach_cell(global_cage, [&](MeshVertex cv) -> bool {
-									const Vec3& cage_point = value<Vec3>(global_cage, cage_vertex_position, cv);
-
-									uint32 cage_point_idx = value<uint32>(global_cage, cage_vertex_index, cv);
-
-									new_pos_ += current_gcdt->global_cage_coords_(vidx, cage_point_idx) * cage_point;
-
-									return true;
-								});
-
-								value<Vec3>(object, object_vertex_position, v) = new_pos_;
-								return true;
-							});
+							current_gcdt->update_mvc(object, object_vertex_position.get());
 
 							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
 						}
@@ -809,6 +789,70 @@ private:
 		}
 	}
 
+	void bind_local_cage(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
+						 MESH& local_cage, std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position,
+						 std::string binding_type)
+	{
+
+		Parameters& p = parameters_[&object];
+		Parameters& p_cage = parameters_[&local_cage];
+
+		std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> cdt = cage_container_[p_cage.name_];
+
+		if (binding_type == "MVC")
+		{
+			cdt->bind_mvc(object, object_vertex_position);
+			cdt->set_up_attenuation(object, object_vertex_position);
+
+			cdt->cage_attribute_update_connection_ =
+				boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
+					&local_cage, [&](MeshAttribute<Vec3>* attribute) {
+						if (cage_vertex_position.get() == attribute)
+						{
+
+							std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> current_cdt =
+								cage_container_[p_cage.name_];
+
+							current_cdt->update_influence_cage_position();
+
+							MESH* i_cage = current_cdt->influence_cage_;
+
+							std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
+								get_attribute<Vec3, MeshVertex>(*i_cage, "position");
+
+							mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
+
+							current_cdt->update_deformation_object_mvc(object, object_vertex_position, p.init_position_);
+
+							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+							/*current_cdt->update_mvc(object, object_vertex_position.get());
+
+							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());*/
+						}
+					});
+		}
+
+		if (binding_type == "Green")
+		{
+			/*cdt->bind_green(object, object_vertex_position.get());
+
+			cdt->cage_attribute_update_connection_ =
+				boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
+					&local_cage, [&](MeshAttribute<Vec3>* attribute) {
+						if (cage_vertex_position.get() == attribute)
+						{
+							std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> current_cdt =
+			cage_container_[cage_name];
+
+							current_cdt->update_green(object, object_vertex_position.get());
+
+							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+						}
+					});*/
+
+			std::cout << "greeen" << std::endl;
+		}
+	}
 	void bind_influence_cage_mvc(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 								 MESH& control_cage, const std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position)
 
@@ -1246,7 +1290,7 @@ protected:
 			Vec3 t = drag_pos - previous_drag_pos_;
 			p.selected_vertices_set_->foreach_cell(
 				[&](MeshVertex v) { value<Vec3>(*selected_mesh_, p.vertex_position_, v) += t; });
-			//as_rigid_as_possible(*selected_mesh_);
+			// as_rigid_as_possible(*selected_mesh_);
 			previous_drag_pos_ = drag_pos;
 
 			mesh_provider_->emit_attribute_changed(*selected_mesh_, p.vertex_position_.get());
@@ -1477,37 +1521,17 @@ protected:
 									ImGui::EndCombo();
 								}
 
-								std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> cdt =
-									cage_container_[cage_name];
-								selected_cdt_ = cage_container_[cage_name];
-								if (ImGui::Button("Bind object"))
+								if (ImGui::Button("Bind local cage"))
 								{
-									// ImGui::Text("Binded");
-									if (current_item == "MVC")
-									{
-										bind_influence_cage_mvc(*model_, model_p.vertex_position_, *selected_cage_,
-																selected_cdt_->control_cage_vertex_position_);
-									}
+									std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> cdt =
+										cage_container_[cage_name];
 
-									else if (current_item == "Green")
-									{
-										/*if (!cd.local_def)
-										{
-											bind_object_green(*model_, model_p.vertex_position_,
-										*selected_cage_, cd.cage_vertex_position_);
-										}
-										else
-										{
-											bind_local_green(*model_, model_p.vertex_position_,
-										*selected_cage_, cd.cage_vertex_position_);
-										}*/
+									Parameters& local_p = parameters_[selected_cage_];
 
-										std::cout << "green" << std::endl;
-									}
-									else
-									{
-										std::cout << "not available yet" << std::endl;
-									}
+									local_p.name_ = cage_name; 
+
+									bind_local_cage(*model_, model_p.vertex_position_, *(cdt->control_cage_),
+													cdt->control_cage_vertex_position_, current_item);
 								}
 
 								/*ImGui::Separator();
@@ -1665,19 +1689,20 @@ protected:
 							static_cast<MultiToolsDeformation<MESH, GRAPH>*>(
 								app_.module("MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
 
-						imgui_cage_selector(multi_tools_deformation, selected_cage_, "Cage",
-											[&](MESH& m) { 
-												if (selected_cage_){
-													Parameters& old_p = parameters_[selected_cage_];
-													old_p.selected_vertices_set_ = nullptr; 
-												}
-												selected_cage_ = &m; });
+						imgui_cage_selector(multi_tools_deformation, selected_cage_, "Cage", [&](MESH& m) {
+							if (selected_cage_)
+							{
+								Parameters& old_p = parameters_[selected_cage_];
+								old_p.selected_vertices_set_ = nullptr;
+							}
+							selected_cage_ = &m;
+						});
 
 						if (selected_cage_)
 						{
 
 							Parameters& old_p = parameters_[selected_mesh_];
-							old_p.selected_vertices_set_ = nullptr; 
+							old_p.selected_vertices_set_ = nullptr;
 
 							selected_mesh_ = selected_cage_;
 							Parameters& cage_p = parameters_[selected_mesh_];
@@ -1730,61 +1755,8 @@ protected:
 									for (View* v : linked_views_)
 										v->request_update();
 								}
-
-								CellsSet<MESH, MeshVertex>* control_set = nullptr;
-
-								/*if (ImGui::Button("Accept control set##vertices_set"))
-								{
-									control_set = cage_p.selected_vertices_set_;
-
-									MESH* l_cage =
-										generate_local_cage(*selected_mesh_, cage_p.vertex_position_, control_set);
-
-									cage_p.selected_vertices_set_ = nullptr;
-								}*/
 							}
 						}
-
-						/*if (ImGui::Button("Choose cage vertices##vertices_set"))
-							md.template add_cells_set<MeshVertex>();
-						imgui_combo_cells_set(md, cage_p.selected_vertices_set_, "Cage D sets",
-											  [&](CellsSet<MESH, MeshVertex>* cs) {
-												  cage_p.selected_vertices_set_ = cs;
-												  cage_p.update_selected_vertices_vbo();
-												  need_update = true;
-											  });
-
-						if (cage_p.selected_vertices_set_)
-						{
-							ImGui::Text("(nb elements: %d)", cage_p.selected_vertices_set_->size());
-							if (ImGui::Button("Clear cage selection##vertices_set"))
-							{
-								cage_p.selected_vertices_set_->clear();
-								mesh_provider_->emit_cells_set_changed(*selected_cage_, cage_p.selected_vertices_set_);
-							}
-						}
-						ImGui::TextUnformatted("Drawing parameters");
-						need_update |= ImGui::ColorEdit3("color##vertices", cage_p.param_point_sprite_->color_.data(),
-														 ImGuiColorEditFlags_NoInputs);
-
-						if (need_update || cage_p.object_update_)
-						{
-							for (View* v : linked_views_)
-								v->request_update();
-						}
-
-						CellsSet<MESH, MeshVertex>* control_set = nullptr;
-
-						if (ImGui::Button("Accept control set##vertices_set"))
-						{
-							control_set = cage_p.selected_vertices_set_;
-
-							MESH* l_cage = generate_local_cage(*selected_mesh_, cage_p.vertex_position_, control_set);
-
-							cage_p.selected_vertices_set_ = nullptr;
-						}*/
-
-						// const std::string cage_name = mesh_provider_->mesh_name(*selected_cage_);
 					}
 				}
 
