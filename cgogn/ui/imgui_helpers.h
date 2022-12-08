@@ -29,6 +29,7 @@
 #include <cgogn/core/functions/attributes.h>
 #include <cgogn/core/functions/traversals/global.h>
 #include <cgogn/core/ui_modules/mesh_data.h>
+#include <cgogn/core/ui_modules/graph_data.h>
 
 #include <cgogn/rendering/shaders/shader_function_color_maps.h>
 
@@ -80,6 +81,45 @@ void imgui_combo_attribute(const MESH& m,
 	}
 }
 
+/**
+ * @brief generate combo box for attribute selection
+ * @param m mesh
+ * @param label label of the combo box
+ * @param selected_attribute current selected attribute
+ * @param on_change function to call with newly selected attribute
+ */
+template <typename CELL, typename T, typename GRAPH, typename FUNC>
+void imgui_combo_attribute_graph(const GRAPH& g,
+						   const std::shared_ptr<typename mesh_traits<GRAPH>::template Attribute<T>>& selected_attribute,
+						   const std::string& label, const FUNC& on_change)
+{
+	using Attribute = typename mesh_traits<GRAPH>::template Attribute<T>;
+	static_assert(is_func_parameter_same<FUNC, const std::shared_ptr<Attribute>&>::value,
+				  "Wrong function attribute parameter type");
+
+	if (ImGui::BeginCombo(label.c_str(), selected_attribute ? selected_attribute->name().c_str() : "-- select --"))
+	{
+		foreach_attribute<T, CELL>(g, [&](const std::shared_ptr<Attribute>& attribute) {
+			bool is_selected = attribute == selected_attribute;
+			if (ImGui::Selectable(attribute->name().c_str(), is_selected))
+			{
+				if (attribute != selected_attribute)
+					on_change(attribute);
+			}
+			if (is_selected)
+				ImGui::SetItemDefaultFocus();
+		});
+		ImGui::EndCombo();
+	}
+	if (selected_attribute)
+	{
+		double X_button_width = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2;
+		ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - float32(X_button_width));
+		if (ImGui::Button(("X##" + label).c_str()))
+			on_change(nullptr);
+	}
+}
+
 template <typename CELL, typename MESH, typename FUNC>
 void imgui_combo_cells_set(MeshData<MESH>& md, const CellsSet<MESH, CELL>* selected_set, const std::string& label,
 						   const FUNC& on_change)
@@ -110,14 +150,14 @@ void imgui_combo_cells_set(MeshData<MESH>& md, const CellsSet<MESH, CELL>* selec
 }
 
 template <typename CELL, typename GRAPH, typename FUNC>
-void imgui_combo_cells_set_graph(MeshData<GRAPH>& md, const CellsSet<GRAPH, CELL>* selected_set, const std::string& label,
+void imgui_combo_cells_set_graph(GraphData<GRAPH>& gd, const CellsSet<GRAPH, CELL>* selected_set, const std::string& label,
 						   const FUNC& on_change)
 {
 	static_assert(is_func_parameter_same<FUNC, CellsSet<GRAPH, CELL>*>::value, "Wrong function CellsSet parameter type");
 
-	if (ImGui::BeginCombo(label.c_str(), selected_set ? selected_set->name().c_str() : "-- select --"))
+	if (ImGui::BeginCombo(label.c_str(), selected_set ? selected_set->name().c_str() : "-- select2 --"))
 	{
-		md.template foreach_cells_set<CELL>([&](CellsSet<GRAPH, CELL>& cs) {
+		gd.template foreach_cells_set<CELL>([&](CellsSet<GRAPH, CELL>& cs) {
 			bool is_selected = &cs == selected_set;
 			if (ImGui::Selectable(cs.name().c_str(), is_selected))
 			{
@@ -128,14 +168,14 @@ void imgui_combo_cells_set_graph(MeshData<GRAPH>& md, const CellsSet<GRAPH, CELL
 				ImGui::SetItemDefaultFocus();
 		});
 		ImGui::EndCombo();
-	}
+	} 
 	if (selected_set)
 	{
 		double X_button_width = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2;
 		ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - X_button_width);
-		if (ImGui::Button(("X##" + label).c_str()))
+		if (ImGui::Button(("X_##" + label).c_str()))
 			on_change(nullptr);
-	}
+	} 
 }
 
 template <template <typename MESH> typename MESH_PROVIDER, typename MESH, typename FUNC>
@@ -150,6 +190,26 @@ bool imgui_mesh_selector(MESH_PROVIDER<MESH>* mesh_provider, const MESH* selecte
 			{
 				if (&m != selected_mesh)
 					on_change(m);
+			}
+		});
+		ImGui::ListBoxFooter();
+		return true;
+	}
+	return false;
+}
+
+template <template <typename GRAPH> typename GRAPH_PROVIDER, typename GRAPH, typename FUNC>
+bool imgui_graph_selector(GRAPH_PROVIDER<GRAPH>* graph_provider, const GRAPH* selected_graph, const std::string& label,
+						 const FUNC& on_change)
+{
+	static_assert(is_func_parameter_same<FUNC, GRAPH&>::value, "Wrong function parameter type");
+	if (ImGui::ListBoxHeader(label.c_str(), graph_provider->number_of_graphs()))
+	{
+		graph_provider->foreach_graph([&](GRAPH& g, const std::string& name) {
+			if (ImGui::Selectable(name.c_str(), &g == selected_graph))
+			{
+				if (&g != selected_graph)
+					on_change(g);
 			}
 		});
 		ImGui::ListBoxFooter();

@@ -87,6 +87,8 @@ target_sources(${PROJECT_NAME}
 
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/mesh_provider.h"
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/mesh_data.h"
+		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/graph_provider.h"
+		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/graph_data.h"
 )
 
 # use of target_compile_options to have transitive flags

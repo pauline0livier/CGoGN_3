@@ -24,7 +24,7 @@
 #ifndef CGOGN_MODULE_GRAPH_RENDER_H_
 #define CGOGN_MODULE_GRAPH_RENDER_H_
 
-#include <cgogn/core/ui_modules/mesh_provider.h>
+#include <cgogn/core/ui_modules/graph_provider.h>
 #include <cgogn/ui/app.h>
 #include <cgogn/ui/imgui_helpers.h>
 #include <cgogn/ui/module.h>
@@ -47,10 +47,10 @@ namespace cgogn
 namespace ui
 {
 
-template <typename MESH>
+template <typename GRAPH>
 class GraphRender : public ViewModule
 {
-	static_assert(mesh_traits<MESH>::dimension >= 1, "GraphRender can only be used with meshes of dimension >= 1");
+	static_assert(mesh_traits<GRAPH>::dimension >= 1, "GraphRender can only be used with meshes of dimension >= 1");
 
 	enum AttributePerCell
 	{
@@ -63,9 +63,9 @@ class GraphRender : public ViewModule
 	};
 
 	template <typename T>
-	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
+	using Attribute = typename mesh_traits<GRAPH>::template Attribute<T>;
 
-	using Vertex = typename mesh_traits<MESH>::Vertex;
+	using Vertex = typename mesh_traits<GRAPH>::Vertex;
 
 	using Vec3 = geometry::Vec3;
 	using Scalar = geometry::Scalar;
@@ -119,8 +119,8 @@ class GraphRender : public ViewModule
 
 public:
 	GraphRender(const App& app)
-		: ViewModule(app, "GraphRender (" + std::string{mesh_traits<MESH>::name} + ")"),
-		  selected_view_(app.current_view()), selected_mesh_(nullptr)
+		: ViewModule(app, "GraphRender (" + std::string{mesh_traits<GRAPH>::name} + ")"),
+		  selected_view_(app.current_view()), selected_graph_(nullptr)
 	{
 	}
 
@@ -129,39 +129,39 @@ public:
 	}
 
 private:
-	void init_mesh(MESH* m)
+	void init_graph(GRAPH* g)
 	{
 		for (View* v : linked_views_)
 		{
-			parameters_[v][m];
-			std::shared_ptr<Attribute<Vec3>> vertex_position = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
+			parameters_[v][g];
+			std::shared_ptr<Attribute<Vec3>> vertex_position = cgogn::get_attribute<Vec3, Vertex>(*g, "position");
 			if (vertex_position)
-				set_vertex_position(*v, *m, vertex_position);
+				set_vertex_position(*v, *g, vertex_position);
 
-			mesh_connections_[m].push_back(
-				boost::synapse::connect<typename MeshProvider<MESH>::connectivity_changed>(m, [this, v, m]() {
-					Parameters& p = parameters_[v][m];
+			graph_connections_[g].push_back(
+				boost::synapse::connect<typename GraphProvider<GRAPH>::connectivity_changed>(g, [this, v, g]() {
+					Parameters& p = parameters_[v][g];
 					if (p.vertex_position_)
 						p.vertex_base_size_ = 0.3; //float32(geometry::mean_edge_length(*m, p.vertex_position_.get()) / 7.0);
 					if (p.vertex_base_size_ == 0.0)
 					{
-						MeshData<MESH>& md = mesh_provider_->mesh_data(*m);
-						p.vertex_base_size_ = float32((md.bb_max_ - md.bb_min_).norm() / 20.0);
+						GraphData<GRAPH>& gd = graph_provider_->graph_data(*g);
+						p.vertex_base_size_ = float32((gd.bb_max_ - gd.bb_min_).norm() / 20.0);
 					}
 					v->request_update();
 				}));
-			mesh_connections_[m].push_back(
-				boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
-					m, [this, v, m](Attribute<Vec3>* attribute) {
-						Parameters& p = parameters_[v][m];
+			graph_connections_[g].push_back(
+				boost::synapse::connect<typename GraphProvider<GRAPH>::template attribute_changed_t<Vec3>>(
+					g, [this, v, g](Attribute<Vec3>* attribute) {
+						Parameters& p = parameters_[v][g];
 						if (p.vertex_position_.get() == attribute)
 						{
 							p.vertex_base_size_ = 0.3; 
 								//float32(geometry::mean_edge_length(*m, p.vertex_position_.get()) / 7.0);
 							if (p.vertex_base_size_ == 0.0)
 							{
-								MeshData<MESH>& md = mesh_provider_->mesh_data(*m);
-								p.vertex_base_size_ = float32((md.bb_max_ - md.bb_min_).norm() / 20.0);
+								GraphData<GRAPH>& gd = graph_provider_->graph_data(*g);
+								p.vertex_base_size_ = float32((gd.bb_max_ - gd.bb_min_).norm() / 20.0);
 							}
 						}
 						v->request_update();
@@ -170,22 +170,22 @@ private:
 	}
 
 public:
-	void set_vertex_position(View& v, const MESH& m, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
+	void set_vertex_position(View& v, const GRAPH& g, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
-		Parameters& p = parameters_[&v][&m];
+		Parameters& p = parameters_[&v][&g];
 		if (p.vertex_position_ == vertex_position)
 			return;
 
 		p.vertex_position_ = vertex_position;
 		if (p.vertex_position_)
 		{
-			MeshData<MESH>& md = mesh_provider_->mesh_data(m);
-			p.vertex_position_vbo_ = md.update_vbo(p.vertex_position_.get(), true);
+			GraphData<GRAPH>& gd = graph_provider_->graph_data(g);
+			p.vertex_position_vbo_ = gd.update_vbo(p.vertex_position_.get(), true);
 			p.vertex_base_size_ = 0.3; 
 			
 			//float32(geometry::mean_edge_length(m, p.vertex_position_.get()) / 7.0);
 			if (p.vertex_base_size_ == 0.0)
-				p.vertex_base_size_ = float32((md.bb_max_ - md.bb_min_).norm() / 20.0);
+				p.vertex_base_size_ = float32((gd.bb_max_ - gd.bb_min_).norm() / 20.0);
 		}
 		else
 			p.vertex_position_vbo_ = nullptr;
@@ -199,17 +199,17 @@ public:
 		v.request_update();
 	}
 
-	void set_vertex_radius(View& v, const MESH& m, const std::shared_ptr<Attribute<Scalar>>& vertex_radius)
+	void set_vertex_radius(View& v, const GRAPH& g, const std::shared_ptr<Attribute<Scalar>>& vertex_radius)
 	{
-		Parameters& p = parameters_[&v][&m];
+		Parameters& p = parameters_[&v][&g];
 		if (p.vertex_radius_ == vertex_radius)
 			return;
 
 		p.vertex_radius_ = vertex_radius;
 		if (p.vertex_radius_)
 		{
-			MeshData<MESH>& md = mesh_provider_->mesh_data(m);
-			p.vertex_radius_vbo_ = md.update_vbo(vertex_radius.get(), true);
+			GraphData<GRAPH>& gd = graph_provider_->graph_data(g);
+			p.vertex_radius_vbo_ = gd.update_vbo(vertex_radius.get(), true);
 		}
 		else
 			p.vertex_radius_vbo_ = nullptr;
@@ -220,17 +220,17 @@ public:
 		v.request_update();
 	}
 
-	void set_vertex_color(View& v, const MESH& m, const std::shared_ptr<Attribute<Vec3>>& vertex_color)
+	void set_vertex_color(View& v, const GRAPH& g, const std::shared_ptr<Attribute<Vec3>>& vertex_color)
 	{
-		Parameters& p = parameters_[&v][&m];
+		Parameters& p = parameters_[&v][&g];
 		if (p.vertex_color_ == vertex_color)
 			return;
 
 		p.vertex_color_ = vertex_color;
 		if (p.vertex_color_)
 		{
-			MeshData<MESH>& md = mesh_provider_->mesh_data(m);
-			p.vertex_color_vbo_ = md.update_vbo(p.vertex_color_.get(), true);
+			GraphData<GRAPH>& gd = graph_provider_->graph_data(g);
+			p.vertex_color_vbo_ = gd.update_vbo(p.vertex_color_.get(), true);
 		}
 		else
 			p.vertex_color_vbo_ = nullptr;
@@ -244,18 +244,18 @@ public:
 protected:
 	void init() override
 	{
-		mesh_provider_ = static_cast<ui::MeshProvider<MESH>*>(
-			app_.module("MeshProvider (" + std::string{mesh_traits<MESH>::name} + ")"));
-		mesh_provider_->foreach_mesh([this](MESH& m, const std::string&) { init_mesh(&m); });
-		connections_.push_back(boost::synapse::connect<typename MeshProvider<MESH>::mesh_added>(
-			mesh_provider_, this, &GraphRender<MESH>::init_mesh));
+		graph_provider_ = static_cast<ui::GraphProvider<GRAPH>*>(
+			app_.module("GraphProvider (" + std::string{mesh_traits<GRAPH>::name} + ")"));
+		graph_provider_->foreach_graph([this](GRAPH& g, const std::string&) { init_graph(&g); });
+		connections_.push_back(boost::synapse::connect<typename GraphProvider<GRAPH>::graph_added>(
+			graph_provider_, this, &GraphRender<GRAPH>::init_graph));
 	}
 
 	void draw(View* view) override
 	{
-		for (auto& [m, p] : parameters_[view])
+		for (auto& [g, p] : parameters_[view])
 		{
-			MeshData<MESH>& md = mesh_provider_->mesh_data(*m);
+			GraphData<GRAPH>& gd = graph_provider_->graph_data(*g);
 
 			const rendering::GLMat4& proj_matrix = view->projection_matrix();
 			const rendering::GLMat4& view_matrix = view->modelview_matrix();
@@ -263,7 +263,7 @@ protected:
 			if (p.render_edges_ && p.param_bold_line_->attributes_initialized())
 			{
 				p.param_bold_line_->bind(proj_matrix, view_matrix);
-				md.draw(rendering::LINES);
+				gd.draw(rendering::LINES);
 				p.param_bold_line_->release();
 			}
 
@@ -277,7 +277,7 @@ protected:
 						if (p.param_point_sprite_size_->attributes_initialized())
 						{
 							p.param_point_sprite_size_->bind(proj_matrix, view_matrix);
-							md.draw(rendering::POINTS);
+							gd.draw(rendering::POINTS);
 							p.param_point_sprite_size_->release();
 						}
 					}
@@ -286,7 +286,7 @@ protected:
 						if (p.param_point_sprite_color_size_->attributes_initialized())
 						{
 							p.param_point_sprite_color_size_->bind(proj_matrix, view_matrix);
-							md.draw(rendering::POINTS);
+							gd.draw(rendering::POINTS);
 							p.param_point_sprite_color_size_->release();
 						}
 					}
@@ -302,7 +302,7 @@ protected:
 						{
 							p.param_point_sprite_->point_size_ = p.vertex_base_size_ * p.vertex_scale_factor_;
 							p.param_point_sprite_->bind(proj_matrix, view_matrix);
-							md.draw(rendering::POINTS);
+							gd.draw(rendering::POINTS);
 							p.param_point_sprite_->release();
 						}
 					}
@@ -312,7 +312,7 @@ protected:
 						{
 							p.param_point_sprite_color_->point_size_ = p.vertex_base_size_ * p.vertex_scale_factor_;
 							p.param_point_sprite_color_->bind(proj_matrix, view_matrix);
-							md.draw(rendering::POINTS);
+							gd.draw(rendering::POINTS);
 							p.param_point_sprite_color_->release();
 						}
 					}
@@ -330,20 +330,20 @@ protected:
 		if (app_.nb_views() > 1)
 			imgui_view_selector(this, selected_view_, [&](View* v) { selected_view_ = v; });
 
-		imgui_mesh_selector(mesh_provider_, selected_mesh_, "Graph", [&](MESH& m) { selected_mesh_ = &m; });
+		imgui_graph_selector(graph_provider_, selected_graph_, "Graph", [&](GRAPH& g) { selected_graph_ = &g; });
 
-		if (selected_view_ && selected_mesh_)
+		if (selected_view_ && selected_graph_)
 		{
-			Parameters& p = parameters_[selected_view_][selected_mesh_];
+			Parameters& p = parameters_[selected_view_][selected_graph_];
 
-			imgui_combo_attribute<Vertex, Vec3>(*selected_mesh_, p.vertex_position_, "Position",
+			imgui_combo_attribute_graph<Vertex, Vec3>(*selected_graph_, p.vertex_position_, "Position",
 												[&](const std::shared_ptr<Attribute<Vec3>>& attribute) {
-													set_vertex_position(*selected_view_, *selected_mesh_, attribute);
+													set_vertex_position(*selected_view_, *selected_graph_, attribute);
 												});
 
-			imgui_combo_attribute<Vertex, Scalar>(*selected_mesh_, p.vertex_radius_, "Radius",
+			imgui_combo_attribute_graph<Vertex, Scalar>(*selected_graph_, p.vertex_radius_, "Radius",
 												  [&](const std::shared_ptr<Attribute<Scalar>>& attribute) {
-													  set_vertex_radius(*selected_view_, *selected_mesh_, attribute);
+													  set_vertex_radius(*selected_view_, *selected_graph_, attribute);
 												  });
 
 			ImGui::Separator();
@@ -380,9 +380,9 @@ protected:
 				else if (p.color_per_cell_ == PER_VERTEX)
 				{
 					imgui_combo_attribute<Vertex, Vec3>(
-						*selected_mesh_, p.vertex_color_, "Attribute##vectorvertexcolor",
+						*selected_graph_, p.vertex_color_, "Attribute##vectorvertexcolor",
 						[&](const std::shared_ptr<Attribute<Vec3>>& attribute) {
-							set_vertex_color(*selected_view_, *selected_mesh_, attribute);
+							set_vertex_color(*selected_view_, *selected_graph_, attribute);
 						});
 				}
 			}
@@ -404,11 +404,11 @@ protected:
 
 private:
 	View* selected_view_;
-	const MESH* selected_mesh_;
-	std::unordered_map<View*, std::unordered_map<const MESH*, Parameters>> parameters_;
+	const GRAPH* selected_graph_;
+	std::unordered_map<View*, std::unordered_map<const GRAPH*, Parameters>> parameters_;
 	std::vector<std::shared_ptr<boost::synapse::connection>> connections_;
-	std::unordered_map<const MESH*, std::vector<std::shared_ptr<boost::synapse::connection>>> mesh_connections_;
-	MeshProvider<MESH>* mesh_provider_;
+	std::unordered_map<const GRAPH*, std::vector<std::shared_ptr<boost::synapse::connection>>> graph_connections_;
+	GraphProvider<GRAPH>* graph_provider_;
 };
 
 } // namespace ui

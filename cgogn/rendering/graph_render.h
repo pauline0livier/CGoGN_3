@@ -1,0 +1,480 @@
+/*******************************************************************************
+ * CGoGN: Combinatorial and Geometric modeling with Generic N-dimensional Maps  *
+ * Copyright (C), IGG Group, ICube, University of Strasbourg, France            *
+ *                                                                              *
+ * This library is free software; you can redistribute it and/or modify it      *
+ * under the terms of the GNU Lesser General Public License as published by the *
+ * Free Software Foundation; either version 2.1 of the License, or (at your     *
+ * option) any later version.                                                   *
+ *                                                                              *
+ * This library is distributed in the hope that it will be useful, but WITHOUT  *
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or        *
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License  *
+ * for more details.                                                            *
+ *                                                                              *
+ * You should have received a copy of the GNU Lesser General Public License     *
+ * along with this library; if not, write to the Free Software Foundation,      *
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA.           *
+ *                                                                              *
+ * Web site: http://cgogn.unistra.fr/                                           *
+ * Contact information: cgogn@unistra.fr                                        *
+ *                                                                              *
+ *******************************************************************************/
+
+#ifndef CGOGN_RENDERING_GRAPH_RENDER_H_
+#define CGOGN_RENDERING_GRAPH_RENDER_H_
+
+#include <cgogn/rendering/cgogn_rendering_export.h>
+
+#include <cgogn/core/functions/attributes.h>
+#include <cgogn/core/functions/traversals/edge.h>
+#include <cgogn/core/functions/traversals/face.h>
+#include <cgogn/core/functions/traversals/global.h>
+#include <cgogn/core/functions/traversals/vertex.h>
+
+#include <cgogn/core/utils/numerics.h>
+
+#include <cgogn/geometry/algos/ear_triangulation.h>
+
+#include <cgogn/rendering/ebo.h>
+#include <cgogn/rendering/vbo.h>
+
+#include <cgogn/rendering/mesh_render.h>
+
+#include <memory>
+
+namespace cgogn
+{
+
+namespace rendering
+{
+
+using TablesIndices = std::vector<std::vector<uint32>>;
+
+class CGOGN_RENDERING_EXPORT GraphRender
+{
+protected:
+	std::array<std::unique_ptr<EBO>, SIZE_BUFFER> indices_buffers_;
+	std::array<bool, SIZE_BUFFER> indices_buffers_uptodate_;
+
+public:
+	GraphRender();
+	~GraphRender();
+	CGOGN_NOT_COPYABLE_NOR_MOVABLE(GraphRender);
+
+	inline bool is_primitive_uptodate(DrawingType prim)
+	{
+		return indices_buffers_uptodate_[prim % SIZE_BUFFER];
+	}
+
+	inline void set_primitive_dirty(DrawingType prim)
+	{
+		indices_buffers_uptodate_[prim % SIZE_BUFFER] = false;
+	}
+
+	inline void set_all_primitives_dirty()
+	{
+		for (DrawingType p = POINTS; p < SIZE_BUFFER; ++p)
+			indices_buffers_uptodate_[p] = false;
+	}
+
+	inline EBO* get_EBO(DrawingType prim)
+	{
+		return indices_buffers_[prim % SIZE_BUFFER].get();
+	}
+
+protected:
+	template <typename GRAPH>
+	inline void init_points(const GRAPH& g, TablesIndices& table_indices)
+	{
+		using Vertex = typename mesh_traits<GRAPH>::Vertex;
+		parallel_foreach_cell(g, [&](Vertex v) -> bool {
+			table_indices[current_worker_index()].push_back(index_of(g, v));
+			return true;
+		});
+	}
+
+	template <bool EMB, typename GRAPH>
+	inline void init_lines(const GRAPH& g, TablesIndices& table_indices, TablesIndices& table_emb_edge)
+	{
+		if constexpr (mesh_traits<GRAPH>::dimension > 0)
+		{
+			using Vertex = typename mesh_traits<GRAPH>::Vertex;
+			using Edge = typename mesh_traits<GRAPH>::Edge;
+			std::vector<uint32> i_e(thread_pool()->nb_workers(), 0);
+			parallel_foreach_cell(g, [&](Edge e) -> bool {
+				uint32 worker_index = current_worker_index();
+				foreach_incident_vertex(g, e, [&](Vertex v) -> bool {
+					table_indices[worker_index].push_back(index_of(g, v));
+					return true;
+				});
+				if (EMB)
+					table_emb_edge[worker_index].push_back(index_of(g, e));
+				else
+					table_emb_edge[worker_index].push_back(i_e[worker_index]++);
+				return true;
+			});
+		}
+	}
+
+	template <bool EMB, typename GRAPH>
+	inline void init_triangles(const GRAPH& g, TablesIndices& table_indices, TablesIndices& table_emb_face)
+	{
+		if constexpr (mesh_traits<GRAPH>::dimension > 1)
+		{
+			using Vertex = typename mesh_traits<GRAPH>::Vertex;
+			using Face = typename mesh_traits<GRAPH>::Face;
+			std::vector<std::vector<Vertex>> vvertices(thread_pool()->nb_workers());
+			for (auto& v : vvertices)
+				v.reserve(32u);
+			std::vector<uint32> i_f(thread_pool()->nb_workers(), 0);
+			parallel_foreach_cell(g, [&](Face f) -> bool {
+				uint32 worker_index = current_worker_index();
+				if (EMB)
+					i_f[worker_index] = index_of(g, f);
+				auto& vertices = vvertices[worker_index];
+				vertices.clear();
+				append_incident_vertices(g, f, vertices);
+				for (uint32 i = 1; i < uint32(vertices.size()) - 1; ++i)
+				{
+					auto& tif = table_indices[worker_index];
+					tif.push_back(index_of(g, vertices[0]));
+					tif.push_back(index_of(g, vertices[i]));
+					tif.push_back(index_of(g, vertices[i + 1]));
+					table_emb_face[worker_index].push_back(i_f[worker_index]);
+				}
+				if (!EMB)
+					i_f[worker_index]++;
+				return true;
+			});
+		}
+	}
+
+	template <bool EMB, typename GRAPH>
+	inline void init_ear_triangles(const GRAPH& g, TablesIndices& table_indices, TablesIndices& table_emb_face,
+								   const typename mesh_traits<GRAPH>::template Attribute<geometry::Vec3>* position)
+	{
+		if constexpr (mesh_traits<GRAPH>::dimension > 1)
+		{
+			using Vertex = typename mesh_traits<GRAPH>::Vertex;
+			using Face = typename mesh_traits<GRAPH>::Face;
+
+			std::vector<std::vector<Vertex>> vvertices(thread_pool()->nb_workers());
+			for (auto& v : vvertices)
+				v.reserve(32u);
+			std::vector<uint32> i_f(thread_pool()->nb_workers(), 0);
+			parallel_foreach_cell(g, [&](Face f) -> bool {
+				uint32 worker_index = current_worker_index();
+				if (EMB)
+					i_f[worker_index] = index_of(g, f);
+				auto& tif = table_indices[worker_index];
+				if (codegree(g, f) == 3)
+				{
+					auto& vertices = vvertices[worker_index];
+					vertices.clear();
+					incident_vertices(g, f, vertices);
+
+					tif.push_back(index_of(g, vertices[0]));
+					tif.push_back(index_of(g, vertices[1]));
+					tif.push_back(index_of(g, vertices[2]));
+					table_emb_face[worker_index].push_back(i_f[worker_index]);
+				}
+				else
+				{
+					cgogn::geometry::append_ear_triangulation(
+						getcpu, f, position, tif, [&]() { table_emb_face[worker_index].push_back(i_f[worker_index]); });
+				}
+				if (!EMB)
+					i_f[worker_index]++;
+				return true;
+			});
+		}
+	}
+
+	//	template <bool EMB, typename MESH>
+	//	inline void init_faces_centers(const MESH& m, std::vector<uint32>& table_indices, std::vector<uint32>&
+	// table_emb_edge)
+	//	{
+	//		if constexpr (mesh_traits<MESH>::dimension > 0)
+	//		{
+	//			using Vertex = typename mesh_traits<MESH>::Vertex;
+	//			using Face = typename mesh_traits<MESH>::Edge;
+	//			uint32 last = 0;
+	//			bool emb = is_indexed<Face>(m);
+	//			foreach_cell(m, [&](Face f) -> bool
+	//			{
+	//				foreach_incident_vertex(m, f, [&](Vertex v) -> bool
+	//				{
+	//					table_indices.push_back(index_of(m, v));
+	//					table_indices.push_back(emb ? index_of(m,f) : last);
+	//					return true;
+	//				});
+	//				return true;
+	//				++last;
+	//			});
+	//		}
+	//	}
+
+	template <bool EMB, typename GRAPH>
+	inline void init_volumes(const GRAPH& g, TablesIndices& table_indices_f, TablesIndices& table_indices_e,
+							 TablesIndices& table_indices_v, TablesIndices& table_emb_vol,
+							 const typename mesh_traits<GRAPH>::template Attribute<geometry::Vec3>* position)
+	{
+		if constexpr (mesh_traits<GRAPH>::dimension >= 2)
+		{
+			using Vertex = typename mesh_traits<GRAPH>::Vertex;
+			using Edge = typename mesh_traits<GRAPH>::Edge;
+			using Face = typename mesh_traits<GRAPH>::Face;
+			using Volume = typename mesh_traits<GRAPH>::Volume;
+
+			std::vector<std::vector<Vertex>> vvertices(thread_pool()->nb_workers());
+			for (auto& v : vvertices)
+				v.reserve(32u);
+
+			std::vector<uint32> i_vol(thread_pool()->nb_workers(), 0);
+
+			parallel_foreach_cell(g, [&](Volume vol) -> bool {
+				uint32 worker_index = current_worker_index();
+				auto& ivol = i_vol[worker_index];
+
+				if (EMB)
+					ivol = index_of(g, vol);
+
+				auto& vertices = vvertices[worker_index];
+
+				foreach_incident_face(g, vol, [&](Face f) -> bool {
+					auto& tif = table_indices_f[worker_index];
+					if (codegree(g, f) == 3)
+					{
+						vertices.clear();
+						append_incident_vertices(g, f, vertices);
+						tif.push_back(index_of(g, vertices[0]));
+						tif.push_back(index_of(g, vertices[1]));
+						tif.push_back(index_of(g, vertices[2]));
+						tif.push_back(ivol);
+					}
+					else
+						geometry::append_ear_triangulation(g, f, position, tif, [&]() { tif.push_back(ivol); });
+					return true;
+				});
+
+				foreach_incident_edge(g, vol, [&](Edge e) -> bool {
+					vertices.clear();
+					append_incident_vertices(g, e, vertices);
+					auto& ted = table_indices_e[worker_index];
+					ted.push_back(index_of(g, vertices[0]));
+					ted.push_back(index_of(g, vertices[1]));
+					ted.push_back(ivol);
+					return true;
+				});
+
+				foreach_incident_vertex(g, vol, [&](Vertex v) -> bool {
+					auto& tv = table_indices_v[worker_index];
+					tv.push_back(index_of(g, v));
+					tv.push_back(ivol);
+					return true;
+				});
+
+				table_emb_vol[worker_index].push_back(ivol);
+
+				if (!EMB)
+					ivol++;
+
+				return true;
+			});
+		}
+	}
+
+public:
+	template <typename GRAPH>
+	inline void init_primitives(
+		const GRAPH& g, DrawingType prim,
+		const typename mesh_traits<GRAPH>::template Attribute<geometry::Vec3>* position = nullptr)
+	{
+		unused_parameters(position); // for constexpr case dim<2 !
+
+		if (prim >= SIZE_BUFFER)
+			prim = DrawingType(prim % SIZE_BUFFER);
+
+		auto func_update_ebo = [&](DrawingType pr, const TablesIndices& table) -> void {
+			uint32 total_size = 0;
+			for (const auto& t : table)
+				total_size += uint32(t.size());
+
+			if (!indices_buffers_[pr]->is_created())
+				indices_buffers_[pr]->create();
+
+			indices_buffers_[pr]->bind();
+			indices_buffers_[pr]->allocate(total_size);
+			uint32 beg = 0;
+			for (const auto& t : table)
+			{
+				indices_buffers_[pr]->copy_data(beg, uint32(t.size()), t.data());
+				beg += uint32(t.size());
+			}
+			indices_buffers_[pr]->set_name("EBO_" + primitives_names[pr]);
+			indices_buffers_[pr]->release();
+
+			indices_buffers_uptodate_[pr] = true;
+		};
+
+		auto func_update_ebo2 = [&](DrawingType pr, const TablesIndices& table) -> void {
+			uint32 total_size = 0;
+			for (const auto& t : table)
+				total_size += uint32(t.size());
+
+			if (!indices_buffers_[pr]->is_created())
+				indices_buffers_[pr]->create();
+
+			indices_buffers_[pr]->bind();
+			indices_buffers_[pr]->allocate(total_size);
+			uint32* ptr = indices_buffers_[pr]->lock_pointer();
+			uint32 beg = 0;
+			for (const auto& t : table)
+			{
+				for (uint32 i : t)
+					*ptr++ = i + beg;
+				beg += t.empty() ? 0 : t.back() + 1;
+			}
+			indices_buffers_[pr]->set_name("EBO_" + primitives_names[pr]);
+			indices_buffers_[pr]->release_pointer();
+			indices_buffers_[pr]->release();
+
+			indices_buffers_uptodate_[pr] = true;
+		};
+
+		auto func_update_ebo3 = [&](DrawingType pr, const TablesIndices& table1, const TablesIndices& table2,
+									uint32 interv) -> void {
+			uint32 total_size = 0;
+			for (const auto& t : table1)
+				total_size += uint32(t.size());
+
+			if (!indices_buffers_[pr]->is_created())
+				indices_buffers_[pr]->create();
+
+			indices_buffers_[pr]->bind();
+			indices_buffers_[pr]->allocate(total_size);
+			uint32* ptr1 = indices_buffers_[pr]->lock_pointer();
+			uint32 beg = 0;
+			uint32 nb = uint32(table1.size());
+			for (uint32 j = 0; j < nb; ++j)
+			{
+				const auto& t1 = table1[j];
+				uint32 sz = uint32(t1.size());
+				for (uint32 k = 0; k < sz; ++k)
+					*ptr1++ = (k % interv == interv - 1) ? t1[k] + beg : t1[k];
+
+				beg += table2[j].empty() ? 0 : table2[j].back() + 1;
+			}
+			indices_buffers_[pr]->set_name("EBO_" + primitives_names[pr]);
+			indices_buffers_[pr]->release_pointer();
+			indices_buffers_[pr]->release();
+
+			indices_buffers_uptodate_[pr] = true;
+		};
+
+		// auto start_timer = std::chrono::high_resolution_clock::now();
+
+		uint32 nbw = thread_pool()->nb_workers();
+
+		TablesIndices table_indices(nbw);
+		for (auto& t : table_indices)
+			t.reserve(1024u);
+
+		TablesIndices table_indices_emb(nbw);
+		for (auto& t : table_indices_emb)
+			t.reserve(1024u);
+
+		TablesIndices table_indices_e(nbw);
+		for (auto& t : table_indices_e)
+			t.reserve(1024u);
+
+		TablesIndices table_indices_v(nbw);
+		for (auto& t : table_indices_v)
+			t.reserve(1024u);
+
+		switch (prim)
+		{
+		case POINTS:
+			init_points(g, table_indices);
+			func_update_ebo(POINTS, table_indices);
+			break;
+		case LINES:
+		case INDEX_EDGES:
+			if (is_indexed<typename mesh_traits<GRAPH>::Edge>(g))
+			{
+				init_lines<true>(g, table_indices, table_indices_emb);
+				func_update_ebo(INDEX_EDGES, table_indices_emb);
+			}
+			else
+			{
+				init_lines<false>(g, table_indices, table_indices_emb);
+				func_update_ebo2(INDEX_EDGES, table_indices_emb);
+			}
+			func_update_ebo(LINES, table_indices);
+			break;
+		case TRIANGLES:
+		case INDEX_FACES:
+			if constexpr (mesh_traits<GRAPH>::dimension >= 2)
+			{
+				if (is_indexed<typename mesh_traits<GRAPH>::Face>(g))
+				{
+					// if (position == nullptr)
+					init_triangles<true>(g, table_indices, table_indices_emb);
+					// else
+					// 	init_ear_triangles<true>(m, table_indices, table_indices_emb, position);
+					func_update_ebo(INDEX_FACES, table_indices_emb);
+				}
+				else
+				{
+					// if (position == nullptr)
+					init_triangles<false>(g, table_indices, table_indices_emb);
+					// else
+					// 	init_ear_triangles<false>(m, table_indices, table_indices_emb, position);
+					func_update_ebo2(INDEX_FACES, table_indices_emb);
+				}
+				func_update_ebo(TRIANGLES, table_indices);
+			}
+			break;
+		case VOLUMES_VERTICES:
+		case VOLUMES_EDGES:
+		case VOLUMES_FACES:
+		case INDEX_VOLUMES:
+			if constexpr (mesh_traits<GRAPH>::dimension >= 3)
+			{
+				if (is_indexed<typename mesh_traits<GRAPH>::Volume>(g))
+				{
+					init_volumes<true>(g, table_indices, table_indices_e, table_indices_v, table_indices_emb, position);
+					func_update_ebo(VOLUMES_FACES, table_indices);
+					func_update_ebo(VOLUMES_EDGES, table_indices_e);
+					func_update_ebo(VOLUMES_VERTICES, table_indices_v);
+					func_update_ebo(INDEX_VOLUMES, table_indices_emb);
+				}
+				else
+				{
+					init_volumes<false>(g, table_indices, table_indices_e, table_indices_v, table_indices_emb,
+										position);
+					func_update_ebo3(VOLUMES_FACES, table_indices, table_indices_emb, 4);
+					func_update_ebo3(VOLUMES_EDGES, table_indices_e, table_indices_emb, 3);
+					func_update_ebo3(VOLUMES_VERTICES, table_indices_v, table_indices_emb, 2);
+					func_update_ebo2(INDEX_VOLUMES, table_indices_emb);
+				}
+			}
+			break;
+		default:
+			break;
+		}
+
+		// auto end_timer = std::chrono::high_resolution_clock::now();
+		// std::chrono::duration<double> elapsed_seconds = end_timer - start_timer;
+		// std::cout << "init primitive " << prim << " in " << elapsed_seconds.count() << std::endl;
+	}
+
+	void draw(DrawingType prim);
+};
+
+} // namespace rendering
+
+} // namespace cgogn
+
+#endif // CGOGN_RENDERING_MESH_RENDER_H_

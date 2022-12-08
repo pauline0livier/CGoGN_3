@@ -27,6 +27,7 @@
 #include <cgogn/ui/view.h>
 
 #include <cgogn/core/ui_modules/mesh_provider.h>
+#include <cgogn/core/ui_modules/graph_provider.h>
 #include <cgogn/geometry/ui_modules/surface_differential_properties.h>
 #include <cgogn/geometry/ui_modules/surface_selectionPO.h>
 #include <cgogn/geometry/ui_modules/graph_selection.h>
@@ -76,36 +77,25 @@ int main(int argc, char** argv)
 	app.set_window_size(1000, 800);
 
 	cgogn::ui::MeshProvider<Mesh> mp(app);
-	cgogn::ui::MeshProvider<Graph> mg(app);
+	cgogn::ui::GraphProvider<Graph> gp(app);
 
 	cgogn::ui::SurfaceRender<Mesh> sr(app);
-	cgogn::ui::SurfaceRender<Graph> gr(app);
+	cgogn::ui::GraphRender<Graph> gr(app);
 
 	cgogn::ui::SurfaceDifferentialProperties<Mesh> sdp(app);
-	
-	cgogn::ui::SurfaceDeformation<Mesh> sd(app);
-	cgogn::ui::GraphDeformation<Graph> sdg(app);
 
-
-	cgogn::ui::SurfaceSelectionPO<Mesh> ss(app);
-	cgogn::ui::GraphSelection<Graph> ssg(app);
-
-	cgogn::ui::MultiToolsDeformation<Mesh, Graph> sd2(app);
+	cgogn::ui::MultiToolsDeformation<Mesh, Graph> sd2(app); 
 
 	app.init_modules();
 
 	cgogn::ui::View* v1 = app.current_view();
+
 	v1->link_module(&mp);
-	v1->link_module(&mg);
+
+	v1->link_module(&gp);
 
 	v1->link_module(&gr);
 	v1->link_module(&sr);
-
-	v1->link_module(&sd);
-	v1->link_module(&sdg);
-
-	v1->link_module(&ss);
-	v1->link_module(&ssg);
 
 	v1->link_module(&sd2); 
 
@@ -115,6 +105,7 @@ int main(int argc, char** argv)
 		std::cout << "File could not be loaded" << std::endl;
 		return 1;
 	}
+
 	auto vertex_position = cgogn::get_attribute<Vec3, cgogn::mesh_traits<Mesh>::Vertex>(*m, "position");
 	auto vertex_normal = cgogn::add_attribute<Vec3, cgogn::mesh_traits<Mesh>::Vertex>(*m, "normal");
 
@@ -124,8 +115,6 @@ int main(int argc, char** argv)
 	sr.set_vertex_normal(*v1, *m, vertex_normal);
 	sr.set_render_vertices(*v1, *m, false);
 	sr.set_render_edges(*v1, *m, false);
-
-	ss.set_vertex_position(*m, vertex_position);
 
 	auto object_position_indices = cgogn::add_attribute<uint32, cgogn::mesh_traits<Mesh>::Vertex>(*m, "vertex_index");
 	cgogn::modeling::set_attribute_vertex_index(*m, object_position_indices.get()); 

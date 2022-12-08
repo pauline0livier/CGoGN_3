@@ -25,11 +25,10 @@
 #define CGOGN_MODULE_MULTI_TOOLS_DEFORMATION_H_
 
 #include <cgogn/core/ui_modules/mesh_provider.h>
-#include <cgogn/geometry/ui_modules/graph_selection.h>
+#include <cgogn/core/ui_modules/graph_provider.h>
+
+
 #include <cgogn/geometry/ui_modules/surface_differential_properties.h>
-#include <cgogn/geometry/ui_modules/surface_selectionPO.h>
-#include <cgogn/modeling/ui_modules/graph_deformation.h>
-#include <cgogn/modeling/ui_modules/surface_deformation.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
 
 #include <cgogn/ui/app.h>
@@ -124,6 +123,7 @@ class MultiToolsDeformation : public ViewModule
 		}
 
 	public:
+
 		void update_selected_vertices_vbo()
 		{
 			if (selected_vertices_set_)
@@ -252,7 +252,7 @@ public:
 		: ViewModule(app, "MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), model_(nullptr),
 		  selected_mesh_(nullptr), selected_cage_(nullptr), selected_handle_(nullptr), influence_cage_mode_(true),
 		  dragging_(false), rotating_(false)
-	{
+	{ 
 	}
 
 	~MultiToolsDeformation()
@@ -293,6 +293,46 @@ public:
 			boost::synapse::connect<typename MeshProvider<MESH>::template cells_set_changed<MeshVertex>>(
 				m, [this, m](CellsSet<MESH, MeshVertex>* set) {
 					Parameters& p = parameters_[m];
+					if (p.selected_vertices_set_ == set)
+						std::cout << "ok " << std::endl;
+					// p.solver_ready_ = false;
+				});
+
+	}
+
+	void init_graph(GRAPH* g){
+		GraphParameters& p = graph_parameters_[g];
+		p.graph_ = g;
+		
+		graph_connections_[g].push_back(
+			boost::synapse::connect<typename GraphProvider<GRAPH>::template attribute_changed_t<Vec3>>(
+				g, [this, g](GraphAttribute<Vec3>* attribute) {
+					GraphParameters& p = graph_parameters_[g];
+					if (p.vertex_position_.get() == attribute)
+					{
+						p.vertex_base_size_ = float32(geometry::mean_edge_length(*g, p.vertex_position_.get()) / 6);
+						p.update_selected_vertices_vbo();
+					}
+
+					for (View* v : linked_views_)
+						v->request_update();
+				}));
+		graph_connections_[g].push_back(
+			boost::synapse::connect<typename GraphProvider<GRAPH>::template cells_set_changed<GraphVertex>>(
+				g, [this, g](CellsSet<GRAPH, GraphVertex>* set) {
+					GraphParameters& p = graph_parameters_[g];
+					if (p.selected_vertices_set_ == set && p.vertex_position_)
+					{
+						p.update_selected_vertices_vbo();
+						for (View* v : linked_views_)
+							v->request_update();
+					}
+				}));
+
+		p.cells_set_connection_bis =
+			boost::synapse::connect<typename GraphProvider<GRAPH>::template cells_set_changed<GraphVertex>>(
+				g, [this, g](CellsSet<GRAPH, GraphVertex>* set) {
+					GraphParameters& p = graph_parameters_[g];
 					if (p.selected_vertices_set_ == set)
 						std::cout << "ok " << std::endl;
 					// p.solver_ready_ = false;
@@ -539,7 +579,7 @@ private:
 	{
 		int handle_number = handle_container_.size();
 		const std::string handle_name = "local_handle" + std::to_string(handle_number);
-		GRAPH* handle = graph_provider_->add_mesh(handle_name);
+		GRAPH* handle = graph_provider_->add_graph(handle_name);
 
 		auto handle_vertex_position = add_attribute<Vec3, GraphVertex>(*handle, "position");
 		auto handle_vertex_radius = add_attribute<Scalar, GraphVertex>(*handle, "radius");
@@ -626,9 +666,9 @@ private:
 			View* v1 = app_.current_view();
 			graph_render_->set_vertex_position(*v1, *handle, handle_vertex_position);
 
-			graph_deformation_->set_vertex_position(*handle, handle_vertex_position);
+			//graph_deformation_->set_vertex_position(*handle, handle_vertex_position);
 
-			graph_deformation_->set_displacement_normal(*handle, ray);
+			//graph_deformation_->set_displacement_normal(*handle, ray);
 
 			auto object_geodesic = get_or_add_attribute<Scalar, MeshVertex>(*model_, "geodesic_distance");
 
@@ -649,7 +689,7 @@ private:
 	{
 		int axis_number = axis_container_.size();
 		std::string axis_name = "axis" + std::to_string(axis_number);
-		GRAPH* axis = graph_provider_->add_mesh(axis_name);
+		GRAPH* axis = graph_provider_->add_graph(axis_name);
 
 		auto axis_vertex_position = add_attribute<Vec3, GraphVertex>(*axis, "position");
 		auto axis_vertex_radius = add_attribute<Scalar, GraphVertex>(*axis, "radius");
@@ -768,7 +808,7 @@ private:
 
 			graph_render_->set_vertex_position(*v1, *axis, axis_vertex_position);
 
-			graph_selection_->set_vertex_position(*axis, axis_vertex_position);
+			//graph_selection_->set_vertex_position(*axis, axis_vertex_position);
 
 			MESH* i_cage = mesh_provider_->add_mesh("i_cage" + axis_number);
 
@@ -1119,29 +1159,21 @@ protected:
 		mesh_provider_->foreach_mesh([this](MESH& m, const std::string&) { init_mesh(&m); });
 		connections_.push_back(boost::synapse::connect<typename MeshProvider<MESH>::mesh_added>(
 			mesh_provider_, this, &MultiToolsDeformation<MESH, GRAPH>::init_mesh));
-		graph_provider_ = static_cast<ui::MeshProvider<GRAPH>*>(
-			app_.module("MeshProvider (" + std::string{mesh_traits<GRAPH>::name} + ")"));
+
+		graph_provider_ = static_cast<ui::GraphProvider<GRAPH>*>(
+			app_.module("GraphProvider (" + std::string{mesh_traits<GRAPH>::name} + ")"));
+		graph_provider_->foreach_graph([this](GRAPH& g, const std::string&) { init_graph(&g); });
+		connections_.push_back(boost::synapse::connect<typename GraphProvider<GRAPH>::graph_added>(
+			graph_provider_, this, &MultiToolsDeformation<MESH, GRAPH>::init_graph));
 
 		surface_render_ = static_cast<ui::SurfaceRender<MESH>*>(
 			app_.module("SurfaceRender (" + std::string{mesh_traits<MESH>::name} + ")"));
 
-		graph_render_ = static_cast<ui::SurfaceRender<GRAPH>*>(
-			app_.module("SurfaceRender (" + std::string{mesh_traits<GRAPH>::name} + ")"));
+		graph_render_ = static_cast<ui::GraphRender<GRAPH>*>(
+			app_.module("GraphRender (" + std::string{mesh_traits<GRAPH>::name} + ")"));
 
 		surface_diff_pptes_ = static_cast<ui::SurfaceDifferentialProperties<MESH>*>(
 			app_.module("SurfaceDifferentialProperties (" + std::string{mesh_traits<MESH>::name} + ")"));
-
-		surface_selection_ = static_cast<ui::SurfaceSelectionPO<MESH>*>(
-			app_.module("SurfaceSelectionPO (" + std::string{mesh_traits<MESH>::name} + ")"));
-
-		graph_selection_ = static_cast<ui::GraphSelection<GRAPH>*>(
-			app_.module("GraphSelection (" + std::string{mesh_traits<GRAPH>::name} + ")"));
-
-		surface_deformation_ = static_cast<ui::SurfaceDeformation<MESH>*>(
-			app_.module("SurfaceDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
-
-		graph_deformation_ = static_cast<ui::GraphDeformation<GRAPH>*>(
-			app_.module("GraphDeformation (" + std::string{mesh_traits<GRAPH>::name} + ")"));
 	}
 
 	void mouse_press_event(View* view, int32 button, int32 x, int32 y) override
@@ -1280,7 +1312,6 @@ protected:
 
 				if (p.selected_vertices_set_)
 				{
-					std::cout << "aussi la" << std::endl;
 					std::vector<GraphVertex> picked;
 					cgogn::geometry::picking_sphere(*selected_graph_, p.vertex_position_.get(), 50, A, B, picked);
 					if (!picked.empty())
@@ -1712,7 +1743,7 @@ protected:
 													  [&](GRAPH& g) { selected_handle_ = &g; }))
 						{
 
-							const std::string handle_name = graph_provider_->mesh_name(*selected_handle_);
+							const std::string handle_name = graph_provider_->graph_name(*selected_handle_);
 
 							std::string prefix = "local_handle";
 
@@ -1836,6 +1867,7 @@ protected:
 								MeshData<MESH>& cage_md = mesh_provider_->mesh_data(*selected_cage_);
 
 								if (ImGui::Button("Choose cage vertices##vertices_set"))
+								
 									cage_md.template add_cells_set<MeshVertex>();
 
 								imgui_combo_cells_set(cage_md, cage_p.selected_vertices_set_, "Cage D sets",
@@ -1901,19 +1933,20 @@ protected:
 							selected_graph_ = selected_handle_;
 							GraphParameters& handle_p = graph_parameters_[selected_graph_];
 
-							const std::string handle_name = graph_provider_->mesh_name(*selected_handle_);
+							const std::string handle_name = graph_provider_->graph_name(*selected_handle_);
 
 							std::string prefix = "local_handle";
 							if (handle_name.size() > 0)
 							{
 								selected_hdt_ = handle_container_[handle_name];
 
-								MeshData<GRAPH>& handle_md = graph_provider_->mesh_data(*selected_handle_);
+								GraphData<GRAPH>& handle_md = graph_provider_->graph_data(*selected_handle_);
 
 								if (ImGui::Button("Choose handle vertices##vertices_set"))
+
 									handle_md.template add_cells_set<GraphVertex>();
 
-								// PROBLEM HERE 
+								 
 								imgui_combo_cells_set_graph(handle_md, handle_p.selected_vertices_set_, "Handle D sets",
 													  [&](CellsSet<GRAPH, GraphVertex>* cs) {
 														  handle_p.selected_vertices_set_ = cs;
@@ -1967,19 +2000,16 @@ private:
 	std::vector<std::shared_ptr<boost::synapse::connection>> connections_;
 	std::unordered_map<const MESH*, std::vector<std::shared_ptr<boost::synapse::connection>>> mesh_connections_;
 
+	std::unordered_map<const GRAPH*, std::vector<std::shared_ptr<boost::synapse::connection>>> graph_connections_;
+
 	MeshProvider<MESH>* mesh_provider_;
-	MeshProvider<GRAPH>* graph_provider_;
+	GraphProvider<GRAPH>* graph_provider_;
 
 	SurfaceRender<MESH>* surface_render_;
-	SurfaceRender<GRAPH>* graph_render_;
+	GraphRender<GRAPH>* graph_render_;
 
 	SurfaceDifferentialProperties<MESH>* surface_diff_pptes_;
 
-	SurfaceSelectionPO<MESH>* surface_selection_;
-	GraphSelection<GRAPH>* graph_selection_;
-
-	SurfaceDeformation<MESH>* surface_deformation_;
-	GraphDeformation<GRAPH>* graph_deformation_;
 
 	SelectionTool selected_tool_;
 	SelectionTool deformed_tool_;
