@@ -175,14 +175,11 @@ void imgui_combo_cells_set_graph(GraphData<GRAPH>& gd, const CellsSet<GRAPH, CEL
 	
 	if (selected_set_graph)
 	{
-		std::cout << " graph check selected_ set" << std::endl; 
 		double X_button_width = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2;
 		ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - X_button_width);
 		if (ImGui::Button(("X_##" + label).c_str()))
 			on_change(nullptr);
-	} else {
-		std::cout << "nnnnnn" << std::endl; 
-	}
+	} 
 }
 
 template <template <typename MESH> typename MESH_PROVIDER, typename MESH, typename FUNC>
