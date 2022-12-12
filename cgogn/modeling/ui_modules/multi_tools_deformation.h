@@ -126,8 +126,10 @@ class MultiToolsDeformation : public ViewModule
 
 		void update_selected_vertices_vbo()
 		{
+
 			if (selected_vertices_set_)
 			{
+				std::cout << "graph check selected_vertices --- update" << std::endl; 
 				std::vector<Vec3> selected_vertices_position;
 				selected_vertices_position.reserve(selected_vertices_set_->size());
 				selected_vertices_set_->foreach_cell([&](GraphVertex v) {
@@ -188,6 +190,7 @@ class MultiToolsDeformation : public ViewModule
 	public:
 		void update_selected_vertices_vbo()
 		{
+	
 			if (selected_vertices_set_)
 			{
 				std::vector<Vec3> selected_vertices_position;
@@ -1300,11 +1303,13 @@ protected:
 
 		if (selected_graph_ && view->control_pressed())
 		{
+			std::cout << "control pressed" << std::endl; 
 			// MeshData<MESH>* md = mesh_provider_->mesh_data(*selected_mesh_);
 			GraphParameters& p = graph_parameters_[selected_graph_];
 
 			if (p.vertex_position_)
 			{ 
+				std::cout << "check position" << std::endl; 
 				rendering::GLVec3d near = view->unproject(x, y, 0.0);
 				rendering::GLVec3d far_d = view->unproject(x, y, 1.0);
 				Vec3 A{near.x(), near.y(), near.z()};
@@ -1312,6 +1317,8 @@ protected:
 
 				if (p.selected_vertices_set_)
 				{
+
+					std::cout << "passe bien la" << std::endl; 
 					std::vector<GraphVertex> picked;
 					cgogn::geometry::picking_sphere(*selected_graph_, p.vertex_position_.get(), 50, A, B, picked);
 					if (!picked.empty())
@@ -1500,6 +1507,7 @@ protected:
 				if (ImGui::Button("Generate global cage"))
 				{
 					generate_global_cage(*model_, model_p.vertex_position_, model_p.nb_cage);
+
 				}
 
 				if (global_cage_container_.size() == 1)
@@ -1531,8 +1539,10 @@ protected:
 						std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> gcdt =
 							global_cage_container_["global_cage"];
 
+
 						bind_global_cage(*model_, model_p.vertex_position_, *(gcdt->global_cage_),
 										 gcdt->global_cage_vertex_position_, current_item);
+ 			
 					}
 				}
 
@@ -1873,7 +1883,7 @@ protected:
 								imgui_combo_cells_set(cage_md, cage_p.selected_vertices_set_, "Cage D sets",
 													  [&](CellsSet<MESH, MeshVertex>* cs) {
 														  cage_p.selected_vertices_set_ = cs;
-														  cage_p.update_selected_vertices_vbo();
+														  cage_p.update_selected_vertices_vbo(); 
 														  need_update = true;
 													  });
 
@@ -1925,11 +1935,6 @@ protected:
 							Parameters& old_p = parameters_[selected_mesh_];
 							old_p.selected_vertices_set_ = nullptr;
 
-							if (selected_graph_){
-								GraphParameters& old_bis_p = graph_parameters_[selected_graph_];
-								old_bis_p.selected_vertices_set_ = nullptr;
-							}
-
 							selected_graph_ = selected_handle_;
 							GraphParameters& handle_p = graph_parameters_[selected_graph_];
 
@@ -1940,17 +1945,17 @@ protected:
 							{
 								selected_hdt_ = handle_container_[handle_name];
 
-								GraphData<GRAPH>& handle_md = graph_provider_->graph_data(*selected_handle_);
+								GraphData<GRAPH>& handle_gd = graph_provider_->graph_data(*selected_handle_);
 
 								if (ImGui::Button("Choose handle vertices##vertices_set"))
 
-									handle_md.template add_cells_set<GraphVertex>();
-
+									handle_gd.template add_cells_set<GraphVertex>();
 								 
-								imgui_combo_cells_set_graph(handle_md, handle_p.selected_vertices_set_, "Handle D sets",
-													  [&](CellsSet<GRAPH, GraphVertex>* cs) {
+								imgui_combo_cells_set_graph(handle_gd, handle_p.selected_vertices_set_, "Handle_sets",
+													  [&](CellsSet<GRAPH, GraphVertex>* cs) { 
 														  handle_p.selected_vertices_set_ = cs;
 														  handle_p.update_selected_vertices_vbo();
+														  
 														  need_update = true;
 													  });
 

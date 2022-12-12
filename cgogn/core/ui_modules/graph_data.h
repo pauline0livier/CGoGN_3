@@ -185,6 +185,7 @@ public:
 	{
 		static_assert(is_in_tuple<CELL, typename mesh_traits<GRAPH>::Cells>::value, "CELL not supported in this GRAPH");
 		static_assert(is_func_parameter_same<FUNC, CellsSet<GRAPH, CELL>&>::value, "Wrong function parameter type");
+
 		for (CellsSet<GRAPH, CELL>& cs : cells_sets<CELL>())
 			f(cs);
 	}
