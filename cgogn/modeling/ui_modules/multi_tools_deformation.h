@@ -253,7 +253,7 @@ public:
 	MultiToolsDeformation(const App& app)
 		: ViewModule(app, "MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), model_(nullptr),
 		  selected_mesh_(nullptr), selected_cage_(nullptr), selected_handle_(nullptr), influence_cage_mode_(true),
-		  dragging_(false), rotating_(false)
+		  dragging_mesh_(false), dragging_graph_(false), rotating_(false)
 	{
 	}
 
@@ -990,15 +990,11 @@ private:
 
 		mesh_provider_->emit_cells_set_changed(object, hdt->influence_area_);
 
-		/*hdt->handle_attribute_update_connection_ =
+		hdt->handle_attribute_update_connection_ =
 				boost::synapse::connect<typename GraphProvider<GRAPH>::template attribute_changed_t<Vec3>>(
 					&control_handle, [&](GraphAttribute<Vec3>* attribute) {
 						if (handle_vertex_position.get() == attribute)
 						{
-
-							std::cout << "enter attribute changed mode" << std::endl;
-
-							std::cout << "handle name " << p_handle.name_ << std::endl;
 
 							std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> current_hdt =
 								handle_container_[p_handle.name_];
@@ -1008,7 +1004,7 @@ private:
 							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
 
 						}
-					});*/
+					});
 	}
 
 	void bind_handle_influence_area(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
@@ -1341,10 +1337,27 @@ protected:
 	{
 		if (key_code == GLFW_KEY_D)
 		{
-		
+			if (selected_mesh_)
+			{
+				Parameters& p = parameters_[selected_mesh_];
+				if (p.vertex_position_ && p.selected_vertices_set_ && p.selected_vertices_set_->size() > 0)
+				{
+					drag_z_ = 0.0;
+					p.selected_vertices_set_->foreach_cell([&](MeshVertex v) {
+						const Vec3& pos = value<Vec3>(*selected_mesh_, p.vertex_position_, v);
+						rendering::GLVec4d vec(pos[0], pos[1], pos[2], 1.0);
+						vec = view->projection_matrix_d() * view->modelview_matrix_d() * vec;
+						vec /= vec[3];
+						drag_z_ += (1.0 + vec[2]) / 2.0;
+					});
+					drag_z_ /= p.selected_vertices_set_->size();
+					previous_drag_pos_ = view->unproject(view->previous_mouse_x(), view->previous_mouse_y(), drag_z_);
+					dragging_mesh_ = true;
+				}
+			}
+		} else if (key_code == GLFW_KEY_H){ // handle
 			if (selected_graph_)
 			{
-				std::cout << "init motion graph" << std::endl; 
 				GraphParameters& p = graph_parameters_[selected_graph_];
 
 				if (p.vertex_position_ && p.selected_vertices_set_ && p.selected_vertices_set_->size() > 0)
@@ -1359,27 +1372,13 @@ protected:
 					});
 					drag_z_ /= p.selected_vertices_set_->size();
 					previous_drag_pos_ = view->unproject(view->previous_mouse_x(), view->previous_mouse_y(), drag_z_);
-					dragging_ = true;
-				}
-			} else if (selected_mesh_)
-			{
-				std::cout << "init motion mesh" << std::endl; 
-				Parameters& p = parameters_[selected_mesh_];
-				if (p.vertex_position_ && p.selected_vertices_set_ && p.selected_vertices_set_->size() > 0)
-				{
-					drag_z_ = 0.0;
-					p.selected_vertices_set_->foreach_cell([&](MeshVertex v) {
-						const Vec3& pos = value<Vec3>(*selected_mesh_, p.vertex_position_, v);
-						rendering::GLVec4d vec(pos[0], pos[1], pos[2], 1.0);
-						vec = view->projection_matrix_d() * view->modelview_matrix_d() * vec;
-						vec /= vec[3];
-						drag_z_ += (1.0 + vec[2]) / 2.0;
-					});
-					drag_z_ /= p.selected_vertices_set_->size();
-					previous_drag_pos_ = view->unproject(view->previous_mouse_x(), view->previous_mouse_y(), drag_z_);
-					dragging_ = true;
+					dragging_graph_ = true;
 				}
 			}
+		}
+		/*if (key_code == GLFW_KEY_D)
+		{
+		
 		}
 		else if (key_code == GLFW_KEY_R)
 		{
@@ -1396,7 +1395,7 @@ protected:
 					rotating_ = true;
 				}
 			}*/
-		}
+		//}
 	}
 
 	void key_release_event(View* view, int32 key_code) override
@@ -1404,44 +1403,28 @@ protected:
 		unused_parameters(view);
 		if (key_code == GLFW_KEY_D)
 		{
-			if (dragging_)
-				dragging_ = false;
+			if (dragging_mesh_)
+				dragging_mesh_ = false;
 		}
-		else if (key_code == GLFW_KEY_R)
+		else if (key_code == GLFW_KEY_H)
+		{
+			if (dragging_graph_)
+				dragging_graph_ = false;
+		}
+		
+		/*if (key_code == GLFW_KEY_R)
 		{
 			if (rotating_)
 				rotating_ = false;
-		}
+		}*/
 	}
 
 	void mouse_move_event(View* view, int32 x, int32 y) override
 	{
-		if (dragging_)
+		if (dragging_mesh_)
 		{
-			if (selected_graph_)
+			if (selected_mesh_)
 			{
-				std::cout << "ok selected graph move" << std::endl;
-
-				GraphParameters& p = graph_parameters_[selected_graph_];
-
-				rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
-				Vec3 t = drag_pos - previous_drag_pos_;
-
-				std::cout << "normal " << p.normal_ << std::endl;
-				Vec3 t_bis = t.dot(p.normal_) * p.normal_;
-
-				p.selected_vertices_set_->foreach_cell(
-					[&](GraphVertex v) { value<Vec3>(*selected_graph_, p.vertex_position_, v) += t_bis; });
-				// as_rigid_as_possible(*selected_mesh_);
-				previous_drag_pos_ = drag_pos + t_bis;
-
-				std::cout << "check here" << std::endl;
-
-				graph_provider_->emit_attribute_changed(*selected_graph_, p.vertex_position_.get());
-			}
-			else if (selected_mesh_)
-			{
-				std::cout << "ok selected mesh move" << std::endl;
 				Parameters& p = parameters_[selected_mesh_];
 
 				rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
@@ -1452,6 +1435,25 @@ protected:
 				previous_drag_pos_ = drag_pos;
 
 				mesh_provider_->emit_attribute_changed(*selected_mesh_, p.vertex_position_.get());
+			}
+		}
+
+		if (dragging_graph_){
+			if (selected_graph_)
+			{
+				GraphParameters& p = graph_parameters_[selected_graph_];
+
+				rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
+				Vec3 t = drag_pos - previous_drag_pos_;
+
+				Vec3 t_bis = t.dot(p.normal_) * p.normal_;
+
+				p.selected_vertices_set_->foreach_cell(
+					[&](GraphVertex v) { value<Vec3>(*selected_graph_, p.vertex_position_, v) += t_bis; });
+				// as_rigid_as_possible(*selected_mesh_);
+				previous_drag_pos_ = drag_pos + t_bis;
+
+				graph_provider_->emit_attribute_changed(*selected_graph_, p.vertex_position_.get());
 			}
 		}
 
@@ -2057,7 +2059,8 @@ private:
 
 	bool influence_cage_mode_;
 
-	bool dragging_;
+	bool dragging_mesh_;
+	bool dragging_graph_;
 	float64 drag_z_;
 	bool rotating_;
 	Vec3 rotation_center_;
