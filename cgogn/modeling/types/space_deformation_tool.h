@@ -107,7 +107,7 @@ class SpaceDeformationTool
 		});
 	}
 
-	void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+	void bind_mvc_influence(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
 	{
 
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =

@@ -910,7 +910,7 @@ private:
 
 		if (binding_type == "MVC")
 		{
-			cdt->bind_mvc(object, object_vertex_position);
+			cdt->bind_mvc_influence(object, object_vertex_position);
 			cdt->set_up_attenuation(object, object_vertex_position);
 
 			cdt->cage_attribute_update_connection_ =
@@ -941,7 +941,7 @@ private:
 
 		if (binding_type == "Green")
 		{
-			/*cdt->bind_green(object, object_vertex_position.get());
+			/*cdt->bind_green_influence(object, object_vertex_position.get());
 
 			cdt->cage_attribute_update_connection_ =
 				boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
@@ -957,8 +957,7 @@ private:
 						}
 					});*/
 
-			std::cout << "greeen" << std::endl;
-		}
+			}
 	}
 
 	void bind_local_handle(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
@@ -1006,100 +1005,6 @@ private:
 						}
 					});
 	}
-
-	void bind_handle_influence_area(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
-									CellsSet<MESH, MeshVertex>* influence_set, GRAPH& control_handle,
-									const std::shared_ptr<GraphAttribute<Vec3>>& handle_vertex_position)
-	{
-
-		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
-		CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
-		// handle_container_[handle_name]->influence_area_ = &i_set;
-		selected_hdt_->influence_area_ = &i_set;
-
-		Parameters& p = parameters_[&object];
-
-		// handle_container_[handle_name]->set_influence_area(object, object_vertex_position, influence_set);
-		selected_hdt_->set_influence_area(object, object_vertex_position, influence_set);
-
-		// mesh_provider_->emit_cells_set_changed(object, handle_container_[handle_name]->influence_area_);
-		mesh_provider_->emit_cells_set_changed(object, selected_hdt_->influence_area_);
-
-		displayGammaColor(*model_);
-
-		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
-			cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
-
-		/*selected_hdt_->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
-			uint32 vidx = value<uint32>(object, object_vertex_index, v);
-
-			p.attenuation_matrix_(vidx, selected_hdt_->id_) = selected_hdt_->attenuation_[vidx];
-
-			/*if (selected_hdt_->attenuation_[vidx] == 1.0){
-				p.attenuation_matrix_(vidx, selected_hdt_->id_) = selected_hdt_->attenuation_[vidx];
-			} else {
-				Scalar rest = 1 - p.attenuation_matrix_.row(vidx).sum();
-
-				if (rest > 0.0){
-					p.attenuation_matrix_(vidx, selected_hdt_->id_) = std::min(rest, selected_hdt_->attenuation_[vidx]);
-
-					std::cout << "set value" << p.attenuation_matrix_(vidx, selected_hdt_->id_) << std::endl;
-
-					std::cout << "original value" << selected_hdt_->attenuation_[vidx] << std::endl;
-				}
-
-			//}
-
-			/*return true;
-		});*/
-
-		selected_hdt_->handle_attribute_update_connection_ =
-			boost::synapse::connect<typename MeshProvider<GRAPH>::template attribute_changed_t<Vec3>>(
-				&control_handle, [&](GraphAttribute<Vec3>* attribute) {
-					if (handle_vertex_position.get() == attribute)
-					{
-
-						const Vec3 new_deformation = selected_hdt_->get_handle_deformation();
-						/*p.deformation_vector_(selected_hdt_->id_, 0) += new_deformation[0];
-						p.deformation_vector_(selected_hdt_->id_, 1) += new_deformation[1];
-						p.deformation_vector_(selected_hdt_->id_, 2) += new_deformation[2]; */
-
-						std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
-							cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
-
-						selected_hdt_->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
-							uint32 vidx = value<uint32>(object, object_vertex_index, v);
-
-							value<Vec3>(object, object_vertex_position, v) +=
-								selected_hdt_->attenuation_[vidx] * new_deformation;
-							/*p.attenuation_matrix_(vidx, selected_hdt_->id_)*new_deformation;  */
-
-							return true;
-						});
-
-						// update_deformation_object(object);
-						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
-					}
-					else
-					{
-						std::cout << " no moving " << std::endl;
-					}
-				});
-	}
-
-	/*void updateDeformationObject(MESH& object)
-	{
-		std::shared_ptr<Attribute<uint32>> object_vertex_index =
-			cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
-		selected_hdt_->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
-			uint32 vidx = value<uint32>(object, object_vertex_index, v);
-
-
-			return true;
-		});
-
-
-	}*/
 
 	void displayGammaColor(MESH& object)
 	{

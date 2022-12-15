@@ -74,6 +74,69 @@ public:
 		cgogn::modeling::set_attribute_marked_vertices(*control_cage_, marked_vertices.get());
 	}
 
+	/*void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+	{
+
+		std::shared_ptr<Attribute<uint32>> object_vertex_index =
+			get_attribute<uint32, Vertex>(object, "vertex_index");
+
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+			get_attribute<uint32, Vertex>(*influence_cage_, "vertex_index");
+
+		std::shared_ptr<Attribute<bool>> cage_marked_vertices =
+			get_attribute<bool, Vertex>(*influence_cage_, "marked_vertices");
+
+		uint32 nbv_object = nb_cells<Vertex>(object);
+		uint32 nbv_cage = nb_cells<Vertex>(*influence_cage_);
+
+		coords_.resize(nbv_object, nbv_cage);
+		coords_.setZero();
+
+		influence_area_->foreach_cell([&](Vertex v) { 
+			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
+			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
+
+			DartMarker dm(*influence_cage_);
+			float sumMVC = 0.0;
+
+			for (Dart d = influence_cage_->begin(), end = influence_cage_->end(); d != end;
+				 d = influence_cage_->next(d))
+			{
+				Vertex cage_vertex = CMap2::Vertex(d);
+				bool vc_marked = value<bool>(*influence_cage_, cage_marked_vertices, cage_vertex);
+
+				if (!dm.is_marked(d) && !vc_marked)
+				{
+					const Vec3& cage_point =
+						value<Vec3>(*influence_cage_, influence_cage_vertex_position_, cage_vertex);
+					uint32 cage_point_idx = value<uint32>(*influence_cage_, cage_vertex_index, cage_vertex);
+
+					float mvc_value = compute_mvc(surface_point, d, *influence_cage_, cage_point,
+												  influence_cage_vertex_position_.get());
+
+					coords_(surface_point_idx, cage_point_idx) = mvc_value;
+
+					dm.mark(d);
+
+					value<bool>(*influence_cage_, cage_marked_vertices, cage_vertex) = true;
+
+					sumMVC += mvc_value;
+				}
+			}
+
+			parallel_foreach_cell(*influence_cage_, [&](Vertex vc) -> bool {
+				uint32 cage_point_idx2 = value<uint32>(*influence_cage_, cage_vertex_index, vc);
+
+				coords_(surface_point_idx, cage_point_idx2) = coords_(surface_point_idx, cage_point_idx2) / sumMVC;
+
+				value<bool>(*influence_cage_, cage_marked_vertices, vc) = false;
+
+				return true;
+			});
+		}); 
+
+	}*/
+
 	void set_center_control_cage(Vec3& center)
 	{
 		center_control_cage_ = center;

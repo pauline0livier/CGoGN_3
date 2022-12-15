@@ -121,13 +121,10 @@ public:
 	void update_deformation_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
 	{
 
-		std::cout << "enter deformation object" << std::endl; 
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
 			cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
 		const Vec3 new_deformation = get_handle_deformation();	
-
-		std::cout << "check def " << new_deformation << std::endl;
 
 		influence_area_->foreach_cell([&](MeshVertex v) -> bool {
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
