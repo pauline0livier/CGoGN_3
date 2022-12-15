@@ -858,9 +858,15 @@ private:
 
 		std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> gcdt = global_cage_container_["global_cage"];
 
+		gcdt->binding_type_ = binding_type; 
+
 		if (binding_type == "MVC")
 		{
 			gcdt->bind_mvc(object, object_vertex_position.get());
+
+			if (handle_container_.size() > 0){
+				std::cout << "beware to bind handle too" << std::endl; 
+			}
 
 			gcdt->cage_attribute_update_connection_ =
 				boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
@@ -874,6 +880,16 @@ private:
 							current_gcdt->update_mvc(object, object_vertex_position.get());
 
 							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+
+							/*if (handle_cage_container_.size() > 0){
+				
+								for (auto& [name, hdt] : handle_cage_container_)
+									gcdt->update_mvc_handle(*(hdt->control_handle_), p_handle.vertex_position_);
+
+									graph_provider_->emit_attribute_changed(*(hdt->control_handle_), p_handle.vertex_position_);
+					
+								}*/
+
 						}
 					});
 		}
@@ -970,6 +986,8 @@ private:
 
 		std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> hdt = handle_container_[p_handle.name_];
 
+		hdt->deformation_type_ = binding_type; 
+
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 		CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
 
@@ -986,6 +1004,13 @@ private:
 		{
 			hdt->set_attenuation_round(object, object_vertex_position);
 		}
+
+		if (global_cage_container_.size() > 0){
+				//std::cout << "beware to bind handle to cage" << std::endl; 
+				for (auto& [name, gcdt] : global_cage_container_)
+					gcdt->bind_mvc_handle(*(hdt->control_handle_), p_handle.vertex_position_);
+					
+			}
 
 		mesh_provider_->emit_cells_set_changed(object, hdt->influence_area_);
 

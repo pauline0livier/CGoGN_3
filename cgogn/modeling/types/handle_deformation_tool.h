@@ -57,6 +57,8 @@ public:
 	cgogn::ui::CellsSet<MESH, MeshVertex>* influence_area_;
 	Eigen::VectorXd attenuation_;
 
+	std::string deformation_type_; 
+
 	std::shared_ptr<Graph::Attribute<Vec3>> control_handle_vertex_position_;
 	std::shared_ptr<boost::synapse::connection> handle_attribute_update_connection_;
 
@@ -190,6 +192,8 @@ private:
 	Vec3 handle_normal_;
 	//Eigen::Matrix3d local_frame_;
 	//Eigen::Matrix3d local_frame_inverse_;
+
+	Eigen::VectorXf global_cage_coords_;
 
 	void compute_attenuation(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{

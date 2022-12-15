@@ -48,6 +48,8 @@ public:
 	MESH* control_cage_;
 	std::shared_ptr<Attribute<Vec3>> control_cage_vertex_position_;
 
+	std::string binding_type_; 
+
 	std::shared_ptr<boost::synapse::connection> cage_attribute_update_connection_;
 
 	CageDeformationTool() : SpaceDeformationTool<MESH>(), m_hFactor(-1.0f), control_cage_vertex_position_(nullptr)

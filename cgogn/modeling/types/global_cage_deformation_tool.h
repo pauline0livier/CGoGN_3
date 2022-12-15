@@ -59,11 +59,21 @@ class GlobalCageDeformationTool
 	using Vec2 = geometry::Vec2;
 	using Vec3 = geometry::Vec3;
 
+	using Graph = cgogn::IncidenceGraph;
+
+	template <typename T>
+	using GraphAttribute = typename mesh_traits<IncidenceGraph>::template Attribute<T>;
+	using GraphVertex = IncidenceGraph::Vertex;
+	using GraphEdge = IncidenceGraph::Edge;
+	using GraphFace = IncidenceGraph::Face;
+
 public:
 	MESH* global_cage_;
 	std::shared_ptr<Attribute<Vec3>> global_cage_vertex_position_;
 
 	std::shared_ptr<boost::synapse::connection> cage_attribute_update_connection_;
+
+	std::string binding_type_;
 
 	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> global_cage_coords_;
 	Eigen::Matrix<Vec2, Eigen::Dynamic, Eigen::Dynamic> global_cage_normal_coords_;
@@ -158,6 +168,73 @@ public:
 
 			return true;
 		});
+	}
+
+	Eigen::VectorXf bind_mvc_handle(Graph& g, std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position){
+
+		Eigen::VectorXf handle_weights; 
+		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
+
+		handle_weights.resize(nbv_cage);
+		handle_weights.setZero(); 
+		
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
+
+		std::shared_ptr<Attribute<bool>> cage_vertex_marked =
+			get_attribute<bool, Vertex>(*global_cage_, "marked_vertices");
+
+		foreach_cell(g, [&](GraphVertex v) -> bool {
+			const Vec3& graph_point = value<Vec3>(g, graph_vertex_position, v);
+			//uint32 surface_point_idx = value<uint32>(*g, object_vertex_index, v);
+
+			DartMarker dm(*global_cage_);
+
+			float sumMVC = 0.0;
+			for (Dart d = global_cage_->begin(), end = global_cage_->end(); d != end; d = global_cage_->next(d))
+			{
+				Vertex cage_vertex = CMap2::Vertex(d);
+
+				bool vc_marked = value<bool>(*global_cage_, cage_vertex_marked, cage_vertex);
+
+				if (!dm.is_marked(d) && !vc_marked)
+				{
+
+					const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_vertex);
+					uint32 cage_point_idx = value<uint32>(*global_cage_, cage_vertex_index, cage_vertex);
+
+					float mvc_value = cgogn::modeling::compute_mvc(graph_point, d, *global_cage_, cage_point,
+																   global_cage_vertex_position_.get());
+
+					handle_weights[cage_point_idx] = mvc_value;
+
+					dm.mark(d);
+
+					value<bool>(*global_cage_, cage_vertex_marked, cage_vertex) = true;
+
+					sumMVC += mvc_value;
+				}
+			}
+
+			//float sum_lambda = 0.0;
+
+			parallel_foreach_cell(*global_cage_, [&](Vertex vc) -> bool {
+				uint32 cage_point_idx2 = value<uint32>(*global_cage_, cage_vertex_index, vc);
+
+				handle_weights[cage_point_idx2] =
+					handle_weights[cage_point_idx2] / sumMVC;
+
+				//sum_lambda += global_cage_coords_(surface_point_idx, cage_point_idx2);
+
+				value<bool>(*global_cage_, cage_vertex_marked, vc) = false;
+
+				return true;
+			});
+
+			return true;
+		});
+
+		return handle_weights; 
 	}
 
 	void bind_green(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position)
@@ -351,6 +428,33 @@ public:
 			return true;
 		});
 	}
+
+
+	// TODO
+	/*void update_mvc_handle(Graph& g, std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position, weights)
+	{
+
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
+
+		parallel_foreach_cell(g, [&](Vertex v) -> bool {
+
+			Vec3 new_pos_ = {0.0, 0.0, 0.0};
+
+			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
+				const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cv);
+
+				uint32 cage_point_idx = value<uint32>(*global_cage_, cage_vertex_index, cv);
+
+				new_pos_ += weights(cage_point_idx) * cage_point;
+
+				return true;
+			});
+
+			value<Vec3>(g, graph_vertex_position, v) = new_pos_;
+			return true;
+		});
+	}*/
 
 	void update_green(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position)
 	{
