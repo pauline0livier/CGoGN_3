@@ -80,6 +80,10 @@ public:
 
 		control_handle_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
 
+		std::shared_ptr<Graph::Attribute<uint32>> vertex_index =
+			cgogn::add_attribute<uint32, Graph::Vertex>(*control_handle_, "vertex_index");
+		cgogn::modeling::set_attribute_vertex_index_graph(*control_handle_, vertex_index.get());
+
 		handle_normal_ = normal;
 		handle_position_ = center1;
 		id_ = handle_number;
@@ -141,6 +145,18 @@ public:
 			handle_mesh_vertex_ = m_v; 
 	}
 
+	void set_global_cage_coords(Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> weights)
+	{
+		std::cout << "init set weights" << std::endl;
+		global_cage_coords_ = weights; 
+		std::cout << "ok set weights" << std::endl; 
+	}
+
+	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> get_global_cage_coords()
+	{
+		return global_cage_coords_;
+	}
+
 	const Vec3 get_handle_deformation(){
 			const Vec3 handle_new_position =
 				value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_vertex_);
@@ -193,7 +209,7 @@ private:
 	//Eigen::Matrix3d local_frame_;
 	//Eigen::Matrix3d local_frame_inverse_;
 
-	Eigen::VectorXf global_cage_coords_;
+	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> global_cage_coords_;
 
 	void compute_attenuation(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{

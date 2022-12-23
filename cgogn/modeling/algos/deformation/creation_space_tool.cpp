@@ -271,6 +271,16 @@ void set_attribute_vertex_index(CMap2& cage, CMap2::Attribute<uint32>* position_
 	});
 }
 
+void set_attribute_vertex_index_graph(IncidenceGraph& graph, IncidenceGraph::Attribute<uint32>* position_indices)
+{
+	uint32 nb_vertices = 0;
+
+	foreach_cell(graph, [&](IncidenceGraph::Vertex v) -> bool {
+		value<uint32>(graph, position_indices, v) = nb_vertices++;
+		return true;
+	});
+}
+
 void set_attribute_marked_vertices(CMap2& cage, CMap2::Attribute<bool>* marked_vertices)
 {
 

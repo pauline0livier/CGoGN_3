@@ -46,7 +46,9 @@ void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2:
 
 void create_axis_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* local_vertex_position, Graph::Attribute<uint32>* skeleton_vertex, const std::vector<Vec3>& vertex_coords, const std::vector<Vec3>& local_vertex_coords);
 
-void set_attribute_vertex_index(CMap2& cage, CMap2::Attribute<uint32>* position_indices); 
+void set_attribute_vertex_index(CMap2& cage, CMap2::Attribute<uint32>* position_indices);
+
+void set_attribute_vertex_index_graph(IncidenceGraph& graph, IncidenceGraph::Attribute<uint32>* position_indices); 
 
 void set_attribute_marked_vertices(CMap2& cage, CMap2::Attribute<bool>* marked_vertices); 
 
