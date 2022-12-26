@@ -64,6 +64,8 @@ public:
 
 	int id_;
 
+	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> global_cage_coords_;
+
 	HandleDeformationTool() : control_handle_vertex_position_(nullptr), influence_area_(nullptr)
 	{
 	}
@@ -147,9 +149,9 @@ public:
 
 	void set_global_cage_coords(Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> weights)
 	{
-		std::cout << "init set weights" << std::endl;
+		
 		global_cage_coords_ = weights; 
-		std::cout << "ok set weights" << std::endl; 
+		 
 	}
 
 	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> get_global_cage_coords()
@@ -209,7 +211,6 @@ private:
 	//Eigen::Matrix3d local_frame_;
 	//Eigen::Matrix3d local_frame_inverse_;
 
-	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> global_cage_coords_;
 
 	void compute_attenuation(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{

@@ -25,6 +25,7 @@
 #define CGOGN_MODELING_GLOBAL_CAGE_DEFORMATION_TOOL_H_
 
 #include <cgogn/core/types/cmap/cmap2.h>
+#include <cgogn/core/types/cells_set.h>
 
 #include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 #include <cgogn/modeling/algos/deformation/deformation_utils.h>
@@ -172,6 +173,61 @@ public:
 			});
 
 			return true;
+		});
+	}
+
+	void update_local_mvc(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position, cgogn::ui::CellsSet<MESH, Vertex>* influence_area){
+		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "vertex_index");
+
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
+
+		std::shared_ptr<Attribute<bool>> cage_vertex_marked =
+			get_attribute<bool, Vertex>(*global_cage_, "marked_vertices");
+
+		influence_area->foreach_cell([&](Vertex v){
+			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
+			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
+
+			DartMarker dm(*global_cage_);
+
+			float sumMVC = 0.0;
+			for (Dart d = global_cage_->begin(), end =  global_cage_->end(); d != end; d =  global_cage_->next(d))
+			{
+				Vertex cage_vertex = CMap2::Vertex(d);
+
+				bool vc_marked = value<bool>(*global_cage_, cage_vertex_marked, cage_vertex);
+
+				if (!dm.is_marked(d) && !vc_marked)
+				{
+
+					const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_vertex);
+					uint32 cage_point_idx = value<uint32>(*global_cage_, cage_vertex_index, cage_vertex);
+
+					float mvc_value = cgogn::modeling::compute_mvc(surface_point, d, *global_cage_, cage_point,
+																   global_cage_vertex_position_.get());
+
+					global_cage_coords_(surface_point_idx, cage_point_idx) = mvc_value;
+
+					dm.mark(d);
+
+					value<bool>(*global_cage_, cage_vertex_marked, cage_vertex) = true;
+
+					sumMVC += mvc_value;
+				}
+			}
+
+			parallel_foreach_cell(*global_cage_, [&](Vertex vc) -> bool {
+				uint32 cage_point_idx2 = value<uint32>(*global_cage_, cage_vertex_index, vc);
+
+				global_cage_coords_(surface_point_idx, cage_point_idx2) =
+					global_cage_coords_(surface_point_idx, cage_point_idx2) / sumMVC;
+
+				value<bool>(*global_cage_, cage_vertex_marked, vc) = false;
+
+				return true;
+			});
+
 		});
 	}
 
