@@ -78,7 +78,10 @@ public:
 						   const Vec3& center1, const Vec3& center2, const Vec3& normal, const int& handle_number)
 	{
 		control_handle_ = g;
-		handle_vertex_ = cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, center1, center2);
+		std::vector<Graph::Vertex> handle_vertices = cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, center1, center2);
+
+		handle_vertex_ = handle_vertices[0]; 
+		other_vertex_ = handle_vertices[1]; 
 
 		control_handle_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
 
@@ -167,6 +170,9 @@ public:
 
 			handle_position_ = handle_new_position;
 
+			value<Vec3>(*control_handle_, control_handle_vertex_position_, other_vertex_) = 
+				value<Vec3>(*control_handle_, control_handle_vertex_position_, other_vertex_) + deformation; 
+
 			return deformation; 
 	}
 
@@ -205,6 +211,7 @@ public:
 
 private:
 	Graph::Vertex handle_vertex_;
+	Graph::Vertex other_vertex_;
 	MeshVertex handle_mesh_vertex_; 
 	Vec3 handle_position_; // also frame_origin
 	Vec3 handle_normal_;

@@ -108,6 +108,11 @@ public:
 		cgogn::modeling::set_attribute_marked_vertices(*global_cage_, marked_vertices.get());
 	}
 
+	void update_global_cage(const Vec3& bb_min, const Vec3& bb_max){
+		cgogn::modeling::create_bounding_box(*global_cage_, global_cage_vertex_position_.get(), bb_min, bb_max);
+		
+	}
+
 	void bind_mvc(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position)
 	{
 

@@ -38,7 +38,6 @@ void create_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, cons
 		CMap2::Vertex(f1), CMap2::Vertex(phi1(m, f1)), CMap2::Vertex(phi<1, 1>(m, f1)), CMap2::Vertex(phi_1(m, f1)),
 		CMap2::Vertex(f2), CMap2::Vertex(phi1(m, f2)), CMap2::Vertex(phi<1, 1>(m, f2)), CMap2::Vertex(phi_1(m, f2))};
 
-		
 	value<Vec3>(m, vertex_position, vertices[0]) = bb_min;
 	value<Vec3>(m, vertex_position, vertices[1]) = {bb_min[0], bb_max[1], bb_min[2]};
 	value<Vec3>(m, vertex_position, vertices[2]) = {bb_max[0], bb_max[1], bb_min[2]};
@@ -47,7 +46,7 @@ void create_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, cons
 	value<Vec3>(m, vertex_position, vertices[4]) = {bb_min[0], bb_max[1], bb_max[2]};
 	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min[0], bb_min[1], bb_max[2]};
 	value<Vec3>(m, vertex_position, vertices[6]) = {bb_max[0], bb_min[1], bb_max[2]};
-	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0], bb_max[1], bb_max[2]};
+	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0], bb_max[1], bb_max[2]}; 
 }
 
 void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max,
@@ -299,7 +298,7 @@ void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indi
 	});
 }
 
-Graph::Vertex create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
+std::vector<Graph::Vertex> create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
 							const Vec3& center1, const Vec3& center2)
 {
 
@@ -315,7 +314,11 @@ Graph::Vertex create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, G
 
 	connect_vertices(g, nv, nv1);
 
-	return nv;
+	std::vector<Graph::Vertex> res; 
+	res.push_back(nv); 
+	res.push_back(nv1); 
+
+	return res;
 }
 
 std::vector<Graph::Vertex> create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_position,
