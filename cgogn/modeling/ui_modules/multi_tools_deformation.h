@@ -419,6 +419,14 @@ public:
 			f(*(hdt->control_handle_), name);
 	}
 
+	template <typename FUNC>
+	void foreach_axis(const FUNC& f)
+	{
+	
+		for (auto& [name, adt] : axis_container_)
+			f(*(adt->control_axis_), name);
+	}
+
 	/////////////
 	// SIGNALS //
 	/////////////
@@ -632,8 +640,8 @@ private:
 		const Vec3 handle_position =
 			center; //{center[0] + 0.1f * ray[0], center[1] + 0.1f * ray[1], center[2] + 0.1f * ray[2]};
 
-		const Vec3 inner_handle_position = {center[0] - 2.f * ray[0], center[1] - 2.f * ray[1],
-											center[2] - 2.f * ray[2]};
+		const Vec3 inner_handle_position = {center[0] - 0.1f * ray[0], center[1] - 0.1f * ray[1],
+											center[2] - 0.1f * ray[2]};
 
 		MeshVertex closest_vertex;
 		double min_dist = 1000000;
@@ -686,7 +694,7 @@ private:
 		// return handle_name;
 	}
 
-	GRAPH* generate_axis(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
+	GRAPH* generate_axis_tool(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
 						 CellsSet<MESH, MeshVertex>* control_set)
 	{
 		int axis_number = axis_container_.size();
@@ -810,9 +818,7 @@ private:
 
 			graph_render_->set_vertex_position(*v1, *axis, axis_vertex_position);
 
-			// graph_selection_->set_vertex_position(*axis, axis_vertex_position);
-
-			MESH* i_cage = mesh_provider_->add_mesh("i_cage" + axis_number);
+			/*MESH* i_cage = mesh_provider_->add_mesh("i_cage" + axis_number);
 
 			std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
 				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "position");
@@ -843,7 +849,7 @@ private:
 
 			adt->update_influence_area(m, vertex_position.get());
 
-			mesh_provider_->emit_cells_set_changed(m, adt->influence_area_);
+			mesh_provider_->emit_cells_set_changed(m, adt->influence_area_);*/
 
 			boost::synapse::emit<axis_added>(this, adt);
 		}
@@ -2046,16 +2052,121 @@ protected:
 				if (selected_tool_ == Axis)
 				{
 					selected_mesh_ = model_;
+					ImGui::Separator();
+					model_p.selection_method_ = WithinSphere;
+					ImGui::SliderFloat("Sphere_radius_axis", &(model_p.sphere_scale_factor_), 10.0f, 100.0f);
+
+					if (ImGui::Button("Create new set_axis##vertices_set"))
+						model_md.template add_cells_set<MeshVertex>();
+					imgui_combo_cells_set(model_md, model_p.selected_vertices_set_, "Sets_axis",
+										  [&](CellsSet<MESH, MeshVertex>* cs) {
+											  model_p.selected_vertices_set_ = cs;
+											  model_p.update_selected_vertices_vbo();
+											  need_update = true;
+										  });
+
+					if (model_p.selected_vertices_set_)
+					{
+						ImGui::Text("(nb elements: %d)", model_p.selected_vertices_set_->size());
+						if (ImGui::Button("Clear axis area ##vertices_set"))
+						{
+							model_p.selected_vertices_set_->clear();
+							mesh_provider_->emit_cells_set_changed(*model_, model_p.selected_vertices_set_);
+						}
+					}
+					ImGui::TextUnformatted("Drawing parameters");
+					need_update |=
+						ImGui::ColorEdit3("color_axis##vertices", model_p.param_point_sprite_->color_.data(),
+										  ImGuiColorEditFlags_NoInputs);
+
+					if (need_update || model_p.object_update_)
+					{
+						for (View* v : linked_views_)
+							v->request_update();
+					}
+
 					CellsSet<MESH, MeshVertex>* control_set = nullptr;
 
-					imgui_combo_cells_set(model_md, control_set, "Control ",
-										  [&](CellsSet<MESH, MeshVertex>* cs) { control_set = cs; });
+					if (ImGui::Button("Accept axis area##vertices_set"))
+					{
+						control_set = model_p.selected_vertices_set_;
 
-					if (control_set && control_set->size() > 0)
+						generate_axis_tool(*model_, model_p.vertex_position_, control_set);
+
+						model_p.selected_vertices_set_ = nullptr;
+					}
+
+					if (ImGui::Button("Accept axis influence area##vertices_set"))
+					{
+						influence_set_ = model_p.selected_vertices_set_;
+
+						model_p.selected_vertices_set_ = nullptr;
+					}
+
+					model_p.object_update_ = false;
+
+					ImGui::Separator();
+					ImGui::Text("Binding");
+
+					/*if (axis_container_.size())
 					{
 
-						generate_axis(*model_, model_p.vertex_position_, control_set);
-					}
+						MultiToolsDeformation<MESH, GRAPH>* space_deformation =
+							static_cast<MultiToolsDeformation<MESH, GRAPH>*>(
+								app_.module("MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
+
+						if (imgui_axis_selector(space_deformation, selected_handle_, "Local Handle",
+												  [&](GRAPH& g) { selected_handle_ = &g; }))
+						{
+
+							const std::string handle_name = graph_provider_->graph_name(*selected_handle_);
+
+							std::string prefix = "local_handle";
+
+							if (handle_name.size() > 0 &&
+								std::mismatch(prefix.begin(), prefix.end(), handle_name.begin()).first == prefix.end())
+							{
+								const char* items[] = {"Spike", "Round"};
+								std::string current_item = "Spike";
+								ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
+
+								ImGuiStyle& style = ImGui::GetStyle();
+								float w = ImGui::CalcItemWidth();
+								float spacing = style.ItemInnerSpacing.x;
+								float button_sz = ImGui::GetFrameHeight();
+								ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
+								if (ImGui::BeginCombo("##custom_combo", current_item.c_str(),
+													  ImGuiComboFlags_NoArrowButton))
+								{
+									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+									{
+										bool is_selected = (current_item == items[n]);
+										if (ImGui::Selectable(items[n], is_selected))
+											current_item = items[n];
+										if (is_selected)
+											ImGui::SetItemDefaultFocus();
+									}
+									ImGui::EndCombo();
+								}
+
+								if (ImGui::Button("Bind object"))
+								{
+
+									std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> hdt =
+										handle_container_[handle_name];
+
+									GraphParameters& local_p = graph_parameters_[selected_handle_];
+
+									local_p.name_ = handle_name;
+
+									bind_local_handle(*model_, model_p.vertex_position_, *(hdt->control_handle_),
+													  hdt->control_handle_vertex_position_, current_item);
+
+									influence_set_ = nullptr;
+								}
+							}
+						}
+					}*/
 				}
 
 				ImGui::Separator();

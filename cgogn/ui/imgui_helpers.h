@@ -289,6 +289,27 @@ bool imgui_handle_selector(SPACE_DEFORMATION<MESH,Graph>* space_deformation, con
 	return false;
 }
 
+template <template <typename MESH, typename Graph> typename SPACE_DEFORMATION, typename MESH, typename FUNC>
+bool imgui_axis_selector(SPACE_DEFORMATION<MESH,Graph>* space_deformation, const Graph* selected_graph, const std::string& label,
+						 const FUNC& on_change)
+{
+	
+	if (ImGui::ListBoxHeader(label.c_str(), space_deformation->axis_container_.size()))
+	{
+		space_deformation->foreach_axis([&](Graph& g, const std::string& name) {
+			if (ImGui::Selectable(name.c_str(), &g == selected_graph))
+			{
+				if (&g != selected_graph)
+					on_change(g);
+			}
+		});
+		ImGui::ListBoxFooter();
+		return true;
+		
+	}
+	return false;
+}
+
 
 template <typename FUNC>
 bool imgui_view_selector(ViewModule* vm, const View* selected, const FUNC& on_change)
