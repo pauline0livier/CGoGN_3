@@ -90,17 +90,17 @@ public:
 	void create_global_cage(MESH* m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max)
 	{
 		global_cage_ = m;
-		cgogn::modeling::create_bounding_box(*m, vertex_position, bb_min, bb_max);
+
+		vertices_ = cgogn::modeling::create_bounding_box(*m, vertex_position, bb_min, bb_max);
 
 		global_cage_vertex_position_ = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
 
-		/* std::shared_ptr<Attribute<uint32>> vertex_index =
+		 std::shared_ptr<Attribute<uint32>> vertex_index =
 			cgogn::add_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
-		cgogn::modeling::set_attribute_vertex_index(*global_cage_, vertex_index.get());*/
+		cgogn::modeling::set_attribute_vertex_index(*global_cage_, vertex_index.get());
 
-		global_cage_vertex_index_ =
-			cgogn::add_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
-		cgogn::modeling::set_attribute_vertex_index(*global_cage_, global_cage_vertex_index_.get());
+		
+		//cgogn::modeling::set_attribute_vertex_index(*global_cage_, global_cage_vertex_index_.get());
 
 
 		std::shared_ptr<Attribute<bool>> marked_vertices =
@@ -109,7 +109,8 @@ public:
 	}
 
 	void update_global_cage(const Vec3& bb_min, const Vec3& bb_max){
-		cgogn::modeling::create_bounding_box(*global_cage_, global_cage_vertex_position_.get(), bb_min, bb_max);
+		//cgogn::modeling::create_bounding_box(*global_cage_, global_cage_vertex_position_.get(), bb_min, bb_max);
+		cgogn::modeling::update_bounding_box(*global_cage_, global_cage_vertex_position_.get(), vertices_, bb_min, bb_max);
 		
 	}
 
@@ -513,7 +514,7 @@ public:
 			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
 				const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cv);
 
-				uint32 cage_point_idx = value<uint32>(*global_cage_, global_cage_vertex_index_, cv);
+				uint32 cage_point_idx = value<uint32>(*global_cage_, cage_vertex_index, cv);
 
 				new_pos_ += weights(cage_point_idx) * cage_point;
 
@@ -623,7 +624,7 @@ public:
 	}
 
 private:
-	std::shared_ptr<Attribute<uint32>> global_cage_vertex_index_;
+	std::vector<CMap2::Vertex> vertices_; 
 };
 
 } // namespace modeling

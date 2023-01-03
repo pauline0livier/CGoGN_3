@@ -30,13 +30,28 @@ namespace cgogn
 namespace modeling
 {
 
-void create_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max){
+std::vector<CMap2::Vertex> create_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max){
 	CMap2::Volume v = add_prism(m, 4);
 	Dart f1 = v.dart;
 	Dart f2 = phi<2, 1, 1, 2>(m, f1);
 	std::vector<CMap2::Vertex> vertices = {
 		CMap2::Vertex(f1), CMap2::Vertex(phi1(m, f1)), CMap2::Vertex(phi<1, 1>(m, f1)), CMap2::Vertex(phi_1(m, f1)),
 		CMap2::Vertex(f2), CMap2::Vertex(phi1(m, f2)), CMap2::Vertex(phi<1, 1>(m, f2)), CMap2::Vertex(phi_1(m, f2))};
+
+	value<Vec3>(m, vertex_position, vertices[0]) = bb_min;
+	value<Vec3>(m, vertex_position, vertices[1]) = {bb_min[0], bb_max[1], bb_min[2]};
+	value<Vec3>(m, vertex_position, vertices[2]) = {bb_max[0], bb_max[1], bb_min[2]};
+	value<Vec3>(m, vertex_position, vertices[3]) = {bb_max[0], bb_min[1], bb_min[2]};
+
+	value<Vec3>(m, vertex_position, vertices[4]) = {bb_min[0], bb_max[1], bb_max[2]};
+	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min[0], bb_min[1], bb_max[2]};
+	value<Vec3>(m, vertex_position, vertices[6]) = {bb_max[0], bb_min[1], bb_max[2]};
+	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0], bb_max[1], bb_max[2]}; 
+
+	return vertices; 
+}
+
+void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const std::vector<CMap2::Vertex>& vertices, const Vec3& bb_min, const Vec3& bb_max){
 
 	value<Vec3>(m, vertex_position, vertices[0]) = bb_min;
 	value<Vec3>(m, vertex_position, vertices[1]) = {bb_min[0], bb_max[1], bb_min[2]};

@@ -447,13 +447,15 @@ private:
 		{
 			MeshData<MESH>& md = mesh_provider_->mesh_data(m);
 			Vec3 center = (md.bb_min_ + md.bb_max_) / Scalar(2);
-			Vec3 bb_min = ((md.bb_min_ - center) * 1.1) + center;
-			Vec3 bb_max = ((md.bb_max_ - center) * 1.1) + center;
+			Vec3 bb_min = ((md.bb_min_ - center) * 1.2) + center;
+			Vec3 bb_max = ((md.bb_max_ - center) * 1.2) + center;
 
 			gcdt->create_global_cage(cage, cage_vertex_position.get(), bb_min, bb_max);
 
 			mesh_provider_->emit_connectivity_changed(*cage);
 			mesh_provider_->emit_attribute_changed(*cage, cage_vertex_position.get());
+
+			MeshData<MESH>& c_md = mesh_provider_->mesh_data(*cage);
 
 			ui::View* v1 = app_.current_view();
 
@@ -1136,17 +1138,22 @@ private:
 										get_attribute<bool, MeshVertex>(*global_cage, "marked_vertices");
 
 									//MeshData<MESH>& md = mesh_provider_->mesh_data(object);
-									/*md.update_bb();
+									md.update_bb();
 
 									Vec3 center = (md.bb_min_ + md.bb_max_) / Scalar(2);
-									Vec3 bb_min = ((md.bb_min_ - center) * 1.5) + center;
-									Vec3 bb_max = ((md.bb_max_ - center) * 1.5) + center;
+									Vec3 bb_min = ((md.bb_min_ - center) * 1.2) + center;
+									Vec3 bb_max = ((md.bb_max_ - center) * 1.2) + center;
 
-									std::cout << "min " << bb_min << std::endl; 
-									std::cout << "max " << bb_max << std::endl;
+									MeshData<MESH>& cmd = mesh_provider_->mesh_data(*global_cage);
+									if (!(bb_min == cmd.bb_min_) || !( bb_max == cmd.bb_max_)){
+										gcdt->update_global_cage(bb_min, bb_max);
 
-									gcdt->update_global_cage(bb_min, bb_max);*/
-									DartMarker dm(*global_cage);
+										mesh_provider_->emit_attribute_changed(*global_cage,
+																		   gcdt->global_cage_vertex_position_.get());
+									}
+
+									
+									/*DartMarker dm(*global_cage);
 
 									for (Dart d = global_cage->begin(), end = global_cage->end(); d != end;
 										 d = global_cage->next(d))
@@ -1169,10 +1176,10 @@ private:
 										value<bool>(*global_cage, cage_vertex_marked, vc) = false;
 
 										return true;
-									});
+									});*/
 
-									mesh_provider_->emit_attribute_changed(*global_cage,
-																		   gcdt->global_cage_vertex_position_.get());
+									//mesh_provider_->emit_attribute_changed(*global_cage,
+																		   //gcdt->global_cage_vertex_position_.get());
 
 									// update handle weights
 									foreach_cell(*(current_hdt->control_handle_), [&](GraphVertex v) -> bool {

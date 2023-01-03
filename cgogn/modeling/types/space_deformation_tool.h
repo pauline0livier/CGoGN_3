@@ -78,11 +78,12 @@ class SpaceDeformationTool
 	void set_influence_cage(MESH* m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max)
 	{
 		influence_cage_ = m;
+
 		cgogn::modeling::create_bounding_box(*m, vertex_position, bb_min, bb_max);
 
 		influence_cage_vertex_position_ = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
 
-		std::shared_ptr<Attribute<uint32>> vertex_index =
+		 std::shared_ptr<Attribute<uint32>> vertex_index =
 			cgogn::add_attribute<uint32, Vertex>(*influence_cage_, "vertex_index");
 		cgogn::modeling::set_attribute_vertex_index(*influence_cage_, vertex_index.get());
 

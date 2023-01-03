@@ -38,7 +38,9 @@ using Scalar = geometry::Scalar;
 
 using Graph = cgogn::IncidenceGraph;
 
-void create_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max); 
+std::vector<CMap2::Vertex> create_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max); 
+
+void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const std::vector<CMap2::Vertex>& vertices, const Vec3& bb_min, const Vec3& bb_max); 
 
 void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& center, const Vec3& normal); 
 
