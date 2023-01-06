@@ -14,11 +14,9 @@
  *                                                                              *
  * You should have received a copy of the GNU Lesser General Public License     *
  * along with this library; if not, write to the Free Software Foundation,      *
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA.           *
- *                                                                              *
- * Web site: http://cgogn.unistra.fr/                                           *
- * Contact information: cgogn@unistra.fr                                        *
- *                                                                              *
+ * Inc., 51 Franklin Street, Fifth Floor, Bostraph_provider_->emit_connectivity_changed(*handle);
+			graph_provider_->emit_attribute_changed(*handle, handle_vertex_position.get());
+			graph_provider_->emit_attribute_changed(*handle, handle_vertex_radius.get());                                  *
  *******************************************************************************/
 
 #ifndef CGOGN_MODELING_AXIS_DEFORMATION_TOOL_H_
@@ -57,6 +55,16 @@ public:
 
 	~AxisDeformationTool()
 	{
+	}
+
+
+	void init_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
+						   const Vec3& vertex_coord)
+	{
+		control_axis_ = g;
+		axis_skeleton_ = cgogn::modeling::create_axis(*g, vertex_position, vertex_radius, vertex_coords);
+
+		control_axis_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
 	}
 
 	void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
