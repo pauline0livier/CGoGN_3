@@ -1933,6 +1933,7 @@ protected:
 				{
 					selected_mesh_ = model_;
 					ImGui::Separator();
+						
 					model_p.selection_method_ = WithinSphere;
 					ImGui::SliderFloat("Sphere_radius", &(model_p.sphere_scale_factor_), 10.0f, 100.0f);
 
@@ -1973,7 +1974,8 @@ protected:
 
 						generate_handle_tool(*model_, model_p.vertex_position_, control_set);
 
-						model_p.selected_vertices_set_ = nullptr;
+						model_p.selected_vertices_set_->clear();
+						mesh_provider_->emit_cells_set_changed(*model_, model_p.selected_vertices_set_); 
 					}
 
 					if (ImGui::Button("Accept handle influence area##vertices_set"))
