@@ -108,9 +108,8 @@ class MultiToolsDeformation : public ViewModule
 	struct GraphParameters
 	{
 		GraphParameters()
-			: vertex_position_(nullptr), selection_method_(SingleCell), selecting_cell_(VertexSelect),
-			  selected_vertices_set_(nullptr), vertex_scale_factor_(1.0), sphere_scale_factor_(10.0),
-			  object_update_(false)
+			: vertex_position_(nullptr), selecting_cell_(VertexSelect),selection_method_(SingleCell), selected_vertices_set_(nullptr),
+			  vertex_scale_factor_(1.0), sphere_scale_factor_(10.0), object_update_(false)
 		{
 			param_point_sprite_ = rendering::ShaderPointSprite::generate_param();
 			param_point_sprite_->color_ = rendering::GLColor(1, 0, 0, 0.65f);
@@ -162,8 +161,8 @@ class MultiToolsDeformation : public ViewModule
 
 		CellsSet<GRAPH, GraphVertex>* selected_vertices_set_;
 
-		SelectionMethod selection_method_;
 		SelectingCell selecting_cell_;
+		SelectionMethod selection_method_;
 
 		std::shared_ptr<boost::synapse::connection> cells_set_connection_bis;
 
@@ -237,8 +236,8 @@ class MultiToolsDeformation : public ViewModule
 
 		CellsSet<MESH, MeshVertex>* selected_vertices_set_;
 
-		SelectionMethod selection_method_;
 		SelectingCell selecting_cell_;
+		SelectionMethod selection_method_;
 
 		std::shared_ptr<boost::synapse::connection> cells_set_connection_bis;
 	};
@@ -251,8 +250,8 @@ public:
 		global_cage_container_;
 
 	MultiToolsDeformation(const App& app)
-		: ViewModule(app, "MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), model_(nullptr),
-		  selected_mesh_(nullptr), selected_cage_(nullptr), selected_handle_(nullptr), influence_cage_mode_(true),
+		: ViewModule(app, "MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), model_(nullptr), influence_set_(nullptr), 
+		  selected_mesh_(nullptr), selected_cage_(nullptr), selected_handle_(nullptr), influence_cage_mode_(true), new_tool_(false),
 		  dragging_mesh_(false), dragging_graph_(false), rotating_(false)
 	{
 	}
@@ -299,6 +298,10 @@ public:
 						std::cout << "ok " << std::endl;
 					// p.solver_ready_ = false;
 				});
+
+		MeshData<MESH>& md = mesh_provider_->mesh_data(*m);
+		md.template add_cells_set<MeshVertex>();
+		md.template add_cells_set<MeshVertex>();
 	}
 
 	void init_graph(GRAPH* g)
@@ -312,7 +315,8 @@ public:
 					GraphParameters& p = graph_parameters_[g];
 					if (p.vertex_position_.get() == attribute)
 					{
-						p.vertex_base_size_ = 0.5; //float32(geometry::mean_edge_length(*g, p.vertex_position_.get()) / 6);
+						p.vertex_base_size_ =
+							0.5; // float32(geometry::mean_edge_length(*g, p.vertex_position_.get()) / 6);
 						p.update_selected_vertices_vbo();
 					}
 
@@ -412,9 +416,6 @@ public:
 	template <typename FUNC>
 	void foreach_handle(const FUNC& f)
 	{
-		// static_assert(is_ith_func_parameter_same<FUNC, 0, GRAPH&>::value, "Wrong function parameter type");
-		// static_assert(is_ith_func_parameter_same<FUNC, 1, const std::string&>::value, "Wrong function parameter
-		// type");
 		for (auto& [name, hdt] : handle_container_)
 			f(*(hdt->control_handle_), name);
 	}
@@ -422,7 +423,6 @@ public:
 	template <typename FUNC>
 	void foreach_axis(const FUNC& f)
 	{
-	
 		for (auto& [name, adt] : axis_container_)
 			f(*(adt->control_axis_), name);
 	}
@@ -695,7 +695,7 @@ private:
 	}
 
 	GRAPH* generate_axis_tool(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
-						 CellsSet<MESH, MeshVertex>* control_set)
+							  CellsSet<MESH, MeshVertex>* control_set)
 	{
 		int axis_number = axis_container_.size();
 		std::string axis_name = "axis" + std::to_string(axis_number);
@@ -889,10 +889,10 @@ private:
 					&global_cage, [&](MeshAttribute<Vec3>* attribute) {
 						if (cage_vertex_position.get() == attribute)
 						{
-							
+
 							if (deformed_tool_ == Cage)
 							{
-								
+
 								std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> current_gcdt =
 									global_cage_container_["global_cage"];
 
@@ -1111,8 +1111,8 @@ private:
 
 							const Vec3 new_deformation = current_hdt->get_handle_deformation();
 
-							///graph_provider_->emit_attribute_changed(
-											//*(current_hdt->control_handle_), current_hdt->control_handle_vertex_position_.get());
+							/// graph_provider_->emit_attribute_changed(
+							//*(current_hdt->control_handle_), current_hdt->control_handle_vertex_position_.get());
 
 							current_hdt->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
 								uint32 vidx = value<uint32>(object, object_vertex_index, v);
@@ -1143,7 +1143,7 @@ private:
 									std::shared_ptr<MeshAttribute<bool>> cage_vertex_marked =
 										get_attribute<bool, MeshVertex>(*global_cage, "marked_vertices");
 
-									//MeshData<MESH>& md = mesh_provider_->mesh_data(object);
+									// MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 									md.update_bb();
 
 									Vec3 center = (md.bb_min_ + md.bb_max_) / Scalar(2);
@@ -1151,14 +1151,14 @@ private:
 									Vec3 bb_max = ((md.bb_max_ - center) * 1.2) + center;
 
 									MeshData<MESH>& cmd = mesh_provider_->mesh_data(*global_cage);
-									if (!(bb_min == cmd.bb_min_) || !( bb_max == cmd.bb_max_)){
+									if (!(bb_min == cmd.bb_min_) || !(bb_max == cmd.bb_max_))
+									{
 										gcdt->update_global_cage(bb_min, bb_max);
 
-										mesh_provider_->emit_attribute_changed(*global_cage,
-																		   gcdt->global_cage_vertex_position_.get());
+										mesh_provider_->emit_attribute_changed(
+											*global_cage, gcdt->global_cage_vertex_position_.get());
 									}
 
-									
 									/*DartMarker dm(*global_cage);
 
 									for (Dart d = global_cage->begin(), end = global_cage->end(); d != end;
@@ -1172,7 +1172,8 @@ private:
 										{
 
 											value<Vec3>(
-												*global_cage, gcdt->global_cage_vertex_position_, cage_vertex) += new_deformation;
+												*global_cage, gcdt->global_cage_vertex_position_, cage_vertex) +=
+									new_deformation;
 
 											value<bool>(*global_cage, cage_vertex_marked, cage_vertex) = true;
 										}
@@ -1184,8 +1185,8 @@ private:
 										return true;
 									});*/
 
-									//mesh_provider_->emit_attribute_changed(*global_cage,
-																		   //gcdt->global_cage_vertex_position_.get());
+									// mesh_provider_->emit_attribute_changed(*global_cage,
+									// gcdt->global_cage_vertex_position_.get());
 
 									// update handle weights
 									foreach_cell(*(current_hdt->control_handle_), [&](GraphVertex v) -> bool {
@@ -1292,11 +1293,6 @@ private:
 
 										return true;
 									});
-
-									// hdt->set_global_cage_coords(handle_weights);
-
-									// gcdt->update_local_mvc(object, object_vertex_position.get(),
-									// hdt->influence_area_);
 								}
 							}
 						}
@@ -1741,6 +1737,7 @@ protected:
 		if (model_)
 		{
 			MeshData<MESH>& model_md = mesh_provider_->mesh_data(*model_);
+
 			Parameters& model_p = parameters_[model_];
 
 			auto object_vertex_position = get_attribute<Vec3, MeshVertex>(*model_, "position");
@@ -1933,64 +1930,75 @@ protected:
 				{
 					selected_mesh_ = model_;
 					ImGui::Separator();
-						
-					model_p.selection_method_ = WithinSphere;
-					ImGui::SliderFloat("Sphere_radius", &(model_p.sphere_scale_factor_), 10.0f, 100.0f);
 
-					if (ImGui::Button("Create new set##vertices_set"))
-						model_md.template add_cells_set<MeshVertex>();
-					imgui_combo_cells_set(model_md, model_p.selected_vertices_set_, "Sets_handle",
-										  [&](CellsSet<MESH, MeshVertex>* cs) {
-											  model_p.selected_vertices_set_ = cs;
-											  model_p.update_selected_vertices_vbo();
-											  need_update = true;
-										  });
+					imgui_combo_cells_set(model_md, model_p.selected_vertices_set_, "Set_handle",
+											  [&](CellsSet<MESH, MeshVertex>* cs) {
+												  model_p.selected_vertices_set_ = cs;
+												  model_p.update_selected_vertices_vbo();
+												  need_update = true;
+											  });
 
-					if (model_p.selected_vertices_set_)
-					{
-						ImGui::Text("(nb elements: %d)", model_p.selected_vertices_set_->size());
-						if (ImGui::Button("Clear handle area ##vertices_set"))
+					ImGui::RadioButton("Set_tool", reinterpret_cast<int*>(&model_p.selection_method_), SingleCell);
+					ImGui::SameLine();
+					ImGui::RadioButton("Set_influence_area", reinterpret_cast<int*>(&model_p.selection_method_), WithinSphere);
+
+					if (model_p.selection_method_ == SingleCell){
+						if (model_p.selected_vertices_set_)
 						{
-							model_p.selected_vertices_set_->clear();
-							mesh_provider_->emit_cells_set_changed(*model_, model_p.selected_vertices_set_);
+
+							if (model_p.selected_vertices_set_->size() > 0){
+								CellsSet<MESH, MeshVertex>* control_set = model_p.selected_vertices_set_;
+
+								generate_handle_tool(*model_, model_p.vertex_position_, control_set);
+
+								new_tool_ = true; 
+
+								model_p.selected_vertices_set_->clear();
+								mesh_provider_->emit_cells_set_changed(*model_, model_p.selected_vertices_set_);
+							}
+							
 						}
-					}
-					ImGui::TextUnformatted("Drawing parameters");
-					need_update |=
-						ImGui::ColorEdit3("color_handle##vertices", model_p.param_point_sprite_->color_.data(),
-										  ImGuiColorEditFlags_NoInputs);
-
-					if (need_update || model_p.object_update_)
-					{
-						for (View* v : linked_views_)
-							v->request_update();
+						
 					}
 
-					CellsSet<MESH, MeshVertex>* control_set = nullptr;
+					if (model_p.selection_method_ == WithinSphere){
 
-					if (ImGui::Button("Accept handle area##vertices_set"))
-					{
-						control_set = model_p.selected_vertices_set_;
+						ImGui::SliderFloat("Sphere_radius", &(model_p.sphere_scale_factor_), 10.0f, 100.0f);
 
-						generate_handle_tool(*model_, model_p.vertex_position_, control_set);
+						if (model_p.selected_vertices_set_)
+						{
+							ImGui::Text("(nb elements: %d)", model_p.selected_vertices_set_->size());
+							if (ImGui::Button("Clear handle area ##vertices_set"))
+							{
+								model_p.selected_vertices_set_->clear();
+								mesh_provider_->emit_cells_set_changed(*model_, model_p.selected_vertices_set_);
+							}
+						}
+						ImGui::TextUnformatted("Drawing parameters");
+						need_update |=
+							ImGui::ColorEdit3("color_handle##vertices", model_p.param_point_sprite_->color_.data(),
+											  ImGuiColorEditFlags_NoInputs);
 
-						model_p.selected_vertices_set_->clear();
-						mesh_provider_->emit_cells_set_changed(*model_, model_p.selected_vertices_set_); 
+						if (need_update || model_p.object_update_)
+						{
+							for (View* v : linked_views_)
+								v->request_update();
+						}
+
+						if (ImGui::Button("Accept handle influence area##vertices_set"))
+						{
+							influence_set_ = model_p.selected_vertices_set_;
+
+							model_p.selected_vertices_set_ = nullptr;
+						}
+
+						model_p.object_update_ = false;
 					}
-
-					if (ImGui::Button("Accept handle influence area##vertices_set"))
-					{
-						influence_set_ = model_p.selected_vertices_set_;
-
-						model_p.selected_vertices_set_ = nullptr;
-					}
-
-					model_p.object_update_ = false;
 
 					ImGui::Separator();
 					ImGui::Text("Binding");
 
-					if (handle_container_.size())
+					if (new_tool_ && influence_set_)
 					{
 
 						MultiToolsDeformation<MESH, GRAPH>* space_deformation =
@@ -2045,6 +2053,7 @@ protected:
 													  hdt->control_handle_vertex_position_, current_item);
 
 									influence_set_ = nullptr;
+									new_tool_ = false; 
 								}
 							}
 						}
@@ -2077,9 +2086,8 @@ protected:
 						}
 					}
 					ImGui::TextUnformatted("Drawing parameters");
-					need_update |=
-						ImGui::ColorEdit3("color_axis##vertices", model_p.param_point_sprite_->color_.data(),
-										  ImGuiColorEditFlags_NoInputs);
+					need_update |= ImGui::ColorEdit3("color_axis##vertices", model_p.param_point_sprite_->color_.data(),
+													 ImGuiColorEditFlags_NoInputs);
 
 					if (need_update || model_p.object_update_)
 					{
@@ -2331,10 +2339,11 @@ protected:
 										v->request_update();
 
 									std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> current_hdt =
-									handle_container_[handle_p.name_];
+										handle_container_[handle_p.name_];
 
 									graph_provider_->emit_attribute_changed(
-											*(current_hdt->control_handle_), current_hdt->control_handle_vertex_position_.get());
+										*(current_hdt->control_handle_),
+										current_hdt->control_handle_vertex_position_.get());
 								}
 							}
 						}
@@ -2386,6 +2395,7 @@ private:
 	rendering::GLVec3d previous_drag_pos_;
 
 	CellsSet<MESH, MeshVertex>* influence_set_;
+	bool new_tool_; 
 };
 
 } // namespace ui
