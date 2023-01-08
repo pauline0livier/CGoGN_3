@@ -173,7 +173,7 @@ class MultiToolsDeformation : public ViewModule
 	struct Parameters
 	{
 		Parameters()
-			: vertex_position_(nullptr), new_cage_(false), nb_cage(0), nb_max_tool_(0), nb_tool_(0),
+			: vertex_position_(nullptr), new_cage_(false), nb_cage(0), nb_tool_(0),
 			  selection_method_(SingleCell), selecting_cell_(VertexSelect), selected_vertices_set_(nullptr),
 			  vertex_scale_factor_(1.0), sphere_scale_factor_(10.0), object_update_(false), back_selection_(false)
 		{
@@ -219,8 +219,6 @@ class MultiToolsDeformation : public ViewModule
 
 		int nb_tool_;
 
-		int nb_max_tool_;
-
 		bool object_update_;
 
 		bool back_selection_;
@@ -265,7 +263,7 @@ public:
 	{
 		Parameters& p = parameters_[m];
 		p.mesh_ = m;
-		p.nb_max_tool_ = 100;
+		
 		mesh_connections_[m].push_back(
 			boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
 				m, [this, m](MeshAttribute<Vec3>* attribute) {
@@ -2089,6 +2087,7 @@ protected:
 
 							if (model_p.selected_vertices_set_->size() == 1)
 							{
+								std::cout << "ok for size 1 " << std::endl; 
 								GRAPH* axis = graph_provider_->add_graph(axis_name);
 
 								auto axis_vertex_position = add_attribute<Vec3, GraphVertex>(*axis, "position");
@@ -2101,8 +2100,8 @@ protected:
 
 								Vec3 handle_pos;
 
-								handle_set->foreach_cell([&](MeshVertex v) {
-									handle_pos = value<Vec3>(selected_mesh_, model_p.vertex_position_, v);
+								control_set->foreach_cell([&](MeshVertex v) {
+									handle_pos = value<Vec3>(*model_, model_p.vertex_position_, v);
 								});
 
 								const auto [it, inserted] = axis_container_.emplace(
@@ -2111,10 +2110,11 @@ protected:
 
 								if (inserted)
 								{
-									
 									Graph::Vertex nv = add_vertex(*axis);
 									value<Vec3>(*axis, axis_vertex_position, nv) = handle_pos;
-									value<Scalar>(*axis, axis_vertex_radius, nv) = Scalar(50);
+									value<Scalar>(*axis, axis_vertex_radius, nv) = Scalar(50); 
+
+
 
 									graph_provider_->emit_connectivity_changed(*axis);
 									graph_provider_->emit_attribute_changed(*axis, axis_vertex_position.get());
@@ -2123,6 +2123,8 @@ protected:
 								else if (model_p.selected_vertices_set_->size() > 1)
 								{
 									CellsSet<MESH, MeshVertex>* control_set = model_p.selected_vertices_set_;
+
+
 
 									model_p.selected_vertices_set_->clear();
 									mesh_provider_->emit_cells_set_changed(*model_, model_p.selected_vertices_set_);
@@ -2134,7 +2136,8 @@ protected:
 									new_tool_ = true;
 								}
 							}
-						}
+						} 
+					}
 
 						if (model_p.selection_method_ == WithinSphere)
 						{
