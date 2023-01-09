@@ -59,15 +59,15 @@ public:
 
 
 	void init_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
-						   const Vec3& vertex_coord)
+						   const Vec3& vertex_coord, const Vec3& vertex_normal)
 	{
 		control_axis_ = g;
-		axis_skeleton_ = cgogn::modeling::create_axis(*g, vertex_position, vertex_radius, vertex_coords);
+		axis_center_ = cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, vertex_coord);
 
 		control_axis_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
 	}
 
-	void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
+	/*void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
 						   const std::vector<Vec3>& vertex_coords)
 	{
 		control_axis_ = g;
@@ -78,9 +78,9 @@ public:
 		std::shared_ptr<Graph::Attribute<uint32>> vertex_index =
 			cgogn::add_attribute<uint32, Graph::Vertex>(*control_axis_, "vertex_index");
 		// cgogn::modeling::set_graph_attribute_vertex_index(*control_axis_, vertex_index.get());
-	}
+	}*/
 
-	void set_influence_cage_axis(MESH* m, 
+	/*void set_influence_cage_axis(MESH* m, 
 								CMap2::Attribute<Vec3>* 				   vertex_position,
 								 CMap2::Attribute<Vec3>* local_vertex_position,
 								 Graph::Attribute<uint32>* skeleton_vertex, const Vec3& bb_min, const Vec3& bb_max,
@@ -187,10 +187,11 @@ public:
 			cgogn::add_attribute<bool, MeshVertex>(*(this->influence_cage_), "marked_vertices");
 		cgogn::modeling::set_attribute_marked_vertices(*(this->influence_cage_),
 													   marked_vertices.get());
-	}
+	}*/
 
 private:
-	std::vector<Graph::Vertex> axis_skeleton_;
+	//std::vector<Graph::Vertex> axis_skeleton_;
+	Graph::Vertex axis_center_; 
 	Vec3 axis_normal_;
 	Eigen::Matrix3d local_frame_;
 	Eigen::Matrix3d local_frame_inverse_;

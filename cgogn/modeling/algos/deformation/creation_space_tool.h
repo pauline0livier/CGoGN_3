@@ -56,7 +56,7 @@ void set_attribute_marked_vertices(CMap2& cage, CMap2::Attribute<bool>* marked_v
 
 void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indices); 
 
-std::vector<Graph::Vertex> create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const Vec3& center1, const Vec3& center2); 
+Graph::Vertex create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const Vec3& center); 
 
 std::vector<Graph::Vertex> create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const std::vector<Vec3>& vertices_positions); 
 
