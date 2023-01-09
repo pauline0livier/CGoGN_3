@@ -1163,12 +1163,12 @@ private:
 
 		if (binding_type == "Rigid")
 		{
-			hdt->set_attenuation_rigid(object, object_vertex_position);
+			hdt->set_binding_rigid(object, object_vertex_position);
 		}
 
 		if (binding_type == "Loose")
 		{
-			hdt->set_attenuation_loose(object, object_vertex_position);
+			hdt->set_binding_loose(object, object_vertex_position);
 		}
 	}
 
