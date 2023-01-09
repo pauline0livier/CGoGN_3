@@ -199,11 +199,6 @@ Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>
 		eigen_value_index_vector.push_back(std::make_pair(eigen_values[i], i));
 	}
 
-	/*if (order == sort_order::ascending)
-		std::sort(std::begin(eigen_value_index_vector), std::end(eigen_value_index_vector), std::greater<std::pair<int,
-	int>>()); else std::sort(std::begin(eigen_value_index_vector), std::end(eigen_value_index_vector),
-	std::less<std::pair<int, int>>());*/
-
 	std::sort(std::begin(eigen_value_index_vector), std::end(eigen_value_index_vector),
 			  std::greater<std::pair<int, int>>());
 
@@ -251,7 +246,41 @@ Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::
 	return div / 2.0;
 }
 
+double distance_vec3(const Vec3& p1, const Vec3& p2)
+{
+    // compute Euclidean distance or whatever
+	return (p1 - p2).norm(); 
+}
+
 
 } // namespace modeling
 
 } // namespace cgogn
+
+
+/*
+
+Eigen::Matrix3f covariance_matrix;
+		// inspired from https://gist.github.com/atandrau/847214/882418ab34737699a6b1394d3a28c66e2cc0856f
+		for (int i = 0; i < 3; i++)
+			for (int j = 0; j < 3; j++)
+			{
+				covariance_matrix(i, j) = 0.0;
+				control_set->foreach_cell([&](MeshVertex v) {
+					const Vec3& pos = value<Vec3>(m, vertex_position, v);
+					covariance_matrix(i, j) += (center[i] - pos[i]) * (center[j] - pos[j]);
+				});
+
+				covariance_matrix(i, j) /= control_set->size() - 1;
+			}
+
+		Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>> eigen_solver(
+			covariance_matrix);
+		Eigen::Matrix<float, 1, Eigen::Dynamic> eigen_values = eigen_solver.eigenvalues();
+		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> eigen_vectors = eigen_solver.eigenvectors();
+
+		Eigen::Vector3f main_eigen_vector = cgogn::modeling::sort_eigen_vectors(eigen_values, eigen_vectors);
+		main_eigen_vector.normalize();
+
+		Vec3 main_direction = {main_eigen_vector[0], main_eigen_vector[1], main_eigen_vector[2]};
+*/

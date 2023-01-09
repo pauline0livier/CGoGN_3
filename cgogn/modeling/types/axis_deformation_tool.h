@@ -22,8 +22,12 @@
 #ifndef CGOGN_MODELING_AXIS_DEFORMATION_TOOL_H_
 #define CGOGN_MODELING_AXIS_DEFORMATION_TOOL_H_
 
-#include <cgogn/modeling/types/space_deformation_tool.h>
-#include <algorithm>
+#include <cgogn/core/types/cells_set.h>
+
+#include <cgogn/core/functions/mesh_info.h>
+
+#include <cgogn/geometry/types/vector_traits.h>
+#include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 
 namespace cgogn
 {
@@ -32,7 +36,7 @@ namespace modeling
 {
 
 template <typename MESH>
-class AxisDeformationTool : public SpaceDeformationTool<MESH>
+class AxisDeformationTool
 {
 
 	using Graph = cgogn::IncidenceGraph;
@@ -45,11 +49,20 @@ public:
 
 	using Vec2 = geometry::Vec2;
 	using Vec3 = geometry::Vec3;
+	using Scalar = geometry::Scalar;
 
 	Graph* control_axis_;
-	std::shared_ptr<Graph::Attribute<Vec3>> control_axis_vertex_position_;
+	cgogn::ui::CellsSet<MESH, MeshVertex>* influence_area_;
+	Eigen::VectorXd attenuation_;
 
-	AxisDeformationTool() : SpaceDeformationTool<MESH>(), control_axis_vertex_position_(nullptr)
+	std::string deformation_type_;
+
+	std::shared_ptr<Graph::Attribute<Vec3>> control_axis_vertex_position_;
+	std::shared_ptr<boost::synapse::connection> axis_attribute_update_connection_;
+
+	Eigen::MatrixXf global_cage_weights_;
+
+	AxisDeformationTool() : control_axis_vertex_position_(nullptr), influence_area_(nullptr)
 	{
 	}
 
@@ -57,17 +70,7 @@ public:
 	{
 	}
 
-
-	void init_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
-						   const Vec3& vertex_coord, const Vec3& vertex_normal)
-	{
-		control_axis_ = g;
-		axis_center_ = cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, vertex_coord);
-
-		control_axis_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
-	}
-
-	/*void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
+	void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
 						   const std::vector<Vec3>& vertex_coords)
 	{
 		control_axis_ = g;
@@ -77,8 +80,56 @@ public:
 
 		std::shared_ptr<Graph::Attribute<uint32>> vertex_index =
 			cgogn::add_attribute<uint32, Graph::Vertex>(*control_axis_, "vertex_index");
-		// cgogn::modeling::set_graph_attribute_vertex_index(*control_axis_, vertex_index.get());
-	}*/
+
+		cgogn::modeling::set_graph_attribute_vertex_index(*control_axis_, vertex_index.get());
+	}
+
+	void set_influence_area(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position,
+							cgogn::ui::CellsSet<MESH, MeshVertex>* influence_set)
+	{
+
+		influence_set->foreach_cell([&](MeshVertex v) -> bool {
+			influence_area_->select(v);
+			return true;
+		});
+	}
+
+	void set_attenuation_rigid(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
+	{
+		uint32 nbv_object = nb_cells<MeshVertex>(object);
+
+		attenuation_.resize(nbv_object);
+		attenuation_.setZero();
+
+		compute_attenuation(object, vertex_position);
+	}
+
+	void set_attenuation_loose(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
+	{
+		uint32 nbv_object = nb_cells<MeshVertex>(object);
+
+		attenuation_.resize(nbv_object);
+		attenuation_.setZero();
+
+		compute_attenuation(object, vertex_position);
+	}
+
+	void update_deformation_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+	{
+
+		std::shared_ptr<Attribute<uint32>> object_vertex_index =
+			cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
+
+		const Vec3 new_deformation = get_axis_deformation();
+
+		influence_area_->foreach_cell([&](MeshVertex v) -> bool {
+			uint32 vidx = value<uint32>(object, object_vertex_index, v);
+
+			value<Vec3>(object, object_vertex_position, v) += attenuation_[vidx] * new_deformation;
+
+			return true;
+		});
+	}
 
 	/*void set_influence_cage_axis(MESH* m, 
 								CMap2::Attribute<Vec3>* 				   vertex_position,
@@ -190,8 +241,8 @@ public:
 	}*/
 
 private:
-	//std::vector<Graph::Vertex> axis_skeleton_;
-	Graph::Vertex axis_center_; 
+	std::vector<Graph::Vertex> axis_skeleton_;
+	//Graph::Vertex axis_center_; 
 	Vec3 axis_normal_;
 	Eigen::Matrix3d local_frame_;
 	Eigen::Matrix3d local_frame_inverse_;
@@ -202,3 +253,15 @@ private:
 } // namespace cgogn
 
 #endif // CGOGN_MODELING_CAGE_H_
+
+
+// DeBUG
+
+/*void init_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
+						   const Vec3& vertex_coord, const Vec3& vertex_normal)
+	{
+		control_axis_ = g;
+		axis_center_ = cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, vertex_coord);
+
+		control_axis_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
+	}*/

@@ -64,7 +64,7 @@ public:
 
 	int id_;
 
-	Eigen::VectorXf global_cage_coords_;
+	Eigen::VectorXf global_cage_weights_;
 
 	HandleDeformationTool() : control_handle_vertex_position_(nullptr), influence_area_(nullptr)
 	{
@@ -155,12 +155,12 @@ public:
 	void set_global_cage_coords(Eigen::VectorXf weights)
 	{
 
-		global_cage_coords_ = weights;
+		global_cage_weights_ = weights;
 	}
 
 	Eigen::VectorXf get_global_cage_coords()
 	{
-		return global_cage_coords_;
+		return global_cage_weights_;
 	}
 
 	const Vec3 get_handle_deformation()

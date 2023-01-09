@@ -345,48 +345,7 @@ public:
 				});
 	}
 
-	void init_axis(const std::string& axis_name)
-	{
-		MeshData<MESH>& model_md = mesh_provider_->mesh_data(*model_);
-		Parameters& model_p = parameters_[model_];
-
-		GRAPH* axis = graph_provider_->add_graph(axis_name);
-
-		auto axis_vertex_position = add_attribute<Vec3, GraphVertex>(*axis, "position");
-
-		auto axis_vertex_radius = add_attribute<Scalar, GraphVertex>(*axis, "radius");
-
-		set_graph_vertex_position(*axis, axis_vertex_position);
-
-		CellsSet<MESH, MeshVertex>* control_set = model_p.selected_vertices_set_;
-
-		Vec3 handle_pos;
-		Vec3 handle_normal;
-
-		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(*model_, "normal");
-
-		control_set->foreach_cell([&](MeshVertex v) {
-			handle_pos = value<Vec3>(*model_, model_p.vertex_position_, v);
-			handle_normal = value<Vec3>(*model_, mesh_vertex_normal, v);
-		});
-
-		const auto [it, inserted] =
-			axis_container_.emplace(axis_name, std::make_shared<cgogn::modeling::AxisDeformationTool<MESH>>());
-		cgogn::modeling::AxisDeformationTool<MESH>* adt = it->second.get();
-
-		if (inserted)
-		{
-			adt->init_space_tool(axis, axis_vertex_position.get(), axis_vertex_radius.get(), handle_pos, handle_normal);
-
-			graph_provider_->emit_connectivity_changed(*axis);
-			graph_provider_->emit_attribute_changed(*axis, axis_vertex_position.get());
-			graph_provider_->emit_attribute_changed(*axis, axis_vertex_radius.get());
-
-			View* v1 = app_.current_view();
-			graph_render_->set_vertex_position(*v1, *axis, axis_vertex_position);
-		}
-	}
-
+	
 	void set_model(MESH& m)
 	{
 		model_ = &m;
@@ -745,103 +704,20 @@ private:
 		auto axis_vertex_position = add_attribute<Vec3, GraphVertex>(*axis, "position");
 		auto axis_vertex_radius = add_attribute<Scalar, GraphVertex>(*axis, "radius");
 
-		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
+		//auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
-		MeshData<MESH>& md = mesh_provider_->mesh_data(m);
-		const Vec3& bb_min = md.bb_min_;
-		const Vec3& bb_max = md.bb_max_;
-
-		Vec3 local_min = {1000.f, 1000.f, 1000.f};
-		Vec3 local_max = {0.f, 0.f, 0.f};
-
-		Vec3 center = {0.0, 0.0, 0.0};
-		Vec3 normal = {0.0, 0.0, 0.0};
+		std::vector<Vec3> axis_vertices; 
 
 		control_set->foreach_cell([&](MeshVertex v) {
-			const Vec3& pos = value<Vec3>(m, vertex_position, v);
-			const Vec3& norm = value<Vec3>(m, mesh_vertex_normal, v);
-
-			center += pos;
-			normal += norm;
-
-			for (size_t j = 0; j < 3; j++)
-			{
-				if (pos[j] < local_min[j])
-				{
-					local_min[j] = pos[j];
-				}
-
-				if (pos[j] > local_max[j])
-				{
-					local_max[j] = pos[j];
-				}
-			}
+			const Vec3& position = value<Vec3>(m, vertex_position, v);
+			axis_vertices.push_back(position); 
+			
 		});
 
-		center /= control_set->size();
-		normal /= control_set->size();
-
-		Vec3 ray = normal;
-		ray.normalize();
-
-		Eigen::Matrix3f covariance_matrix;
-		// inspired from https://gist.github.com/atandrau/847214/882418ab34737699a6b1394d3a28c66e2cc0856f
-		for (int i = 0; i < 3; i++)
-			for (int j = 0; j < 3; j++)
-			{
-				covariance_matrix(i, j) = 0.0;
-				control_set->foreach_cell([&](MeshVertex v) {
-					const Vec3& pos = value<Vec3>(m, vertex_position, v);
-					covariance_matrix(i, j) += (center[i] - pos[i]) * (center[j] - pos[j]);
-				});
-
-				covariance_matrix(i, j) /= control_set->size() - 1;
-			}
-
-		Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>> eigen_solver(
-			covariance_matrix);
-		Eigen::Matrix<float, 1, Eigen::Dynamic> eigen_values = eigen_solver.eigenvalues();
-		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> eigen_vectors = eigen_solver.eigenvectors();
-
-		Eigen::Vector3f main_eigen_vector = cgogn::modeling::sort_eigen_vectors(eigen_values, eigen_vectors);
-		main_eigen_vector.normalize();
-
-		Vec3 main_direction = {main_eigen_vector[0], main_eigen_vector[1], main_eigen_vector[2]};
-
-		// loop on control set to find extremum points and height
-		double min_x = 1000, max_x = 0.0, max_normal = center.dot(ray);
-		control_set->foreach_cell([&](MeshVertex v) {
-			const Vec3& pos = value<Vec3>(m, vertex_position, v);
-
-			double x_value = pos.dot(main_direction);
-			double n_value = pos.dot(ray);
-
-			if (x_value > max_x)
-			{
-				max_x = x_value;
-			}
-
-			if (x_value < min_x)
-			{
-				min_x = x_value;
-			}
-
-			if (n_value > max_normal)
-			{
-				max_normal = n_value;
-			}
-		});
-
-		const Vec3 axis_center = center + 2.0 * (max_normal - center.dot(ray)) * ray;
-		const Vec3 extrem_min = axis_center + (min_x - center.dot(main_direction)) * main_direction;
-		const Vec3 extrem_max = axis_center + (max_x - center.dot(main_direction)) * main_direction;
-
-		const double width = (extrem_max - extrem_min).norm() / 3.0;
-
-		std::vector<Vec3> axis_vertices;
-		axis_vertices.push_back(extrem_min);
-		axis_vertices.push_back(axis_center);
-		axis_vertices.push_back(extrem_max);
+		// TODO check if array rightfully sorted  
+		/*std::sort(begin(axis_vertices),
+          end(axis_vertices),
+          [p](const Vec3& p1, const Vec3& p2){ return dist(p, p1) < dist(p, p2); });*/
 
 		const auto [it, inserted] =
 			axis_container_.emplace(axis_name, std::make_shared<cgogn::modeling::AxisDeformationTool<MESH>>());
@@ -859,44 +735,14 @@ private:
 
 			graph_render_->set_vertex_position(*v1, *axis, axis_vertex_position);
 
-			/*MESH* i_cage = mesh_provider_->add_mesh("i_cage" + axis_number);
-
-			std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
-				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "position");
-
-			std::shared_ptr<MeshAttribute<Vec3>> i_cage_local_vertex_position =
-				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "local_position");
-
-			std::shared_ptr<MeshAttribute<uint32>> i_cage_local_skeleton =
-				cgogn::add_attribute<uint32, MeshVertex>(*i_cage, "local_skeleton");
-
-			mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
-
-			Vec3 i_center = (local_min + local_max) / Scalar(2);
-			Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
-			Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
-
-			adt->set_influence_cage_axis(i_cage, i_cage_vertex_position.get(), i_cage_local_vertex_position.get(),
-										 i_cage_local_skeleton.get(), bb_min_, bb_max_, main_direction, ray, width);
-
-			mesh_provider_->emit_connectivity_changed(*i_cage);
-			mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
-
-			surface_render_->set_vertex_position(*v1, *i_cage, i_cage_vertex_position);
-			surface_render_->set_render_faces(*v1, *i_cage, false);
-
-			CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
-			adt->influence_area_ = &i_set;
-
-			adt->update_influence_area(m, vertex_position.get());
-
-			mesh_provider_->emit_cells_set_changed(m, adt->influence_area_);*/
-
 			boost::synapse::emit<axis_added>(this, adt);
 		}
 
 		return axis;
 	}
+	
+	
+	
 
 	/// BIND
 
@@ -1295,6 +1141,35 @@ private:
 						}
 					}
 				});
+	}
+
+	void bind_local_axis(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
+						   GRAPH& control_axis, const std::shared_ptr<GraphAttribute<Vec3>>& axis_vertex_position,
+						   std::string binding_type)
+	{
+		Parameters& p = parameters_[&object];
+		GraphParameters& p_axis = graph_parameters_[&control_axis];
+
+		std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> adt = axis_container_[p_axis.name_];
+
+		adt->deformation_type_ = binding_type;
+
+		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
+		CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
+
+		adt->influence_area_ = &i_set;
+
+		adt->set_influence_area(object, object_vertex_position, influence_set_);
+
+		if (binding_type == "Rigid")
+		{
+			hdt->set_attenuation_rigid(object, object_vertex_position);
+		}
+
+		if (binding_type == "Loose")
+		{
+			hdt->set_attenuation_loose(object, object_vertex_position);
+		}
 	}
 
 	void displayGammaColor(MESH& object)
@@ -2083,28 +1958,21 @@ protected:
 							int axis_number = axis_container_.size();
 							const std::string axis_name = "local_axis" + std::to_string(axis_number);
 
-							if (model_p.selected_vertices_set_->size() == 1 && !axis_init_)
+							/*if (model_p.selected_vertices_set_->size() == 1 && !axis_init_)
 							{
-								std::cout << "init axis " << std::endl;
 								init_axis(axis_name);
 
 								axis_init_ = true;
 								model_p.selected_vertices_set_->clear();
 								mesh_provider_->emit_cells_set_changed(*model_, model_p.selected_vertices_set_);
-							}
-							else if (model_p.selected_vertices_set_->size() > 0)
-							{
-								std::cout << "more than one vertex " << std::endl;
+							} */
+						
 
+							if (ImGui::Button("Accept axis ##vertices_set"))
+							{
 								CellsSet<MESH, MeshVertex>* control_set = model_p.selected_vertices_set_;
 
-								model_p.selected_vertices_set_->clear();
-								mesh_provider_->emit_cells_set_changed(*model_, model_p.selected_vertices_set_);
-							}
-
-							if (ImGui::Button("Accept axis area##vertices_set"))
-							{
-								// generate_axis_tool(*model_, model_p.vertex_position_, control_set);
+								generate_axis_tool(*model_, model_p.vertex_position_, control_set);
 								new_tool_ = true;
 								model_p.selected_vertices_set_->clear();
 							}
@@ -2149,28 +2017,25 @@ protected:
 					ImGui::Separator();
 					ImGui::Text("Binding");
 
-					/*if (axis_container_.size())
-					{
+					if (new_tool_ && influence_set_){
 
 						MultiToolsDeformation<MESH, GRAPH>* space_deformation =
 							static_cast<MultiToolsDeformation<MESH, GRAPH>*>(
-								app_.module("MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} +
-					")"));
+								app_.module("MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
 
-						if (imgui_axis_selector(space_deformation, selected_handle_, "Local Handle",
-												  [&](GRAPH& g) { selected_handle_ = &g; }))
+						if (imgui_axis_selector(space_deformation, selected_axis_, "Local Axis",
+												  [&](GRAPH& g) { selected_axis_ = &g; }))
 						{
 
-							const std::string handle_name = graph_provider_->graph_name(*selected_handle_);
+							const std::string axis_name = graph_provider_->graph_name(*selected_axis_);
 
-							std::string prefix = "local_handle";
+							std::string prefix = "local_axis";
 
-							if (handle_name.size() > 0 &&
-								std::mismatch(prefix.begin(), prefix.end(), handle_name.begin()).first ==
-					prefix.end())
+							if (axis_name.size() > 0 &&
+								std::mismatch(prefix.begin(), prefix.end(), axis_name.begin()).first == prefix.end())
 							{
-								const char* items[] = {"Spike", "Round"};
-								std::string current_item = "Spike";
+								const char* items[] = {"Rigid", "Loose"};
+								std::string current_item = "Rigid";
 								ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
 
 								ImGuiStyle& style = ImGui::GetStyle();
@@ -2195,21 +2060,23 @@ protected:
 								if (ImGui::Button("Bind object"))
 								{
 
-									std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> hdt =
-										handle_container_[handle_name];
+									std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> adt =
+										axis_container_[axis_name];
 
-									GraphParameters& local_p = graph_parameters_[selected_handle_];
+									GraphParameters& local_p = graph_parameters_[selected_axis_];
 
-									local_p.name_ = handle_name;
+									local_p.name_ = axis_name;
 
-									bind_local_handle(*model_, model_p.vertex_position_, *(hdt->control_handle_),
-													  hdt->control_handle_vertex_position_, current_item);
+									bind_local_axis(*model_, model_p.vertex_position_, *(adt->control_axis_),
+													  adt->control_axis_vertex_position_, current_item);
 
 									influence_set_ = nullptr;
+									new_tool_ = false;
 								}
 							}
 						}
-					}*/
+					}
+
 				}
 
 				ImGui::Separator();
@@ -2437,3 +2304,215 @@ private:
 } // namespace cgogn
 
 #endif // CGOGN_MODULE_MULTI_TOOLS_DEFORMATION_H_
+
+
+// DEBUG 
+
+/*
+GRAPH* generate_axis_tool_old(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
+							  CellsSet<MESH, MeshVertex>* control_set)
+	{
+		int axis_number = axis_container_.size();
+		std::string axis_name = "axis" + std::to_string(axis_number);
+		GRAPH* axis = graph_provider_->add_graph(axis_name);
+
+		auto axis_vertex_position = add_attribute<Vec3, GraphVertex>(*axis, "position");
+		auto axis_vertex_radius = add_attribute<Scalar, GraphVertex>(*axis, "radius");
+
+		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
+
+		MeshData<MESH>& md = mesh_provider_->mesh_data(m);
+		const Vec3& bb_min = md.bb_min_;
+		const Vec3& bb_max = md.bb_max_;
+
+		Vec3 local_min = {1000.f, 1000.f, 1000.f};
+		Vec3 local_max = {0.f, 0.f, 0.f};
+
+		Vec3 center = {0.0, 0.0, 0.0};
+		Vec3 normal = {0.0, 0.0, 0.0};
+
+		control_set->foreach_cell([&](MeshVertex v) {
+			const Vec3& pos = value<Vec3>(m, vertex_position, v);
+			const Vec3& norm = value<Vec3>(m, mesh_vertex_normal, v);
+
+			center += pos;
+			normal += norm;
+
+			for (size_t j = 0; j < 3; j++)
+			{
+				if (pos[j] < local_min[j])
+				{
+					local_min[j] = pos[j];
+				}
+
+				if (pos[j] > local_max[j])
+				{
+					local_max[j] = pos[j];
+				}
+			}
+		});
+
+		center /= control_set->size();
+		normal /= control_set->size();
+
+		Vec3 ray = normal;
+		ray.normalize();
+
+		Eigen::Matrix3f covariance_matrix;
+		// inspired from https://gist.github.com/atandrau/847214/882418ab34737699a6b1394d3a28c66e2cc0856f
+		for (int i = 0; i < 3; i++)
+			for (int j = 0; j < 3; j++)
+			{
+				covariance_matrix(i, j) = 0.0;
+				control_set->foreach_cell([&](MeshVertex v) {
+					const Vec3& pos = value<Vec3>(m, vertex_position, v);
+					covariance_matrix(i, j) += (center[i] - pos[i]) * (center[j] - pos[j]);
+				});
+
+				covariance_matrix(i, j) /= control_set->size() - 1;
+			}
+
+		Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>> eigen_solver(
+			covariance_matrix);
+		Eigen::Matrix<float, 1, Eigen::Dynamic> eigen_values = eigen_solver.eigenvalues();
+		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> eigen_vectors = eigen_solver.eigenvectors();
+
+		Eigen::Vector3f main_eigen_vector = cgogn::modeling::sort_eigen_vectors(eigen_values, eigen_vectors);
+		main_eigen_vector.normalize();
+
+		Vec3 main_direction = {main_eigen_vector[0], main_eigen_vector[1], main_eigen_vector[2]};
+
+		// loop on control set to find extremum points and height
+		double min_x = 1000, max_x = 0.0, max_normal = center.dot(ray);
+		control_set->foreach_cell([&](MeshVertex v) {
+			const Vec3& pos = value<Vec3>(m, vertex_position, v);
+
+			double x_value = pos.dot(main_direction);
+			double n_value = pos.dot(ray);
+
+			if (x_value > max_x)
+			{
+				max_x = x_value;
+			}
+
+			if (x_value < min_x)
+			{
+				min_x = x_value;
+			}
+
+			if (n_value > max_normal)
+			{
+				max_normal = n_value;
+			}
+		});
+
+		const Vec3 axis_center = center + 2.0 * (max_normal - center.dot(ray)) * ray;
+		const Vec3 extrem_min = axis_center + (min_x - center.dot(main_direction)) * main_direction;
+		const Vec3 extrem_max = axis_center + (max_x - center.dot(main_direction)) * main_direction;
+
+		const double width = (extrem_max - extrem_min).norm() / 3.0;
+
+		std::vector<Vec3> axis_vertices;
+		axis_vertices.push_back(extrem_min);
+		axis_vertices.push_back(axis_center);
+		axis_vertices.push_back(extrem_max);
+
+		const auto [it, inserted] =
+			axis_container_.emplace(axis_name, std::make_shared<cgogn::modeling::AxisDeformationTool<MESH>>());
+		cgogn::modeling::AxisDeformationTool<MESH>* adt = it->second.get();
+		if (inserted)
+		{
+
+			adt->create_space_tool(axis, axis_vertex_position.get(), axis_vertex_radius.get(), axis_vertices);
+
+			graph_provider_->emit_connectivity_changed(*axis);
+			graph_provider_->emit_attribute_changed(*axis, axis_vertex_position.get());
+			graph_provider_->emit_attribute_changed(*axis, axis_vertex_radius.get());
+
+			View* v1 = app_.current_view();
+
+			graph_render_->set_vertex_position(*v1, *axis, axis_vertex_position);
+
+			/*MESH* i_cage = mesh_provider_->add_mesh("i_cage" + axis_number);
+
+			std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
+				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "position");
+
+			std::shared_ptr<MeshAttribute<Vec3>> i_cage_local_vertex_position =
+				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "local_position");
+
+			std::shared_ptr<MeshAttribute<uint32>> i_cage_local_skeleton =
+				cgogn::add_attribute<uint32, MeshVertex>(*i_cage, "local_skeleton");
+
+			mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
+
+			Vec3 i_center = (local_min + local_max) / Scalar(2);
+			Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
+			Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
+
+			adt->set_influence_cage_axis(i_cage, i_cage_vertex_position.get(), i_cage_local_vertex_position.get(),
+										 i_cage_local_skeleton.get(), bb_min_, bb_max_, main_direction, ray, width);
+
+			mesh_provider_->emit_connectivity_changed(*i_cage);
+			mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
+
+			surface_render_->set_vertex_position(*v1, *i_cage, i_cage_vertex_position);
+			surface_render_->set_render_faces(*v1, *i_cage, false);
+
+			CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
+			adt->influence_area_ = &i_set;
+
+			adt->update_influence_area(m, vertex_position.get());
+
+			mesh_provider_->emit_cells_set_changed(m, adt->influence_area_);*/
+
+			//boost::synapse::emit<axis_added>(this, adt);
+		//}
+
+		//return axis;
+	//}
+
+
+/*void init_axis(const std::string& axis_name)
+	{
+		MeshData<MESH>& model_md = mesh_provider_->mesh_data(*model_);
+		Parameters& model_p = parameters_[model_];
+
+		GRAPH* axis = graph_provider_->add_graph(axis_name);
+
+		auto axis_vertex_position = add_attribute<Vec3, GraphVertex>(*axis, "position");
+
+		auto axis_vertex_radius = add_attribute<Scalar, GraphVertex>(*axis, "radius");
+
+		set_graph_vertex_position(*axis, axis_vertex_position);
+
+		CellsSet<MESH, MeshVertex>* control_set = model_p.selected_vertices_set_;
+
+		Vec3 handle_pos;
+		Vec3 handle_normal;
+
+		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(*model_, "normal");
+
+		control_set->foreach_cell([&](MeshVertex v) {
+			handle_pos = value<Vec3>(*model_, model_p.vertex_position_, v);
+			handle_normal = value<Vec3>(*model_, mesh_vertex_normal, v);
+		});
+
+		const auto [it, inserted] =
+			axis_container_.emplace(axis_name, std::make_shared<cgogn::modeling::AxisDeformationTool<MESH>>());
+		cgogn::modeling::AxisDeformationTool<MESH>* adt = it->second.get();
+
+		if (inserted)
+		{
+			adt->init_space_tool(axis, axis_vertex_position.get(), axis_vertex_radius.get(), handle_pos, handle_normal);
+
+			graph_provider_->emit_connectivity_changed(*axis);
+			graph_provider_->emit_attribute_changed(*axis, axis_vertex_position.get());
+			graph_provider_->emit_attribute_changed(*axis, axis_vertex_radius.get());
+
+			View* v1 = app_.current_view();
+			graph_render_->set_vertex_position(*v1, *axis, axis_vertex_position);
+		}
+	}*/
+
+

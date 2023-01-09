@@ -50,6 +50,8 @@ Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>
 
 Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::Attribute<Vec3>* face_gradient, const CMap2::Attribute<Vec3>* vertex_position); 
 
+double distance_vec3(const Vec3& p1, const Vec3& p2); 
+
 } // namespace modeling
 
 } // namespace cgogn
