@@ -152,17 +152,6 @@ public:
 		handle_mesh_vertex_ = m_v;
 	}
 
-	void set_global_cage_coords(Eigen::VectorXf weights)
-	{
-
-		global_cage_weights_ = weights;
-	}
-
-	Eigen::VectorXf get_global_cage_coords()
-	{
-		return global_cage_weights_;
-	}
-
 	const Vec3 get_handle_deformation()
 	{
 		const Vec3 handle_new_position = value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_vertex_);

@@ -54,7 +54,7 @@ public:
 	Graph* control_axis_;
 	cgogn::ui::CellsSet<MESH, MeshVertex>* influence_area_;
 
-	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> axis_weights; 
+	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> axis_weights_; 
 
 	std::string deformation_type_;
 
@@ -82,7 +82,7 @@ public:
 		std::shared_ptr<Graph::Attribute<uint32>> vertex_index =
 			cgogn::add_attribute<uint32, Graph::Vertex>(*control_axis_, "vertex_index");
 
-		cgogn::modeling::set_graph_attribute_vertex_index(*control_axis_, vertex_index.get());
+		cgogn::modeling::set_attribute_vertex_index_graph(*control_axis_, vertex_index.get());
 	}
 
 	void set_influence_area(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position,
@@ -95,16 +95,12 @@ public:
 		});
 	}
 
-	void set_geodesic_distance(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
-	{
-		geodesic_distance(object, vertex_position.get());
-	}
-
 	void set_binding_rigid(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
 		uint32 nbv_object = nb_cells<MeshVertex>(object);
 
-		axis_weights_.resize(nbv_object, axis_skeleton_.size());
+		uint32 nb_bones = axis_skeleton_.size() -1; 
+		axis_weights_.resize(nbv_object, nb_bones);
 		axis_weights_.setZero();
 
 		compute_weights(object, vertex_position);
@@ -114,7 +110,9 @@ public:
 	{
 		uint32 nbv_object = nb_cells<MeshVertex>(object);
 
-		axis_weights_.resize(nbv_object, axis_skeleton_.size());
+		uint32 nb_bones = axis_skeleton_.size() -1;
+
+		axis_weights_.resize(nbv_object, nb_bones);
 		axis_weights_.setZero();
 
 		compute_weights(object, vertex_position);
@@ -126,7 +124,7 @@ public:
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
 			cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
-		const Vec3 new_deformation = get_axis_deformation();
+		/*const Vec3 new_deformation = get_axis_deformation();
 
 		influence_area_->foreach_cell([&](MeshVertex v) -> bool {
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
@@ -134,7 +132,7 @@ public:
 			value<Vec3>(object, object_vertex_position, v) += attenuation_[vidx] * new_deformation;
 
 			return true;
-		});
+		});*/
 	}
 
 	
@@ -150,130 +148,15 @@ private:
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
 			get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
-		std::shared_ptr<Attribute<Scalar>> vertex_geodesic_distance =
-			cgogn::get_attribute<Scalar, MeshVertex>(object, "geodesic_distance");
-
-		// float h = 0.0f;
-		Scalar max_dist = 0.0;
-		std::vector<Vec2> attenuation_points;
-
 		influence_area_->foreach_cell([&](MeshVertex v) {
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
-			Vec3 surface_point = value<Vec3>(object, vertex_position, v);
+			axis_weights_(surface_point_idx, 0) = 1; 
 
-			Vec3 point_to_handle = (surface_point - handle_position_);
-			// double i_dist = point_to_handle.squaredNorm();
-			// double i_dist = point_to_handle.norm();
-			Scalar i_dist = value<Scalar>(object, vertex_geodesic_distance, v);
-			// this->cage_influence_distance(surface_point_idx, nbf_cage, nbv_cage);
-
-			if (i_dist > max_dist)
-			{
-				max_dist = i_dist;
-			}
-
-			// this->attenuation_(surface_point_idx) = (float)sin(0.5*M_PI * (i_dist ));
-			attenuation_(surface_point_idx) = i_dist;
-		});
-
-		influence_area_->foreach_cell([&](MeshVertex v) {
-			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
-
-			// attenuation_(surface_point_idx) = 1.0 - pow((attenuation_(surface_point_idx) / max_dist),2);
-
-			// attenuation_(surface_point_idx) = pow(1.0 - (attenuation_(surface_point_idx) / max_dist),5);
-
-			attenuation_(surface_point_idx) = 1.0 - (attenuation_(surface_point_idx) / max_dist);
-		});
+		}); 
 	}
 
 
-
-	void geodesic_distance(MESH& m, const Attribute<Vec3>* vertex_position)
-	{
-		std::shared_ptr<Attribute<uint32>> vertex_index = cgogn::get_attribute<uint32, MeshVertex>(m, "vertex_index");
-
-		std::shared_ptr<Attribute<Scalar>> vertex_geodesic_distance =
-			cgogn::get_attribute<Scalar, MeshVertex>(m, "geodesic_distance");
-
-		uint32 nb_vertices = nb_cells<MeshVertex>(m);
-
-		Eigen::SparseMatrix<Scalar, Eigen::ColMajor> Lc =
-			cgogn::geometry::cotan_operator_matrix(m, vertex_index.get(), vertex_position);
-
-		auto vertex_area = add_attribute<Scalar, MeshVertex>(m, "__vertex_area");
-		cgogn::geometry::compute_area<MeshVertex>(m, vertex_position, vertex_area.get());
-
-		Eigen::VectorXd A(nb_vertices);
-		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
-			uint32 vidx = value<uint32>(m, vertex_index, v);
-			A(vidx) = value<Scalar>(m, vertex_area, v);
-			return true;
-		});
-
-		Eigen::VectorXd u0(nb_vertices);
-		u0.setZero();
-		uint32 vidx = value<uint32>(m, vertex_index, handle_mesh_vertex_);
-		u0(vidx) = 1.0;
-
-		Scalar h = cgogn::geometry::mean_edge_length(m, vertex_position);
-		Scalar t = h * h;
-
-		Eigen::SparseMatrix<Scalar, Eigen::ColMajor> Am(A.asDiagonal());
-		Eigen::SimplicialLDLT<Eigen::SparseMatrix<Scalar, Eigen::ColMajor>> heat_solver(Am - t * Lc);
-		Eigen::VectorXd u = heat_solver.solve(u0);
-
-		auto vertex_heat = get_or_add_attribute<Scalar, MeshVertex>(m, "__vertex_heat");
-		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
-			uint32 vidx = value<uint32>(m, vertex_index, v);
-			value<Scalar>(m, vertex_heat, v) = u(vidx);
-			return true;
-		});
-
-		auto face_heat_gradient = get_or_add_attribute<Vec3, MeshFace>(m, "__face_heat_gradient");
-		parallel_foreach_cell(m, [&](MeshFace f) -> bool {
-			Vec3 g(0, 0, 0);
-			Vec3 n = cgogn::geometry::normal(m, f, vertex_position);
-			Scalar a = cgogn::geometry::area(m, f, vertex_position);
-			std::vector<MeshVertex> vertices = incident_vertices(m, f);
-			for (uint32 i = 0; i < vertices.size(); ++i)
-			{
-				Vec3 e = value<Vec3>(m, vertex_position, vertices[(i + 2) % vertices.size()]) -
-						 value<Vec3>(m, vertex_position, vertices[(i + 1) % vertices.size()]);
-				g += value<Scalar>(m, vertex_heat, vertices[i]) * n.cross(e);
-			}
-			g /= 2 * a;
-			value<Vec3>(m, face_heat_gradient, f) = -1.0 * g.normalized();
-			return true;
-		});
-
-		auto vertex_heat_gradient_div = get_or_add_attribute<Scalar, MeshVertex>(m, "__vertex_heat_gradient_div");
-		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
-			Scalar d = vertex_gradient_divergence(m, v, face_heat_gradient.get(), vertex_position);
-			value<Scalar>(m, vertex_heat_gradient_div, v) = d;
-			return true;
-		});
-
-		Eigen::VectorXd b(nb_vertices);
-		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
-			uint32 vidx = value<uint32>(m, vertex_index, v);
-			b(vidx) = value<Scalar>(m, vertex_heat_gradient_div, v);
-			return true;
-		});
-
-		Eigen::SimplicialLDLT<Eigen::SparseMatrix<Scalar, Eigen::ColMajor>> poisson_solver(Lc);
-		Eigen::VectorXd dist = poisson_solver.solve(b);
-
-		Scalar min = dist.minCoeff();
-		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
-			uint32 vidx = value<uint32>(m, vertex_index, v);
-			value<Scalar>(m, vertex_geodesic_distance, v) = dist(vidx) - min;
-			return true;
-		});
-
-		remove_attribute<MeshVertex>(m, vertex_area);
-	}
 };
 
 } // namespace modeling

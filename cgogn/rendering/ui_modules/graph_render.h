@@ -142,7 +142,7 @@ private:
 				boost::synapse::connect<typename GraphProvider<GRAPH>::connectivity_changed>(g, [this, v, g]() {
 					Parameters& p = parameters_[v][g];
 					if (p.vertex_position_)
-						p.vertex_base_size_ = 0.3; //float32(geometry::mean_edge_length(*m, p.vertex_position_.get()) / 7.0);
+						p.vertex_base_size_ = 0.5; //float32(geometry::mean_edge_length(*m, p.vertex_position_.get()) / 7.0);
 					if (p.vertex_base_size_ == 0.0)
 					{
 						GraphData<GRAPH>& gd = graph_provider_->graph_data(*g);
@@ -156,7 +156,7 @@ private:
 						Parameters& p = parameters_[v][g];
 						if (p.vertex_position_.get() == attribute)
 						{
-							p.vertex_base_size_ = 0.3; 
+							p.vertex_base_size_ = 0.5; 
 								//float32(geometry::mean_edge_length(*m, p.vertex_position_.get()) / 7.0);
 							if (p.vertex_base_size_ == 0.0)
 							{
@@ -181,7 +181,7 @@ public:
 		{
 			GraphData<GRAPH>& gd = graph_provider_->graph_data(g);
 			p.vertex_position_vbo_ = gd.update_vbo(p.vertex_position_.get(), true);
-			p.vertex_base_size_ = 0.3; 
+			p.vertex_base_size_ = 0.5; 
 			
 			//float32(geometry::mean_edge_length(m, p.vertex_position_.get()) / 7.0);
 			if (p.vertex_base_size_ == 0.0)

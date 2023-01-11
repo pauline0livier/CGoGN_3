@@ -252,7 +252,7 @@ public:
 		: ViewModule(app, "MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), model_(nullptr),
 		  influence_set_(nullptr), selected_mesh_(nullptr), selected_cage_(nullptr), selected_handle_(nullptr),
 		  axis_init_(false), influence_cage_mode_(true), new_tool_(false), dragging_mesh_(false),
-		  dragging_graph_(false), rotating_(false)
+		  dragging_handle_(false), dragging_axis_(false), rotating_(false)
 	{
 	}
 
@@ -316,7 +316,7 @@ public:
 					if (p.vertex_position_.get() == attribute)
 					{
 						p.vertex_base_size_ =
-							0.5; // float32(geometry::mean_edge_length(*g, p.vertex_position_.get()) / 6);
+							2; // float32(geometry::mean_edge_length(*g, p.vertex_position_.get()) / 6);
 						p.update_selected_vertices_vbo();
 					}
 
@@ -384,7 +384,7 @@ public:
 		p.vertex_position_ = vertex_position;
 		if (p.vertex_position_)
 		{
-			p.vertex_base_size_ = float32(geometry::mean_edge_length(g, p.vertex_position_.get()) / 6); // 6 ???
+			p.vertex_base_size_ = 1.0; //float32(geometry::mean_edge_length(g, p.vertex_position_.get()) / 6); // 6 ???
 			p.update_selected_vertices_vbo();
 		}
 
@@ -698,11 +698,13 @@ private:
 							  CellsSet<MESH, MeshVertex>* control_set)
 	{
 		int axis_number = axis_container_.size();
-		std::string axis_name = "axis" + std::to_string(axis_number);
+		std::string axis_name = "local_axis" + std::to_string(axis_number);
 		GRAPH* axis = graph_provider_->add_graph(axis_name);
 
 		auto axis_vertex_position = add_attribute<Vec3, GraphVertex>(*axis, "position");
 		auto axis_vertex_radius = add_attribute<Scalar, GraphVertex>(*axis, "radius");
+
+		set_graph_vertex_position(*axis, axis_vertex_position); 
 
 		//auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
@@ -769,7 +771,7 @@ private:
 
 					Eigen::VectorXf weights = gcdt->bind_mvc_handle(*(hdt->control_handle_), p_handle.vertex_position_, handle_vertex);
 
-					hdt->set_global_cage_coords(weights);
+					hdt->global_cage_weights_ = weights;
 				}
 			}
 
@@ -822,7 +824,7 @@ private:
 									{
 										GraphParameters& p_handle = graph_parameters_[hdt->control_handle_];
 
-										Eigen::VectorXf weights = hdt->get_global_cage_coords();
+										Eigen::VectorXf weights = hdt->global_cage_weights_; 
 
 										GraphVertex handle_vertex = hdt->get_handle_vertex();
 
@@ -972,7 +974,7 @@ private:
 				Eigen::VectorXf weights =
 					gcdt->bind_mvc_handle(*(hdt->control_handle_), p_handle.vertex_position_, handle_vertex);
 
-				hdt->set_global_cage_coords(weights);
+				hdt->global_cage_weights_ = weights;
 			}
 		}
 
@@ -1065,7 +1067,7 @@ private:
 												cgogn::modeling::compute_mvc(graph_point, d, *global_cage, cage_point,
 																			 gcdt->global_cage_vertex_position_.get());
 
-											current_hdt->global_cage_coords_[cage_point_idx] = mvc_value;
+											current_hdt->global_cage_weights_[cage_point_idx] = mvc_value;
 
 											dm.mark(d);
 
@@ -1078,8 +1080,8 @@ private:
 									parallel_foreach_cell(*global_cage, [&](MeshVertex vc) -> bool {
 										uint32 cage_point_idx2 = value<uint32>(*global_cage, cage_vertex_index, vc);
 
-										current_hdt->global_cage_coords_[cage_point_idx2] =
-											current_hdt->global_cage_coords_[cage_point_idx2] / sumMVC;
+										current_hdt->global_cage_weights_[cage_point_idx2] =
+											current_hdt->global_cage_weights_[cage_point_idx2] / sumMVC;
 
 										value<bool>(*global_cage, cage_vertex_marked, vc) = false;
 
@@ -1163,12 +1165,12 @@ private:
 
 		if (binding_type == "Rigid")
 		{
-			hdt->set_binding_rigid(object, object_vertex_position);
+			adt->set_binding_rigid(object, object_vertex_position);
 		}
 
 		if (binding_type == "Loose")
 		{
-			hdt->set_binding_loose(object, object_vertex_position);
+			adt->set_binding_loose(object, object_vertex_position);
 		}
 	}
 
@@ -1445,7 +1447,28 @@ protected:
 					});
 					drag_z_ /= p.selected_vertices_set_->size();
 					previous_drag_pos_ = view->unproject(view->previous_mouse_x(), view->previous_mouse_y(), drag_z_);
-					dragging_graph_ = true;
+					dragging_handle_ = true;
+				}
+			}
+		}
+		else if (key_code == GLFW_KEY_A){
+			if (selected_graph_)
+			{
+				GraphParameters& p = graph_parameters_[selected_graph_];
+
+				if (p.vertex_position_ && p.selected_vertices_set_ && p.selected_vertices_set_->size() > 0)
+				{
+					drag_z_ = 0.0;
+					p.selected_vertices_set_->foreach_cell([&](GraphVertex v) {
+						const Vec3& pos = value<Vec3>(*selected_graph_, p.vertex_position_, v);
+						rendering::GLVec4d vec(pos[0], pos[1], pos[2], 1.0);
+						vec = view->projection_matrix_d() * view->modelview_matrix_d() * vec;
+						vec /= vec[3];
+						drag_z_ += (1.0 + vec[2]) / 2.0;
+					});
+					drag_z_ /= p.selected_vertices_set_->size();
+					previous_drag_pos_ = view->unproject(view->previous_mouse_x(), view->previous_mouse_y(), drag_z_);
+					dragging_axis_ = true;
 				}
 			}
 		}
@@ -1481,9 +1504,14 @@ protected:
 		}
 		else if (key_code == GLFW_KEY_H)
 		{
-			if (dragging_graph_)
-				dragging_graph_ = false;
-		}
+			if (dragging_handle_)
+				dragging_handle_ = false;
+		} 
+		else if (key_code == GLFW_KEY_A)
+		{
+			if (dragging_axis_)
+				dragging_axis_ = false;
+		} 
 
 		/*if (key_code == GLFW_KEY_R)
 		{
@@ -1511,7 +1539,27 @@ protected:
 			}
 		}
 
-		if (dragging_graph_)
+		if (dragging_handle_)
+		{
+			if (selected_graph_)
+			{
+				GraphParameters& p = graph_parameters_[selected_graph_];
+
+				rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
+				Vec3 t = drag_pos - previous_drag_pos_;
+
+				Vec3 t_bis = t.dot(p.normal_) * p.normal_;
+
+				p.selected_vertices_set_->foreach_cell(
+					[&](GraphVertex v) { value<Vec3>(*selected_graph_, p.vertex_position_, v) += t_bis; });
+				// as_rigid_as_possible(*selected_mesh_);
+				previous_drag_pos_ = drag_pos + t_bis;
+
+				graph_provider_->emit_attribute_changed(*selected_graph_, p.vertex_position_.get());
+			}
+		}
+
+		if (dragging_axis_)
 		{
 			if (selected_graph_)
 			{
@@ -1981,7 +2029,7 @@ protected:
 
 					if (model_p.selection_method_ == WithinSphere)
 					{
-
+						model_p.back_selection_ = true;
 						ImGui::SliderFloat("Sphere_radius", &(model_p.sphere_scale_factor_), 10.0f, 100.0f);
 
 						if (model_p.selected_vertices_set_)
@@ -2250,6 +2298,84 @@ protected:
 					}
 				}
 
+				if (deformed_tool_ == Axis){
+
+					if (axis_container_.size() > 0)
+					{
+						MultiToolsDeformation<MESH, GRAPH>* multi_tools_deformation =
+							static_cast<MultiToolsDeformation<MESH, GRAPH>*>(
+								app_.module("MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
+
+						imgui_axis_selector(multi_tools_deformation, selected_axis_, "Handle", [&](GRAPH& g) {
+							if (selected_axis_)
+							{
+								GraphParameters& old_p = graph_parameters_[selected_axis_];
+								old_p.selected_vertices_set_ = nullptr;
+							}
+							selected_axis_ = &g;
+						});
+
+						if (selected_axis_)
+						{
+
+							Parameters& old_p = parameters_[selected_mesh_];
+							old_p.selected_vertices_set_ = nullptr;
+
+							selected_graph_ = selected_axis_;
+							GraphParameters& axis_p = graph_parameters_[selected_graph_];
+
+							const std::string axis_name = graph_provider_->graph_name(*selected_axis_);
+
+							std::string prefix = "local_axis";
+							if (axis_name.size() > 0)
+							{
+								selected_adt_ = axis_container_[axis_name];
+
+								GraphData<GRAPH>& axis_gd = graph_provider_->graph_data(*selected_axis_);
+
+								if (ImGui::Button("Choose axis vertices##vertices_set"))
+
+									axis_gd.template add_cells_set<GraphVertex>();
+
+								imgui_combo_cells_set_graph(axis_gd, axis_p.selected_vertices_set_, "Axis_sets",
+															[&](CellsSet<GRAPH, GraphVertex>* cs) {
+																axis_p.selected_vertices_set_ = cs;
+																axis_p.update_selected_vertices_vbo();
+
+																need_update = true;
+															});
+
+								if (axis_p.selected_vertices_set_)
+								{
+									ImGui::Text("(nb elements: %d)", axis_p.selected_vertices_set_->size());
+									if (ImGui::Button("Clear handle selection##vertices_set"))
+									{
+										axis_p.selected_vertices_set_->clear();
+										graph_provider_->emit_cells_set_changed(*selected_axis_, axis_p.selected_vertices_set_);
+									}
+								}
+								ImGui::TextUnformatted("Drawing parameters");
+								need_update |=
+									ImGui::ColorEdit3("color##vertices", axis_p.param_point_sprite_->color_.data(),
+													  ImGuiColorEditFlags_NoInputs);
+
+								if (need_update || axis_p.object_update_)
+								{
+									for (View* v : linked_views_)
+										v->request_update();
+
+									std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> current_adt =
+										axis_container_[axis_p.name_];
+
+									graph_provider_->emit_attribute_changed(
+										*(current_adt->control_axis_),
+										current_adt->control_axis_vertex_position_.get());
+								}
+							}
+						}
+					}
+				}
+
 				// mesh_provider_->mesh_data(m).outlined_until_ = App::frame_time_ + 1.0;
 			}
 		}
@@ -2261,11 +2387,13 @@ private:
 	MESH* selected_mesh_;
 	MESH* selected_cage_;
 	GRAPH* selected_handle_;
+	GRAPH* selected_axis_;
 	GRAPH* selected_graph_;
 
 	std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> selected_cdt_;
 	std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> selected_gcdt_;
 	std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> selected_hdt_;
+	std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> selected_adt_;
 	std::unordered_map<const MESH*, Parameters> parameters_;
 	std::unordered_map<const GRAPH*, GraphParameters> graph_parameters_;
 
@@ -2289,7 +2417,8 @@ private:
 	bool axis_init_;
 
 	bool dragging_mesh_;
-	bool dragging_graph_;
+	bool dragging_handle_;
+	bool dragging_axis_;
 	float64 drag_z_;
 	bool rotating_;
 	Vec3 rotation_center_;
