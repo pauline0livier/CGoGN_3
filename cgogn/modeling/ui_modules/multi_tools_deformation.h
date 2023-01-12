@@ -168,6 +168,8 @@ class MultiToolsDeformation : public ViewModule
 		std::shared_ptr<boost::synapse::connection> cells_set_connection_bis;
 
 		Vec3 normal_;
+
+		Vec3 rotation_center_; 
 	};
 
 	struct Parameters
@@ -706,16 +708,22 @@ private:
 
 		set_graph_vertex_position(*axis, axis_vertex_position); 
 		
-		//auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
+		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
 		std::vector<Vec3> axis_vertices; 
+		std::vector<Vec3> axis_normals;
 
 		control_set->foreach_cell([&](MeshVertex v) {
 			const Vec3& position = value<Vec3>(m, vertex_position, v);
 			axis_vertices.push_back(position); 
+
+			const Vec3& normal = value<Vec3>(m, mesh_vertex_normal, v);
+			axis_normals.push_back(normal); 
 			
 		});
 
+		std::cout << "n0 " << axis_normals[0] << std::endl; 
+		std::cout << "n1 " << axis_normals[1] << std::endl; 
 		// TODO check if array rightfully sorted  
 		/*std::sort(begin(axis_vertices),
           end(axis_vertices),
@@ -727,7 +735,10 @@ private:
 		if (inserted)
 		{
 
-			adt->create_space_tool(axis, axis_vertex_position.get(), axis_vertex_radius.get(), axis_vertices);
+			adt->create_space_tool(axis, axis_vertex_position.get(), axis_vertex_radius.get(), axis_vertices, axis_normals);
+
+			GraphParameters& axis_p = graph_parameters_[axis];
+			axis_p.normal_ = {0.0, 0.0, 1.0}; //axis_normals[0]; // TODO, update to retrieved normal 
 
 			graph_provider_->emit_connectivity_changed(*axis);
 			graph_provider_->emit_attribute_changed(*axis, axis_vertex_position.get());
@@ -1431,7 +1442,8 @@ protected:
 				}
 			}
 		}
-		else if (key_code == GLFW_KEY_H)
+		
+		if (key_code == GLFW_KEY_H)
 		{ // handle
 			if (selected_graph_)
 			{
@@ -1453,23 +1465,28 @@ protected:
 				}
 			}
 		}
-		else if (key_code == GLFW_KEY_A){
+		
+		if (key_code == GLFW_KEY_Q || key_code == GLFW_KEY_A ){
 			if (selected_graph_)
 			{
 				GraphParameters& p = graph_parameters_[selected_graph_];
 
 				if (p.vertex_position_ && p.selected_vertices_set_ && p.selected_vertices_set_->size() > 0)
 				{
-					drag_z_ = 0.0;
-					p.selected_vertices_set_->foreach_cell([&](GraphVertex v) {
-						const Vec3& pos = value<Vec3>(*selected_graph_, p.vertex_position_, v);
-						rendering::GLVec4d vec(pos[0], pos[1], pos[2], 1.0);
-						vec = view->projection_matrix_d() * view->modelview_matrix_d() * vec;
-						vec /= vec[3];
-						drag_z_ += (1.0 + vec[2]) / 2.0;
-					});
-					drag_z_ /= p.selected_vertices_set_->size();
-					previous_drag_pos_ = view->unproject(view->previous_mouse_x(), view->previous_mouse_y(), drag_z_);
+
+					p.selected_vertices_set_->foreach_cell([&] (GraphVertex v){
+						std::vector<GraphEdge>& edges = (*selected_graph_->vertex_incident_edges_)[v.index_];
+
+						GraphEdge e0 = edges[0]; 
+						GraphVertex v1; 
+						if ((*selected_graph_->edge_incident_vertices_)[e0.index_].first == v){
+							v1 = (*selected_graph_->edge_incident_vertices_)[e0.index_].second; 
+							p.rotation_center_ = value<Vec3>(*selected_graph_, p.vertex_position_, v1); 
+						} else {
+							v1 = (*selected_graph_->edge_incident_vertices_)[e0.index_].first; 
+							p.rotation_center_ = value<Vec3>(*selected_graph_, p.vertex_position_, v1); 
+						}
+					}); 
 					dragging_axis_ = true;
 				}
 			}
@@ -1509,7 +1526,7 @@ protected:
 			if (dragging_handle_)
 				dragging_handle_ = false;
 		} 
-		else if (key_code == GLFW_KEY_A)
+		else if (key_code == GLFW_KEY_A || key_code == GLFW_KEY_Q)
 		{
 			if (dragging_axis_)
 				dragging_axis_ = false;
@@ -1566,18 +1583,39 @@ protected:
 			if (selected_graph_)
 			{
 				GraphParameters& p = graph_parameters_[selected_graph_];
+				float64 dx = float64(x - view->previous_mouse_x());
+				float64 dy = float64(y - view->previous_mouse_y());
 
-				rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
-				Vec3 t = drag_pos - previous_drag_pos_;
+				if (std::abs(dx) + std::abs(dy) > 0.0)
+				{
+					rendering::GLVec3d axis(dy, dx, 0.0);
+					float64 spinning_speed = axis.norm();
 
-				Vec3 t_bis = t.dot(p.normal_) * p.normal_;
+					axis /= spinning_speed;
+					spinning_speed *= 0.005;
 
-				p.selected_vertices_set_->foreach_cell(
-					[&](GraphVertex v) { value<Vec3>(*selected_graph_, p.vertex_position_, v) += t_bis; });
-				// as_rigid_as_possible(*selected_mesh_);
-				previous_drag_pos_ = drag_pos + t_bis;
+					float64 sign; 
+					if (dy > 0.0){
+						sign = 1.0; 
+					} else {
+						sign = -1.0; 
+					}
+
+					rendering::Transfo3d inv_camera = view->camera().frame_.inverse();
+					rendering::Transfo3d sm(Eigen::AngleAxisd(sign*1.0 * spinning_speed, p.normal_)); //2.0
+					rendering::Transfo3d rot((inv_camera * sm * view->camera().frame_).linear());
+
+					rendering::Transfo3d M =
+					Eigen::Translation3d(p.rotation_center_) * rot * Eigen::Translation3d(-p.rotation_center_);
+
+					p.selected_vertices_set_->foreach_cell([&](GraphVertex v) {
+						Vec3& pos = value<Vec3>(*selected_graph_, p.vertex_position_, v);
+						pos = M * pos;
+				});
+				
 
 				graph_provider_->emit_attribute_changed(*selected_graph_, p.vertex_position_.get());
+				}
 			}
 		}
 
@@ -2423,7 +2461,7 @@ private:
 	bool dragging_axis_;
 	float64 drag_z_;
 	bool rotating_;
-	Vec3 rotation_center_;
+	
 	rendering::GLVec3d previous_drag_pos_;
 
 	CellsSet<MESH, MeshVertex>* influence_set_;
