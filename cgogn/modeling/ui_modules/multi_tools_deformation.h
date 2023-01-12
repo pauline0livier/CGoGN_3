@@ -110,11 +110,13 @@ class MultiToolsDeformation : public ViewModule
 		GraphParameters()
 			: vertex_position_(nullptr), selecting_cell_(VertexSelect), selection_method_(SingleCell),
 			  selected_vertices_set_(nullptr), vertex_scale_factor_(1.0), sphere_scale_factor_(10.0),
-			  object_update_(false)
+			  object_update_(false) 
 		{
 			param_point_sprite_ = rendering::ShaderPointSprite::generate_param();
 			param_point_sprite_->color_ = rendering::GLColor(1, 0, 0, 0.65f);
 			param_point_sprite_->set_vbos({&selected_vertices_vbo_});
+
+			transformation_.setIdentity();
 		}
 
 		~GraphParameters()
@@ -170,6 +172,8 @@ class MultiToolsDeformation : public ViewModule
 		Vec3 normal_;
 
 		Vec3 rotation_center_; 
+
+		rendering::Transfo3d transformation_; 
 	};
 
 	struct Parameters
@@ -722,8 +726,6 @@ private:
 			
 		});
 
-		std::cout << "n0 " << axis_normals[0] << std::endl; 
-		std::cout << "n1 " << axis_normals[1] << std::endl; 
 		// TODO check if array rightfully sorted  
 		/*std::sort(begin(axis_vertices),
           end(axis_vertices),
@@ -1185,6 +1187,36 @@ private:
 		{
 			adt->set_binding_loose(object, object_vertex_position);
 		}
+
+		mesh_provider_->emit_cells_set_changed(object, adt->influence_area_);
+
+		adt->axis_attribute_update_connection_ =
+			boost::synapse::connect<typename GraphProvider<GRAPH>::template attribute_changed_t<Vec3>>(
+				&control_axis, [&](GraphAttribute<Vec3>* attribute) {
+					if (axis_vertex_position.get() == attribute)
+					{
+						std::cout << "in update connection" << std::endl; 
+						if (deformed_tool_ == Axis)
+						{
+							std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> current_adt =
+								axis_container_[p_axis.name_];
+
+							/*std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
+								cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");*/
+
+							current_adt->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
+								//uint32 vidx = value<uint32>(object, object_vertex_index, v);
+								Vec3& pos = value<Vec3>(object, object_vertex_position, v);
+
+								pos = p_axis.transformation_ * pos;
+																		
+								return true;
+							});
+
+							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+						}
+					}
+				});
 	}
 
 	void displayGammaColor(MESH& object)
@@ -1607,6 +1639,8 @@ protected:
 
 					rendering::Transfo3d M =
 					Eigen::Translation3d(p.rotation_center_) * rot * Eigen::Translation3d(-p.rotation_center_);
+
+					p.transformation_ = M; 
 
 					p.selected_vertices_set_->foreach_cell([&](GraphVertex v) {
 						Vec3& pos = value<Vec3>(*selected_graph_, p.vertex_position_, v);
