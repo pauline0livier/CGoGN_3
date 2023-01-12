@@ -315,8 +315,8 @@ public:
 					GraphParameters& p = graph_parameters_[g];
 					if (p.vertex_position_.get() == attribute)
 					{
-						p.vertex_base_size_ =
-							2; // float32(geometry::mean_edge_length(*g, p.vertex_position_.get()) / 6);
+						p.vertex_base_size_ = 7; //float32(geometry::mean_edge_length(*g, p.vertex_position_.get()) / 6); 
+							//1; // ;
 						p.update_selected_vertices_vbo();
 					}
 
@@ -384,7 +384,7 @@ public:
 		p.vertex_position_ = vertex_position;
 		if (p.vertex_position_)
 		{
-			p.vertex_base_size_ = 1.0; //float32(geometry::mean_edge_length(g, p.vertex_position_.get()) / 6); // 6 ???
+			p.vertex_base_size_ = 5.0; //float32(geometry::mean_edge_length(g, p.vertex_position_.get()) / 6); // 6 ???
 			p.update_selected_vertices_vbo();
 		}
 
@@ -705,7 +705,7 @@ private:
 		auto axis_vertex_radius = add_attribute<Scalar, GraphVertex>(*axis, "radius");
 
 		set_graph_vertex_position(*axis, axis_vertex_position); 
-
+		
 		//auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
 		std::vector<Vec3> axis_vertices; 
@@ -736,6 +736,8 @@ private:
 			View* v1 = app_.current_view();
 
 			graph_render_->set_vertex_position(*v1, *axis, axis_vertex_position);
+
+			graph_render_->set_vertex_radius(*v1, *axis, axis_vertex_radius);
 
 			boost::synapse::emit<axis_added>(this, adt);
 		}
@@ -1387,7 +1389,7 @@ protected:
 				{
 
 					std::vector<GraphVertex> picked;
-					cgogn::geometry::picking_sphere(*selected_graph_, p.vertex_position_.get(), 50, A, B, picked);
+					cgogn::geometry::picking_sphere(*selected_graph_, p.vertex_position_.get(), p.vertex_base_size_, A, B, picked);
 					if (!picked.empty())
 					{
 						switch (button)
