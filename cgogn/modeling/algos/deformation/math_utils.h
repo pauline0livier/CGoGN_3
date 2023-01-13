@@ -21,11 +21,15 @@
  *                                                                              *
  *******************************************************************************/
 
-#ifndef CGOGN_MODELING_ALGOS_DEFORMATION_UTILS_H_
-#define CGOGN_MODELING_ALGOS_DEFORMATION_UTILS_H_
+#ifndef CGOGN_MODELING_ALGOS_MATH_UTILS_H_
+#define CGOGN_MODELING_ALGOS_MATH_UTILS_H_
 
 #include <cgogn/geometry/types/vector_traits.h>
-#include <cgogn/modeling/algos/deformation/math_utils.h>
+#include <cgogn/core/functions/attributes.h>
+
+#include <cgogn/core/functions/traversals/global.h>
+
+#include <cgogn/core/types/cells_set.h>
 
 
 namespace cgogn
@@ -37,22 +41,25 @@ namespace modeling
 using Vec3 = geometry::Vec3; 
 using Scalar = geometry::Scalar;
 
+double getAngleBetweenUnitVectors(const Vec3& a, const Vec3& b); 
 
-float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage, const Vec3& cage_point,
-					  CMap2::Attribute<Vec3>* cage_position); 
+double distance_vec3(const Vec3& p1, const Vec3& p2); 
 
-const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3& nu); 
+Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>& eigen_values, const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors);
 
-const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2); 
-     
-Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>& eigen_values, const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors); 
+/*
+Input: bounding box data & extension factor
+Output: std::tuple containing the bounding box extended of factor extension_factor; res(0) for e_bb_min, res(1) for e_bb_max and res(2) for center
+*/ 
+std::tuple<Vec3,Vec3,Vec3> get_extended_bounding_box(const Vec3& bb_min, const Vec3& bb_max, const float& extension_factor); 
 
-Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::Attribute<Vec3>* face_gradient, const CMap2::Attribute<Vec3>* vertex_position); 
+Vec3 get_mean_value_attribute_from_set(const CMap2& m, const CMap2::Attribute<Vec3>* attribute, cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set); 
 
+std::pair<Vec3,Vec3> get_border_values_in_set(const CMap2& m, const CMap2::Attribute<Vec3>* attribute, cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set); 
 
 
 } // namespace modeling
 
 } // namespace cgogn
 
-#endif // CGOGN_MODELING_ALGOS_DEFORMATION_UTILS_H_
+#endif // CGOGN_MODELING_ALGOS_MATH_UTILS_H_

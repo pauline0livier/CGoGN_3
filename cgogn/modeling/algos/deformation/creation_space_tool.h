@@ -38,6 +38,7 @@ using Scalar = geometry::Scalar;
 
 using Graph = cgogn::IncidenceGraph;
 
+// MESH 
 std::vector<CMap2::Vertex> create_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max); 
 
 void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const std::vector<CMap2::Vertex>& vertices, const Vec3& bb_min, const Vec3& bb_max); 
@@ -56,6 +57,8 @@ void set_attribute_marked_vertices(CMap2& cage, CMap2::Attribute<bool>* marked_v
 
 void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indices); 
 
+
+// GRAPH
 Graph::Vertex create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const Vec3& center); 
 
 std::vector<Graph::Vertex> create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const std::vector<Vec3>& vertices_positions); 

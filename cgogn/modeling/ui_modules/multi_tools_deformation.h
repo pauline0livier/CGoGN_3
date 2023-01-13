@@ -179,7 +179,7 @@ class MultiToolsDeformation : public ViewModule
 	struct Parameters
 	{
 		Parameters()
-			: vertex_position_(nullptr), new_cage_(false), nb_cage(0), nb_tool_(0), selection_method_(SingleCell),
+			: vertex_position_(nullptr), selection_method_(SingleCell),
 			  selecting_cell_(VertexSelect), selected_vertices_set_(nullptr), vertex_scale_factor_(1.0),
 			  sphere_scale_factor_(10.0), object_update_(false), back_selection_(false)
 		{
@@ -217,13 +217,7 @@ class MultiToolsDeformation : public ViewModule
 
 		std::shared_ptr<MeshAttribute<Vec3>> gammaColor;
 
-		bool new_cage_;
-
 		std::shared_ptr<boost::synapse::connection> cells_set_connection_;
-
-		int nb_cage;
-
-		int nb_tool_;
 
 		bool object_update_;
 
@@ -256,8 +250,7 @@ public:
 
 	MultiToolsDeformation(const App& app)
 		: ViewModule(app, "MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), model_(nullptr),
-		  influence_set_(nullptr), selected_mesh_(nullptr), selected_cage_(nullptr), selected_handle_(nullptr),
-		  axis_init_(false), influence_cage_mode_(true), new_tool_(false), dragging_mesh_(false),
+		  influence_set_(nullptr), selected_mesh_(nullptr), selected_graph_(nullptr), selected_cage_(nullptr), selected_handle_(nullptr), selected_axis_(nullptr), axis_init_(false), new_tool_(false), dragging_mesh_(false),
 		  dragging_handle_(false), dragging_axis_(false), rotating_(false)
 	{
 	}
@@ -444,7 +437,7 @@ public:
 
 private:
 	// creation deformation tools
-	MESH* generate_global_cage(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position, int i)
+	MESH* generate_global_cage(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position)
 	{
 		std::string cage_name = "global_cage";
 		MESH* cage = mesh_provider_->add_mesh(cage_name);
@@ -461,11 +454,9 @@ private:
 		if (inserted)
 		{
 			MeshData<MESH>& md = mesh_provider_->mesh_data(m);
-			Vec3 center = (md.bb_min_ + md.bb_max_) / Scalar(2);
-			Vec3 bb_min = ((md.bb_min_ - center) * 1.2) + center;
-			Vec3 bb_max = ((md.bb_max_ - center) * 1.2) + center;
+			std::tuple<Vec3,Vec3, Vec3> extended_bounding_box = cgogn::modeling::get_extended_bounding_box(md.bb_min_, md.bb_max_, 1.2); 
 
-			gcdt->create_global_cage(cage, cage_vertex_position.get(), bb_min, bb_max);
+			gcdt->create_global_cage(cage, cage_vertex_position.get(), std::get<0>(extended_bounding_box), std::get<1>(extended_bounding_box));
 
 			mesh_provider_->emit_connectivity_changed(*cage);
 			mesh_provider_->emit_attribute_changed(*cage, cage_vertex_position.get());
@@ -494,44 +485,17 @@ private:
 
 		set_vertex_position(*l_cage, l_cage_vertex_position);
 
-		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
+		std::shared_ptr<MeshAttribute<Vec3>> mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
-		MeshData<MESH>& md = mesh_provider_->mesh_data(m);
-		const Vec3& bb_min = md.bb_min_;
-		const Vec3& bb_max = md.bb_max_;
+		Vec3 center = cgogn::modeling::get_mean_value_attribute_from_set(m, vertex_position.get(), control_set);
 
-		Vec3 local_min = {1000.0, 1000.0, 1000.0};
-		Vec3 local_max = {0.0, 0.0, 0.0};
+		Vec3 normal = cgogn::modeling::get_mean_value_attribute_from_set(m, mesh_vertex_normal.get(), control_set);
+		normal.normalize(); 
 
-		Vec3 center = {0.0, 0.0, 0.0};
-		Vec3 normal = {0.0, 0.0, 0.0};
+		std::pair<Vec3, Vec3> local_boundaries = cgogn::modeling::get_border_values_in_set(m, vertex_position.get(), control_set); 
 
-		control_set->foreach_cell([&](MeshVertex v) {
-			const Vec3& pos = value<Vec3>(m, vertex_position, v);
-			const Vec3& norm = value<Vec3>(m, mesh_vertex_normal, v);
-
-			center += pos;
-			normal += norm;
-
-			for (size_t j = 0; j < 3; j++)
-			{
-				if (pos[j] < local_min[j])
-				{
-					local_min[j] = pos[j];
-				}
-
-				if (pos[j] > local_max[j])
-				{
-					local_max[j] = pos[j];
-				}
-			}
-		});
-
-		center /= control_set->size();
-		normal /= control_set->size();
-
-		Vec3 ray = normal;
-		ray.normalize();
+		Vec3 local_min = local_boundaries.first; 
+		Vec3 local_max = local_boundaries.second; 
 
 		const auto [it, inserted] =
 			cage_container_.emplace(cage_name, std::make_shared<cgogn::modeling::CageDeformationTool<MESH>>());
@@ -539,7 +503,7 @@ private:
 
 		if (inserted)
 		{
-			cdt->create_space_tool(l_cage, l_cage_vertex_position.get(), local_min, local_max, center, ray);
+			cdt->create_space_tool(l_cage, l_cage_vertex_position.get(), local_min, local_max, center, normal);
 
 			mesh_provider_->emit_connectivity_changed(*l_cage);
 			mesh_provider_->emit_attribute_changed(*l_cage, l_cage_vertex_position.get());
@@ -561,12 +525,10 @@ private:
 
 			mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
 
-			Vec3 i_center = (local_min + local_max) / Scalar(2);
-			Vec3 bb_min_ = ((local_min - i_center) * 2.f) + i_center;
-			Vec3 bb_max_ = ((local_max - i_center) * 2.f) + i_center;
+			std::tuple<Vec3,Vec3,Vec3> extended_local_cage = cgogn::modeling::get_extended_bounding_box(local_min, local_max, 2.f); 
 
-			cdt->set_center_control_cage(i_center);
-			cdt->set_influence_cage(i_cage, i_cage_vertex_position.get(), bb_min_, bb_max_);
+			cdt->set_center_control_cage(std::get<2>(extended_local_cage));
+			cdt->set_influence_cage(i_cage, i_cage_vertex_position.get(),std::get<0>(extended_local_cage), std::get<1>(extended_local_cage));
 
 			mesh_provider_->emit_connectivity_changed(*i_cage);
 			mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
@@ -574,12 +536,10 @@ private:
 			surface_render_->set_vertex_position(*v1, *i_cage, i_cage_vertex_position);
 			surface_render_->set_render_faces(*v1, *i_cage, false);
 
+			MeshData<MESH>& md = mesh_provider_->mesh_data(m);
 			CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
+
 			cdt->influence_area_ = &i_set;
-
-			//  cd.smoothing_factor_ = 0.3;
-
-			// computeCagesAttenuationFactor(*l_cage);
 			cdt->update_influence_area(m, vertex_position.get());
 
 			mesh_provider_->emit_cells_set_changed(m, cdt->influence_area_);
@@ -606,14 +566,7 @@ private:
 
 		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
-		MeshData<MESH>& md = mesh_provider_->mesh_data(m);
-		const Vec3& bb_min = md.bb_min_;
-		const Vec3& bb_max = md.bb_max_;
-
-		Vec3 local_min = {1000.f, 1000.f, 1000.f};
-		Vec3 local_max = {0.f, 0.f, 0.f};
-
-		Vec3 center = {0.0, 0.0, 0.0};
+		/*Vec3 center = {0.0, 0.0, 0.0};
 		Vec3 normal = {0.0, 0.0, 0.0};
 
 		handle_set->foreach_cell([&](MeshVertex v) {
@@ -622,33 +575,17 @@ private:
 
 			center += pos;
 			normal += norm;
-
-			for (size_t j = 0; j < 3; j++)
-			{
-				if (pos[j] < local_min[j])
-				{
-					local_min[j] = pos[j];
-				}
-
-				if (pos[j] > local_max[j])
-				{
-					local_max[j] = pos[j];
-				}
-			}
 		});
 
 		center /= handle_set->size();
 		normal /= handle_set->size();
 
-		Vec3 ray = normal;
-		ray.normalize();
+		normal.normalize();*/
 
-		// const Vec3 handle_position = center;
-		const Vec3 handle_position =
-			center; //{center[0] + 0.1f * ray[0], center[1] + 0.1f * ray[1], center[2] + 0.1f * ray[2]};
+		const Vec3 handle_position = cgogn::modeling::get_mean_value_attribute_from_set(m, vertex_position.get(), handle_set);
 
-		const Vec3 inner_handle_position = {center[0] - 0.1f * ray[0], center[1] - 0.1f * ray[1],
-											center[2] - 0.1f * ray[2]};
+		Vec3 normal = cgogn::modeling::get_mean_value_attribute_from_set(m, mesh_vertex_normal.get(), handle_set);
+		normal.normalize(); 
 
 		MeshVertex closest_vertex;
 		double min_dist = 1000000;
@@ -673,11 +610,11 @@ private:
 			Parameters& p = parameters_[&m];
 			GraphParameters& handle_p = graph_parameters_[handle];
 
-			hdt->create_space_tool(handle, handle_vertex_position.get(), handle_vertex_radius.get(), handle_position, ray, p.nb_tool_);
+			hdt->create_space_tool(handle, handle_vertex_position.get(), handle_vertex_radius.get(), handle_position, normal);
 
 			hdt->set_handle_mesh_vertex(closest_vertex);
 
-			handle_p.normal_ = ray;
+			handle_p.normal_ = normal;
 
 			graph_provider_->emit_connectivity_changed(*handle);
 			graph_provider_->emit_attribute_changed(*handle, handle_vertex_position.get());
@@ -686,14 +623,14 @@ private:
 			View* v1 = app_.current_view();
 			graph_render_->set_vertex_position(*v1, *handle, handle_vertex_position);
 
+			graph_render_->set_vertex_radius(*v1, *handle, handle_vertex_radius);
+
 			auto object_geodesic = get_or_add_attribute<Scalar, MeshVertex>(*model_, "geodesic_distance");
 
 			hdt->set_geodesic_distance(m, vertex_position);
 			mesh_provider_->emit_attribute_changed(m, object_geodesic.get());
 
 			boost::synapse::emit<handle_added>(this, hdt);
-
-			p.nb_tool_++;
 		}
 
 		return handle_container_[handle_name];
@@ -1041,14 +978,18 @@ private:
 
 									md.update_bb();
 
-									Vec3 center = (md.bb_min_ + md.bb_max_) / Scalar(2);
-									Vec3 bb_min = ((md.bb_min_ - center) * 1.2) + center;
-									Vec3 bb_max = ((md.bb_max_ - center) * 1.2) + center;
+	
+									std::tuple<Vec3,Vec3,Vec3> extended_bounding_box = cgogn::modeling::get_extended_bounding_box(md.bb_min_, md.bb_max_, 1.2); 
+
+									Vec3 e_bb_min = std::get<0>(extended_bounding_box); 
+
+									Vec3 e_bb_max = std::get<1>(extended_bounding_box); 
 
 									MeshData<MESH>& cmd = mesh_provider_->mesh_data(*global_cage);
-									if (!(bb_min == cmd.bb_min_) || !(bb_max == cmd.bb_max_))
+
+									if (!(e_bb_min == cmd.bb_min_) || !(e_bb_max == cmd.bb_max_))
 									{
-										gcdt->update_global_cage(bb_min, bb_max);
+										gcdt->update_global_cage(e_bb_min, e_bb_max);
 
 										mesh_provider_->emit_attribute_changed(
 											*global_cage, gcdt->global_cage_vertex_position_.get());
@@ -1195,7 +1136,6 @@ private:
 				&control_axis, [&](GraphAttribute<Vec3>* attribute) {
 					if (axis_vertex_position.get() == attribute)
 					{
-						std::cout << "in update connection" << std::endl; 
 						if (deformed_tool_ == Axis)
 						{
 							std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> current_adt =
@@ -1747,7 +1687,7 @@ protected:
 				ImGui::Text("Global");
 				if (ImGui::Button("Generate global cage"))
 				{
-					generate_global_cage(*model_, model_p.vertex_position_, model_p.nb_cage);
+					generate_global_cage(*model_, model_p.vertex_position_);
 				}
 
 				if (global_cage_container_.size() == 1)
@@ -2487,7 +2427,6 @@ private:
 	SelectionTool selected_tool_;
 	SelectionTool deformed_tool_;
 
-	bool influence_cage_mode_;
 	bool axis_init_;
 
 	bool dragging_mesh_;
@@ -2508,214 +2447,5 @@ private:
 
 #endif // CGOGN_MODULE_MULTI_TOOLS_DEFORMATION_H_
 
-
-// DEBUG 
-
-/*
-GRAPH* generate_axis_tool_old(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
-							  CellsSet<MESH, MeshVertex>* control_set)
-	{
-		int axis_number = axis_container_.size();
-		std::string axis_name = "axis" + std::to_string(axis_number);
-		GRAPH* axis = graph_provider_->add_graph(axis_name);
-
-		auto axis_vertex_position = add_attribute<Vec3, GraphVertex>(*axis, "position");
-		auto axis_vertex_radius = add_attribute<Scalar, GraphVertex>(*axis, "radius");
-
-		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
-
-		MeshData<MESH>& md = mesh_provider_->mesh_data(m);
-		const Vec3& bb_min = md.bb_min_;
-		const Vec3& bb_max = md.bb_max_;
-
-		Vec3 local_min = {1000.f, 1000.f, 1000.f};
-		Vec3 local_max = {0.f, 0.f, 0.f};
-
-		Vec3 center = {0.0, 0.0, 0.0};
-		Vec3 normal = {0.0, 0.0, 0.0};
-
-		control_set->foreach_cell([&](MeshVertex v) {
-			const Vec3& pos = value<Vec3>(m, vertex_position, v);
-			const Vec3& norm = value<Vec3>(m, mesh_vertex_normal, v);
-
-			center += pos;
-			normal += norm;
-
-			for (size_t j = 0; j < 3; j++)
-			{
-				if (pos[j] < local_min[j])
-				{
-					local_min[j] = pos[j];
-				}
-
-				if (pos[j] > local_max[j])
-				{
-					local_max[j] = pos[j];
-				}
-			}
-		});
-
-		center /= control_set->size();
-		normal /= control_set->size();
-
-		Vec3 ray = normal;
-		ray.normalize();
-
-		Eigen::Matrix3f covariance_matrix;
-		// inspired from https://gist.github.com/atandrau/847214/882418ab34737699a6b1394d3a28c66e2cc0856f
-		for (int i = 0; i < 3; i++)
-			for (int j = 0; j < 3; j++)
-			{
-				covariance_matrix(i, j) = 0.0;
-				control_set->foreach_cell([&](MeshVertex v) {
-					const Vec3& pos = value<Vec3>(m, vertex_position, v);
-					covariance_matrix(i, j) += (center[i] - pos[i]) * (center[j] - pos[j]);
-				});
-
-				covariance_matrix(i, j) /= control_set->size() - 1;
-			}
-
-		Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>> eigen_solver(
-			covariance_matrix);
-		Eigen::Matrix<float, 1, Eigen::Dynamic> eigen_values = eigen_solver.eigenvalues();
-		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> eigen_vectors = eigen_solver.eigenvectors();
-
-		Eigen::Vector3f main_eigen_vector = cgogn::modeling::sort_eigen_vectors(eigen_values, eigen_vectors);
-		main_eigen_vector.normalize();
-
-		Vec3 main_direction = {main_eigen_vector[0], main_eigen_vector[1], main_eigen_vector[2]};
-
-		// loop on control set to find extremum points and height
-		double min_x = 1000, max_x = 0.0, max_normal = center.dot(ray);
-		control_set->foreach_cell([&](MeshVertex v) {
-			const Vec3& pos = value<Vec3>(m, vertex_position, v);
-
-			double x_value = pos.dot(main_direction);
-			double n_value = pos.dot(ray);
-
-			if (x_value > max_x)
-			{
-				max_x = x_value;
-			}
-
-			if (x_value < min_x)
-			{
-				min_x = x_value;
-			}
-
-			if (n_value > max_normal)
-			{
-				max_normal = n_value;
-			}
-		});
-
-		const Vec3 axis_center = center + 2.0 * (max_normal - center.dot(ray)) * ray;
-		const Vec3 extrem_min = axis_center + (min_x - center.dot(main_direction)) * main_direction;
-		const Vec3 extrem_max = axis_center + (max_x - center.dot(main_direction)) * main_direction;
-
-		const double width = (extrem_max - extrem_min).norm() / 3.0;
-
-		std::vector<Vec3> axis_vertices;
-		axis_vertices.push_back(extrem_min);
-		axis_vertices.push_back(axis_center);
-		axis_vertices.push_back(extrem_max);
-
-		const auto [it, inserted] =
-			axis_container_.emplace(axis_name, std::make_shared<cgogn::modeling::AxisDeformationTool<MESH>>());
-		cgogn::modeling::AxisDeformationTool<MESH>* adt = it->second.get();
-		if (inserted)
-		{
-
-			adt->create_space_tool(axis, axis_vertex_position.get(), axis_vertex_radius.get(), axis_vertices);
-
-			graph_provider_->emit_connectivity_changed(*axis);
-			graph_provider_->emit_attribute_changed(*axis, axis_vertex_position.get());
-			graph_provider_->emit_attribute_changed(*axis, axis_vertex_radius.get());
-
-			View* v1 = app_.current_view();
-
-			graph_render_->set_vertex_position(*v1, *axis, axis_vertex_position);
-
-			/*MESH* i_cage = mesh_provider_->add_mesh("i_cage" + axis_number);
-
-			std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
-				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "position");
-
-			std::shared_ptr<MeshAttribute<Vec3>> i_cage_local_vertex_position =
-				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "local_position");
-
-			std::shared_ptr<MeshAttribute<uint32>> i_cage_local_skeleton =
-				cgogn::add_attribute<uint32, MeshVertex>(*i_cage, "local_skeleton");
-
-			mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
-
-			Vec3 i_center = (local_min + local_max) / Scalar(2);
-			Vec3 bb_min_ = ((local_min - i_center) * 1.5f) + i_center;
-			Vec3 bb_max_ = ((local_max - i_center) * 1.5f) + i_center;
-
-			adt->set_influence_cage_axis(i_cage, i_cage_vertex_position.get(), i_cage_local_vertex_position.get(),
-										 i_cage_local_skeleton.get(), bb_min_, bb_max_, main_direction, ray, width);
-
-			mesh_provider_->emit_connectivity_changed(*i_cage);
-			mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
-
-			surface_render_->set_vertex_position(*v1, *i_cage, i_cage_vertex_position);
-			surface_render_->set_render_faces(*v1, *i_cage, false);
-
-			CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
-			adt->influence_area_ = &i_set;
-
-			adt->update_influence_area(m, vertex_position.get());
-
-			mesh_provider_->emit_cells_set_changed(m, adt->influence_area_);*/
-
-			//boost::synapse::emit<axis_added>(this, adt);
-		//}
-
-		//return axis;
-	//}
-
-
-/*void init_axis(const std::string& axis_name)
-	{
-		MeshData<MESH>& model_md = mesh_provider_->mesh_data(*model_);
-		Parameters& model_p = parameters_[model_];
-
-		GRAPH* axis = graph_provider_->add_graph(axis_name);
-
-		auto axis_vertex_position = add_attribute<Vec3, GraphVertex>(*axis, "position");
-
-		auto axis_vertex_radius = add_attribute<Scalar, GraphVertex>(*axis, "radius");
-
-		set_graph_vertex_position(*axis, axis_vertex_position);
-
-		CellsSet<MESH, MeshVertex>* control_set = model_p.selected_vertices_set_;
-
-		Vec3 handle_pos;
-		Vec3 handle_normal;
-
-		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(*model_, "normal");
-
-		control_set->foreach_cell([&](MeshVertex v) {
-			handle_pos = value<Vec3>(*model_, model_p.vertex_position_, v);
-			handle_normal = value<Vec3>(*model_, mesh_vertex_normal, v);
-		});
-
-		const auto [it, inserted] =
-			axis_container_.emplace(axis_name, std::make_shared<cgogn::modeling::AxisDeformationTool<MESH>>());
-		cgogn::modeling::AxisDeformationTool<MESH>* adt = it->second.get();
-
-		if (inserted)
-		{
-			adt->init_space_tool(axis, axis_vertex_position.get(), axis_vertex_radius.get(), handle_pos, handle_normal);
-
-			graph_provider_->emit_connectivity_changed(*axis);
-			graph_provider_->emit_attribute_changed(*axis, axis_vertex_position.get());
-			graph_provider_->emit_attribute_changed(*axis, axis_vertex_radius.get());
-
-			View* v1 = app_.current_view();
-			graph_render_->set_vertex_position(*v1, *axis, axis_vertex_position);
-		}
-	}*/
 
 

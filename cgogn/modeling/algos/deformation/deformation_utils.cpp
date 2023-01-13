@@ -23,6 +23,7 @@
 
 #include <cgogn/core/functions/mesh_info.h>
 #include <cgogn/modeling/algos/deformation/deformation_utils.h>
+
 #include <iostream>
 
 namespace cgogn
@@ -34,11 +35,6 @@ namespace modeling
 ///////////
 // CAGE //
 ///////////
-
-double getAngleBetweenUnitVectors(const Vec3& a, const Vec3& b)
-{
-	return 2.0 * asin((a - b).norm() / 2.0);
-}
 
 float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage, const Vec3& cage_point,
 				  CMap2::Attribute<Vec3>* cage_position)
@@ -188,33 +184,6 @@ const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2)
 	return -MathConstants::ONE_OVER_FOUR_PI * abs(I[0] - I[1] - sqrt_c * beta);
 }
 
-// from https://github.com/diegomazala/pca/blob/master/src/pca.h
-Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>& eigen_values,
-								   const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors)
-{
-	// Stuff below is done to sort eigen values. This can be done in other ways too.
-	std::vector<std::pair<int, int>> eigen_value_index_vector;
-	for (int i = 0; i < eigen_values.size(); ++i)
-	{
-		eigen_value_index_vector.push_back(std::make_pair(eigen_values[i], i));
-	}
-
-	std::sort(std::begin(eigen_value_index_vector), std::end(eigen_value_index_vector),
-			  std::greater<std::pair<int, int>>());
-
-	auto sorted_eigen_values = Eigen::Matrix<float, 1, Eigen::Dynamic>(eigen_values.cols());
-	auto sorted_eigen_vectors =
-		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>(eigen_vectors.rows(), eigen_vectors.cols());
-	for (int i = 0; i < eigen_values.size(); ++i)
-	{
-		sorted_eigen_values[i] =
-			eigen_values[eigen_value_index_vector[i].second]; // can also be eigen_value_index_vector[i].first
-		sorted_eigen_vectors.col(i) = eigen_vectors.col(eigen_value_index_vector[i].second);
-	}
-
-	return sorted_eigen_vectors.col(0);
-}
-
 Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::Attribute<Vec3>* face_gradient,
 								  const CMap2::Attribute<Vec3>* vertex_position)
 {
@@ -244,12 +213,6 @@ Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::
 		div += cotValue1 * (p1 - p0).dot(X) + cotValue2 * (p2 - p0).dot(X);
 	}
 	return div / 2.0;
-}
-
-double distance_vec3(const Vec3& p1, const Vec3& p2)
-{
-    // compute Euclidean distance or whatever
-	return (p1 - p2).norm(); 
 }
 
 

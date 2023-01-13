@@ -75,7 +75,7 @@ public:
 	}
 
 	void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
-						   const Vec3& center, const Vec3& normal, const int& handle_number)
+						   const Vec3& center, const Vec3& normal)
 	{
 		control_handle_ = g;
 		handle_vertex_ = cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, center);
@@ -88,7 +88,6 @@ public:
 
 		handle_normal_ = normal;
 		handle_position_ = center;
-		id_ = handle_number;
 	}
 
 	void set_geodesic_distance(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
