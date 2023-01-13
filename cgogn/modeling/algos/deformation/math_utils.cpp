@@ -69,7 +69,8 @@ Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>
 	return sorted_eigen_vectors.col(0);
 }
 
-std::tuple<Vec3, Vec3, Vec3> get_extended_bounding_box(const Vec3& bb_min, const Vec3& bb_max, const float& extension_factor)
+std::tuple<Vec3, Vec3, Vec3> get_extended_bounding_box(const Vec3& bb_min, const Vec3& bb_max,
+													   const float& extension_factor)
 {
 
 	Vec3 center = (bb_min + bb_max) / Scalar(2);
@@ -79,8 +80,8 @@ std::tuple<Vec3, Vec3, Vec3> get_extended_bounding_box(const Vec3& bb_min, const
 	return std::make_tuple(e_bb_min, e_bb_max, center);
 }
 
-
-Vec3 get_mean_value_attribute_from_set(const CMap2& m, const CMap2::Attribute<Vec3>* attribute, cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set) 
+Vec3 get_mean_value_attribute_from_set(const CMap2& m, const CMap2::Attribute<Vec3>* attribute,
+									   cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set)
 {
 	Vec3 mean_value = {0.0, 0.0, 0.0};
 
@@ -90,12 +91,13 @@ Vec3 get_mean_value_attribute_from_set(const CMap2& m, const CMap2::Attribute<Ve
 		mean_value += pos;
 	});
 
-    mean_value /= control_set->size(); 
+	mean_value /= control_set->size();
 
 	return mean_value;
 }
 
-std::pair<Vec3,Vec3> get_border_values_in_set(const CMap2& m, const CMap2::Attribute<Vec3>* attribute, cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set)
+std::pair<Vec3, Vec3> get_border_values_in_set(const CMap2& m, const CMap2::Attribute<Vec3>* attribute,
+											   cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set)
 {
 
 	Vec3 local_min = {1000.0, 1000.0, 1000.0};
@@ -118,7 +120,29 @@ std::pair<Vec3,Vec3> get_border_values_in_set(const CMap2& m, const CMap2::Attri
 		}
 	});
 
-    return std::make_pair(local_min, local_max);
+	return std::make_pair(local_min, local_max);
+}
+
+CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m, const CMap2::Attribute<Vec3>* vertex_position,
+											   cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set,
+											   const Vec3& target_position)
+{
+
+	CMap2::Vertex closest_vertex;
+
+	double min_dist = 1000000;
+	control_set->foreach_cell([&](CMap2::Vertex v) {
+		const Vec3& pos = value<Vec3>(m, vertex_position, v);
+
+		double dist = (pos - target_position).squaredNorm();
+		if (dist < min_dist)
+		{
+			min_dist = dist;
+			closest_vertex = v;
+		}
+	});
+
+    return closest_vertex; 
 }
 
 } // namespace modeling

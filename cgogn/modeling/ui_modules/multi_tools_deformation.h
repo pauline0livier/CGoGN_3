@@ -566,39 +566,12 @@ private:
 
 		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
-		/*Vec3 center = {0.0, 0.0, 0.0};
-		Vec3 normal = {0.0, 0.0, 0.0};
-
-		handle_set->foreach_cell([&](MeshVertex v) {
-			const Vec3& pos = value<Vec3>(m, vertex_position, v);
-			const Vec3& norm = value<Vec3>(m, mesh_vertex_normal, v);
-
-			center += pos;
-			normal += norm;
-		});
-
-		center /= handle_set->size();
-		normal /= handle_set->size();
-
-		normal.normalize();*/
-
 		const Vec3 handle_position = cgogn::modeling::get_mean_value_attribute_from_set(m, vertex_position.get(), handle_set);
 
 		Vec3 normal = cgogn::modeling::get_mean_value_attribute_from_set(m, mesh_vertex_normal.get(), handle_set);
 		normal.normalize(); 
 
-		MeshVertex closest_vertex;
-		double min_dist = 1000000;
-		handle_set->foreach_cell([&](MeshVertex v) {
-			const Vec3& pos = value<Vec3>(m, vertex_position, v);
-
-			double dist = (pos - handle_position).squaredNorm();
-			if (dist < min_dist)
-			{
-				min_dist = dist;
-				closest_vertex = v;
-			}
-		});
+		CMap2::Vertex closest_vertex = cgogn::modeling::closest_vertex_in_set_from_value(m, vertex_position.get(), handle_set, handle_position); 
 
 		const auto [it, inserted] =
 			handle_container_.emplace(handle_name, std::make_shared<cgogn::modeling::HandleDeformationTool<MESH>>());
