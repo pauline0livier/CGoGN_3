@@ -489,13 +489,13 @@ private:
 
 		Vec3 center = cgogn::modeling::get_mean_value_attribute_from_set(m, vertex_position.get(), control_set);
 
-		Vec3 normal = cgogn::modeling::get_mean_value_attribute_from_set(m, mesh_vertex_normal.get(), control_set);
-		normal.normalize(); 
+		Vec3 normal = {0.0, 1.0, 0.0}; //cgogn::modeling::get_mean_value_attribute_from_set(m, mesh_vertex_normal.get(), control_set);
+		//normal.normalize(); 
 
 		std::pair<Vec3, Vec3> local_boundaries = cgogn::modeling::get_border_values_in_set(m, vertex_position.get(), control_set); 
 
 		Vec3 local_min = local_boundaries.first; 
-		Vec3 local_max = local_boundaries.second; 
+		Vec3 local_max = local_boundaries.second;  
 
 		const auto [it, inserted] =
 			cage_container_.emplace(cage_name, std::make_shared<cgogn::modeling::CageDeformationTool<MESH>>());
@@ -667,9 +667,7 @@ private:
 
 		return axis;
 	}
-	
-	
-	
+
 
 	/// BIND
 
