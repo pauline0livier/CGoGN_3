@@ -76,6 +76,16 @@ public:
 		cgogn::modeling::set_attribute_marked_vertices(*control_cage_, marked_vertices.get());
 	}
 
+	void set_influence_area(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position,
+							cgogn::ui::CellsSet<MESH, Vertex>* influence_set)
+	{
+
+		influence_set->foreach_cell([&](Vertex v) -> bool {
+			influence_area_->select(v);
+			return true;
+		});
+	}
+
 	/*void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
 	{
 

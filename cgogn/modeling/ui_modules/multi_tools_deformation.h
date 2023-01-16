@@ -518,29 +518,15 @@ private:
 
 			surface_diff_pptes_->compute_normal(*l_cage, l_cage_vertex_position.get(), l_cage_vertex_normal.get());
 
-			MESH* i_cage = mesh_provider_->add_mesh("i_cage" + cage_number);
-
-			std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
-				cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "position");
-
-			mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
-
 			std::tuple<Vec3,Vec3,Vec3> extended_local_cage = cgogn::modeling::get_extended_bounding_box(local_min, local_max, 2.f); 
 
 			cdt->set_center_control_cage(std::get<2>(extended_local_cage));
-			cdt->set_influence_cage(i_cage, i_cage_vertex_position.get(),std::get<0>(extended_local_cage), std::get<1>(extended_local_cage));
-
-			mesh_provider_->emit_connectivity_changed(*i_cage);
-			mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
-
-			surface_render_->set_vertex_position(*v1, *i_cage, i_cage_vertex_position);
-			surface_render_->set_render_faces(*v1, *i_cage, false);
 
 			MeshData<MESH>& md = mesh_provider_->mesh_data(m);
 			CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
 
 			cdt->influence_area_ = &i_set;
-			cdt->update_influence_area(m, vertex_position.get());
+			//cdt->update_influence_area(m, vertex_position.get());
 
 			mesh_provider_->emit_cells_set_changed(m, cdt->influence_area_);
 
@@ -638,8 +624,8 @@ private:
 
 		// TODO check if array rightfully sorted  
 		/*std::sort(begin(axis_vertices),
-          end(axis_vertices),
-          [p](const Vec3& p1, const Vec3& p2){ return dist(p, p1) < dist(p, p2); });*/
+		  end(axis_vertices),
+		  [p](const Vec3& p1, const Vec3& p2){ return dist(p, p1) < dist(p, p2); });*/
 
 		const auto [it, inserted] =
 			axis_container_.emplace(axis_name, std::make_shared<cgogn::modeling::AxisDeformationTool<MESH>>());
@@ -807,6 +793,15 @@ private:
 		Parameters& p_cage = parameters_[&local_cage];
 
 		std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> cdt = cage_container_[p_cage.name_];
+
+		cdt->binding_type_ = binding_type;
+
+		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
+		CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
+
+		cdt->influence_area_ = &i_set;
+
+		cdt->set_influence_area(object, object_vertex_position, influence_set_);
 
 		if (binding_type == "MVC")
 		{
@@ -1709,19 +1704,18 @@ protected:
 
 					selected_mesh_ = model_;
 					ImGui::Separator();
-					model_p.selection_method_ = WithinSphere;
-					model_p.back_selection_ = true;
 
-					ImGui::SliderFloat("Sphere radius", &(model_p.sphere_scale_factor_), 10.0f, 100.0f);
-
-					if (ImGui::Button("Create control set##vertices_set"))
-						model_md.template add_cells_set<MeshVertex>();
-					imgui_combo_cells_set(model_md, model_p.selected_vertices_set_, "Sets",
+					imgui_combo_cells_set(model_md, model_p.selected_vertices_set_, "Set_for_cage",
 										  [&](CellsSet<MESH, MeshVertex>* cs) {
 											  model_p.selected_vertices_set_ = cs;
 											  model_p.update_selected_vertices_vbo();
 											  need_update = true;
 										  });
+
+					model_p.selection_method_ = WithinSphere;
+					model_p.back_selection_ = true;
+
+					ImGui::SliderFloat("Sphere radius", &(model_p.sphere_scale_factor_), 10.0f, 100.0f);
 
 					if (model_p.selected_vertices_set_)
 					{
@@ -1748,21 +1742,26 @@ protected:
 					{
 						control_set = model_p.selected_vertices_set_;
 
-						MESH* l_cage = generate_local_cage(*model_, model_p.vertex_position_, control_set);
+						generate_local_cage(*model_, model_p.vertex_position_, control_set);
+
+						new_tool_ = true;
 
 						model_p.selected_vertices_set_ = nullptr;
 					}
 
-					/*imgui_combo_cells_set(md, control_set, "Control ",
-										  [&](CellsSet<MESH, MeshVertex>* cs) { control_set = cs; });*/
+					if (ImGui::Button("Accept cage influence area##vertices_set"))
+					{
+						influence_set_ = model_p.selected_vertices_set_;
 
-					bool newCage = false;
+						model_p.selected_vertices_set_ = nullptr;
+					}
+
 					model_p.object_update_ = false;
 
 					ImGui::Separator();
 					ImGui::Text("Binding");
 
-					if (cage_container_.size() > 0)
+					if (new_tool_ && cage_container_.size() > 0)
 					{
 
 						MultiToolsDeformation<MESH, GRAPH>* space_deformation =
@@ -1816,16 +1815,10 @@ protected:
 
 									bind_local_cage(*model_, model_p.vertex_position_, *(cdt->control_cage_),
 													cdt->control_cage_vertex_position_, current_item);
+
+									influence_set_ = nullptr;
+									new_tool_ = false;
 								}
-
-								/*ImGui::Separator();
-									float new_smoothing_factor = selected_cdt_->smoothing_factor_;
-									ImGui::SliderFloat("Attenuation factor", &new_smoothing_factor, 0.0f, 1.0f);
-
-									if (new_smoothing_factor != selected_cdt_->smoothing_factor_){
-										selected_cdt_->smoothing_factor_ = new_smoothing_factor;
-										selected_cdt_->update_attenuation(*model_);
-									}*/
 							}
 						}
 					}
