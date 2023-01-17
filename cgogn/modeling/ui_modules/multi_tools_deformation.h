@@ -171,6 +171,8 @@ class MultiToolsDeformation : public ViewModule
 
 		Vec3 normal_;
 
+		uint32 weight_number; 
+
 		Vec3 rotation_center_; 
 
 		rendering::Transfo3d transformation_; 
@@ -664,7 +666,7 @@ private:
 
 		std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> gcdt = global_cage_container_["global_cage"];
 
-		gcdt->binding_type_ = binding_type;
+		gcdt->deformation_type_ = binding_type;
 
 		if (binding_type == "MVC")
 		{
@@ -794,7 +796,7 @@ private:
 
 		std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> cdt = cage_container_[p_cage.name_];
 
-		cdt->binding_type_ = binding_type;
+		cdt->set_deformation_type(binding_type);
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 		CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
@@ -805,8 +807,8 @@ private:
 
 		if (binding_type == "MVC")
 		{
-			cdt->bind_mvc_influence(object, object_vertex_position);
-			cdt->set_up_attenuation(object, object_vertex_position);
+			cdt->bind_mvc(object, object_vertex_position);
+			//cdt->set_up_attenuation(object, object_vertex_position);
 
 			cdt->cage_attribute_update_connection_ =
 				boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
@@ -817,17 +819,9 @@ private:
 							std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> current_cdt =
 								cage_container_[p_cage.name_];
 
-							current_cdt->update_influence_cage_position();
+							//current_cdt->update_influence_cage_position();
 
-							MESH* i_cage = current_cdt->influence_cage_;
-
-							std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
-								get_attribute<Vec3, MeshVertex>(*i_cage, "position");
-
-							mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
-
-							current_cdt->update_deformation_object_mvc(object, object_vertex_position,
-																	   p.init_position_);
+							//current_cdt->update_deformation_object(object, object_vertex_position,p.init_position_);
 
 							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
 						}
@@ -864,7 +858,7 @@ private:
 
 		std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> hdt = handle_container_[p_handle.name_];
 
-		hdt->deformation_type_ = binding_type;
+		hdt->set_deformation_type(binding_type);
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 		CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
@@ -1076,7 +1070,7 @@ private:
 
 		std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> adt = axis_container_[p_axis.name_];
 
-		adt->deformation_type_ = binding_type;
+		adt->set_deformation_type(binding_type);
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 		CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
@@ -1107,14 +1101,32 @@ private:
 							std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> current_adt =
 								axis_container_[p_axis.name_];
 
-							/*std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
-								cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");*/
+							std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
+								cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
 							current_adt->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
-								//uint32 vidx = value<uint32>(object, object_vertex_index, v);
+								uint32 vidx = value<uint32>(object, object_vertex_index, v);
 								Vec3& pos = value<Vec3>(object, object_vertex_position, v);
 
-								pos = p_axis.transformation_ * pos;
+								Vec3 contrib0; 
+								Vec3 contrib1; 
+								if (p_axis.weight_number == 0){
+									contrib0 = p_axis.transformation_* pos; 
+									contrib1 = pos; 
+								} else {
+									contrib1 = p_axis.transformation_* pos; 
+									contrib0 = pos; 
+								}
+
+								float weight0 = current_adt->axis_weights_(vidx, 0); 
+
+								float weight1 = current_adt->axis_weights_(vidx, 1);
+
+								/*Vec3 contrib0 = pos; 
+								Vec3 contrib1 = p_axis.transformation_ * pos; */
+								pos = weight0*contrib0 + weight1*contrib1;
+
+								//pos = p_axis.transformation_ * pos;
 																		
 								return true;
 							});
@@ -1424,6 +1436,17 @@ protected:
 							v1 = (*selected_graph_->edge_incident_vertices_)[e0.index_].first; 
 							p.rotation_center_ = value<Vec3>(*selected_graph_, p.vertex_position_, v1); 
 						}
+
+						std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> adt = axis_container_[p.name_];
+
+						std::vector<Graph::Vertex> axis_skeleton = adt->get_axis_skeleton(); 
+						if (v == axis_skeleton[0]){
+							p.weight_number = 0; 
+						} else {
+							p.weight_number = 1; 
+						}
+
+
 					}); 
 					dragging_axis_ = true;
 				}
@@ -1534,9 +1557,9 @@ protected:
 
 					float64 sign; 
 					if (dy > 0.0){
-						sign = 1.0; 
-					} else {
 						sign = -1.0; 
+					} else {
+						sign = 1.0; 
 					}
 
 					rendering::Transfo3d inv_camera = view->camera().frame_.inverse();

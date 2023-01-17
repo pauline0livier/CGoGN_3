@@ -24,13 +24,9 @@
 #ifndef CGOGN_MODELING_HANDLE_DEFORMATION_TOOL_H_
 #define CGOGN_MODELING_HANDLE_DEFORMATION_TOOL_H_
 
-#include <cgogn/core/types/cells_set.h>
 
-#include <cgogn/core/functions/mesh_info.h>
+#include <cgogn/modeling/types/space_deformation_tool.h>
 
-#include <cgogn/geometry/types/vector_traits.h>
-#include <cgogn/modeling/algos/deformation/creation_space_tool.h>
-#include <cgogn/modeling/algos/deformation/deformation_utils.h>
 
 namespace cgogn
 {
@@ -39,11 +35,10 @@ namespace modeling
 {
 
 template <typename MESH>
-class HandleDeformationTool
+class HandleDeformationTool : public SpaceDeformationTool<MESH>
 {
 	using Graph = cgogn::IncidenceGraph;
 
-public:
 	template <typename T>
 	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
 	using MeshVertex = typename mesh_traits<MESH>::Vertex;
@@ -53,20 +48,17 @@ public:
 	using Vec3 = geometry::Vec3;
 	using Scalar = geometry::Scalar;
 
-	Graph* control_handle_;
-	cgogn::ui::CellsSet<MESH, MeshVertex>* influence_area_;
-	Eigen::VectorXd attenuation_;
+public:
 
-	std::string deformation_type_;
+	Graph* control_handle_;
+	Eigen::VectorXd attenuation_;
 
 	std::shared_ptr<Graph::Attribute<Vec3>> control_handle_vertex_position_;
 	std::shared_ptr<boost::synapse::connection> handle_attribute_update_connection_;
 
-	int id_;
-
 	Eigen::VectorXf global_cage_weights_;
 
-	HandleDeformationTool() : control_handle_vertex_position_(nullptr), influence_area_(nullptr)
+	HandleDeformationTool() : SpaceDeformationTool<MESH>(),control_handle_vertex_position_(nullptr)
 	{
 	}
 
@@ -93,16 +85,6 @@ public:
 	void set_geodesic_distance(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
 		geodesic_distance(object, vertex_position.get());
-	}
-
-	void set_influence_area(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position,
-							cgogn::ui::CellsSet<MESH, MeshVertex>* influence_set)
-	{
-
-		influence_set->foreach_cell([&](MeshVertex v) -> bool {
-			influence_area_->select(v);
-			return true;
-		});
 	}
 
 	Graph::Vertex get_handle_vertex(){
@@ -137,7 +119,7 @@ public:
 
 		const Vec3 new_deformation = get_handle_deformation();
 
-		influence_area_->foreach_cell([&](MeshVertex v) -> bool {
+		this->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
 			value<Vec3>(object, object_vertex_position, v) += attenuation_[vidx] * new_deformation;
@@ -175,7 +157,7 @@ public:
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
 			cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
-		influence_area_->foreach_cell([&](MeshVertex v) -> bool {
+		this->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
@@ -215,7 +197,7 @@ private:
 		Scalar max_dist = 0.0;
 		std::vector<Vec2> attenuation_points;
 
-		influence_area_->foreach_cell([&](MeshVertex v) {
+		this->influence_area_->foreach_cell([&](MeshVertex v) {
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
 			Vec3 surface_point = value<Vec3>(object, vertex_position, v);
@@ -235,7 +217,7 @@ private:
 			attenuation_(surface_point_idx) = i_dist;
 		});
 
-		influence_area_->foreach_cell([&](MeshVertex v) {
+		this->influence_area_->foreach_cell([&](MeshVertex v) {
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
 			// attenuation_(surface_point_idx) = 1.0 - pow((attenuation_(surface_point_idx) / max_dist),2);

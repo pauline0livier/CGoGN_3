@@ -48,7 +48,7 @@ public:
 	MESH* control_cage_;
 	std::shared_ptr<Attribute<Vec3>> control_cage_vertex_position_;
 
-	std::string binding_type_; 
+	Eigen::VectorXd attenuation_;
 
 	std::shared_ptr<boost::synapse::connection> cage_attribute_update_connection_;
 
@@ -76,15 +76,11 @@ public:
 		cgogn::modeling::set_attribute_marked_vertices(*control_cage_, marked_vertices.get());
 	}
 
-	void set_influence_area(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position,
-							cgogn::ui::CellsSet<MESH, Vertex>* influence_set)
-	{
+	void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position){
 
-		influence_set->foreach_cell([&](Vertex v) -> bool {
-			influence_area_->select(v);
-			return true;
-		});
 	}
+
+
 
 	/*void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
 	{
@@ -167,7 +163,7 @@ public:
 		});
 	}
 
-	void set_up_attenuation(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
+	/*void set_up_attenuation(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
  
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
@@ -181,7 +177,7 @@ public:
 		foreach_cell(object, [&](Vertex v) -> bool {
 			const Vec3& surface_point = value<Vec3>(object, vertex_position, v);
 
-			bool inside_cage = local_mvc_pt_control_area(surface_point); 
+			//bool inside_cage = local_mvc_pt_control_area(surface_point); 
 
 			if (inside_cage)
 			{
@@ -195,9 +191,9 @@ public:
 		this->attenuation_.resize(nbv_object);
 		this->attenuation_.setZero();
 
-		compute_attenuation_cage(object);
+		//compute_attenuation_cage(object);
 
-	}
+	}*/
 
 private:
 	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> control_cage_coords_;
@@ -214,7 +210,9 @@ private:
 
 	Eigen::VectorXd control_area_validity_;
 
-	void compute_attenuation_cage(MESH& object)
+	Eigen::Matrix<Vec2, Eigen::Dynamic, Eigen::Dynamic> normal_weights_;
+
+	/*void compute_attenuation_cage(MESH& object)
 	{
 		 
 		std::shared_ptr<Attribute<uint32>> cage_face_indices =
@@ -264,7 +262,7 @@ private:
 				}
 				attenuation_points.push_back({surface_point_idx, i_dist});
 			}*/
-		});
+		//});
 
 		
 		/*for (unsigned int i = 0; i < attenuation_points.size(); i++)
@@ -272,9 +270,9 @@ private:
 			//this->attenuation_(attenuation_points[i][0]) = 0.5f * ((float)sin(M_PI * ((attenuation_points[i][1] / h) - 0.5f))) + 0.5f;
 			this->attenuation_(attenuation_points[i][0]) = (float)sin(0.5*M_PI * (attenuation_points[i][1] / h));
 		}*/
-	}
+	//}
 
-	bool local_mvc_pt_control_area(Vec3 pt)
+	/*bool local_mvc_pt_control_area(Vec3 pt)
 	{
 		std::shared_ptr<Attribute<uint32>> i_vertex_index =
 			get_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
@@ -315,7 +313,7 @@ private:
 		});
 
 		return checked;
-	}
+	}*/
 };
 
 } // namespace modeling

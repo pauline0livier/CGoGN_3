@@ -145,6 +145,14 @@ CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m, const CMap2::Attr
     return closest_vertex; 
 }
 
+float projection_on_segment(const Vec3& A, const Vec3& B, const Vec3& P){
+
+	const Vec3 AB = B - A;
+ 	const Vec3 AP = P - A; 
+  	return AB.dot(AP) / AB.squaredNorm(); 
+	//return AB.dot(AP) / (AB.dot(AB));
+}
+
 } // namespace modeling
 
 } // namespace cgogn

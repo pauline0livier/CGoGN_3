@@ -22,12 +22,7 @@
 #ifndef CGOGN_MODELING_AXIS_DEFORMATION_TOOL_H_
 #define CGOGN_MODELING_AXIS_DEFORMATION_TOOL_H_
 
-#include <cgogn/core/types/cells_set.h>
-
-#include <cgogn/core/functions/mesh_info.h>
-
-#include <cgogn/geometry/types/vector_traits.h>
-#include <cgogn/modeling/algos/deformation/creation_space_tool.h>
+#include <cgogn/modeling/types/space_deformation_tool.h>
 
 namespace cgogn
 {
@@ -36,7 +31,7 @@ namespace modeling
 {
 
 template <typename MESH>
-class AxisDeformationTool
+class AxisDeformationTool: public SpaceDeformationTool<MESH>
 {
 
 	using Graph = cgogn::IncidenceGraph;
@@ -52,18 +47,15 @@ public:
 	using Scalar = geometry::Scalar;
 
 	Graph* control_axis_;
-	cgogn::ui::CellsSet<MESH, MeshVertex>* influence_area_;
 
 	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> axis_weights_; 
-
-	std::string deformation_type_;
 
 	std::shared_ptr<Graph::Attribute<Vec3>> control_axis_vertex_position_;
 	std::shared_ptr<boost::synapse::connection> axis_attribute_update_connection_;
 
 	Eigen::MatrixXf global_cage_weights_;
 
-	AxisDeformationTool() : control_axis_vertex_position_(nullptr), influence_area_(nullptr)
+	AxisDeformationTool() : SpaceDeformationTool<MESH>(), control_axis_vertex_position_(nullptr)
 	{
 	}
 
@@ -83,16 +75,6 @@ public:
 			cgogn::add_attribute<uint32, Graph::Vertex>(*control_axis_, "vertex_index");
 
 		cgogn::modeling::set_attribute_vertex_index_graph(*control_axis_, vertex_index.get());
-	}
-
-	void set_influence_area(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position,
-							cgogn::ui::CellsSet<MESH, MeshVertex>* influence_set)
-	{
-
-		influence_set->foreach_cell([&](MeshVertex v) -> bool {
-			influence_area_->select(v);
-			return true;
-		});
 	}
 
 	void set_binding_rigid(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
@@ -135,6 +117,10 @@ public:
 		});*/
 	}
 
+	std::vector<Graph::Vertex> get_axis_skeleton(){
+		return axis_skeleton_; 
+	}
+
 	
 private:
 	std::vector<Graph::Vertex> axis_skeleton_;
@@ -148,12 +134,26 @@ private:
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
 			get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
-		influence_area_->foreach_cell([&](MeshVertex v) {
+		this->influence_area_->foreach_cell([&](MeshVertex v) {
+
+			Vec3 surface_point = value<Vec3>(object, vertex_position, v);
+
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
-			axis_weights_(surface_point_idx, 0) = 1; 
+			const Vec3 A = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[0]); 
+			const Vec3 B = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[1]); 
+			const Vec3 C = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[2]); 
+
+			const Eigen::Vector2f local_weight = cgogn::modeling::weight_two_bones(A, B, C, surface_point); 
+
+			//axis_weights_.row(surface_point_idx) = local_weight; 
+			axis_weights_(surface_point_idx, 0) = local_weight[0]; 
+			axis_weights_(surface_point_idx, 1) = local_weight[1];
+
+			//axis_weights_(surface_point_idx, 0) = 1; 
 
 		}); 
+
 	}
 
 

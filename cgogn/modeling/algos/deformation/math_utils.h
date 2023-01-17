@@ -60,6 +60,9 @@ std::pair<Vec3,Vec3> get_border_values_in_set(const CMap2& m, const CMap2::Attri
 
 CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m, const CMap2::Attribute<Vec3>* vertex_position, cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set, const Vec3& target_position); 
 
+// projection of P on segment AB
+float projection_on_segment(const Vec3& A, const Vec3& B, const Vec3& P); 
+
 
 } // namespace modeling
 

@@ -74,7 +74,7 @@ public:
 
 	std::shared_ptr<boost::synapse::connection> cage_attribute_update_connection_;
 
-	std::string binding_type_;
+	std::string deformation_type_;
 
 	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> global_cage_coords_;
 	Eigen::Matrix<Vec2, Eigen::Dynamic, Eigen::Dynamic> global_cage_normal_coords_;
