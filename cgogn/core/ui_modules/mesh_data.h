@@ -200,6 +200,14 @@ public:
 													std::to_string(cells_sets<CELL>().size()));
 	}
 
+	template <typename CELL>
+	CellsSet<MESH, CELL>& get_cells_set()
+	{ 
+		CellsSet<MESH, CELL> first_element = *cells_sets<CELL>().begin(); 
+		return &first_element; 
+	}
+
+
 private:
 	template <typename CELL>
 	void internal_rebuild_cells_sets_of_type()

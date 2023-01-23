@@ -14,9 +14,11 @@
  *                                                                              *
  * You should have received a copy of the GNU Lesser General Public License     *
  * along with this library; if not, write to the Free Software Foundation,      *
- * Inc., 51 Franklin Street, Fifth Floor, Bostraph_provider_->emit_connectivity_changed(*handle);
-			graph_provider_->emit_attribute_changed(*handle, handle_vertex_position.get());
-			graph_provider_->emit_attribute_changed(*handle, handle_vertex_radius.get());                                  *
+ * Inc., 51 Franklin Street, Fifth Floor, Bosston, MA  02110-1301 USA.
+ *                                                                              *
+ * Web site: http://cgogn.unistra.fr/                                           *
+ * Contact information: cgogn@unistra.fr                                        *
+ *                                                                              *                            
  *******************************************************************************/
 
 #ifndef CGOGN_MODELING_AXIS_DEFORMATION_TOOL_H_

@@ -811,8 +811,6 @@ public:
 		Dart d = add_dart(static_cast<CMap1&>(*handle)); 
 		set_boundary(*handle, d, true);
 
-		std::cout << "ok ici" << std::endl; 
-
 		CMap2::Volume vol(d); 
 
 		CMap2::Volume v = vol; 
@@ -820,7 +818,6 @@ public:
 
 		value<Vec3>(*handle, handle_vertex_position, CMap2::Vertex(f1)) = center; 
 
-		std::cout << "until here" << std::endl; 
 		mesh_provider_->emit_connectivity_changed(*handle);
 		mesh_provider_->emit_attribute_changed(*handle, handle_vertex_position.get());
 

@@ -491,13 +491,17 @@ private:
 
 		Vec3 center = cgogn::modeling::get_mean_value_attribute_from_set(m, vertex_position.get(), control_set);
 
-		Vec3 normal = {0.0, 1.0, 0.0}; //cgogn::modeling::get_mean_value_attribute_from_set(m, mesh_vertex_normal.get(), control_set);
-		//normal.normalize(); 
+		Vec3 normal = {0.0, 1.0, 0.0}; 
+		/*Vec3 normal = cgogn::modeling::get_mean_value_attribute_from_set(m, mesh_vertex_normal.get(), front_set);
+		normal.normalize(); 
+
+		std::cout << "normal " << normal << std::endl; */
 
 		std::pair<Vec3, Vec3> local_boundaries = cgogn::modeling::get_border_values_in_set(m, vertex_position.get(), control_set); 
 
-		Vec3 local_min = local_boundaries.first; 
-		Vec3 local_max = local_boundaries.second;  
+		std::tuple<Vec3, Vec3, Vec3> extended_boundaries = cgogn::modeling::get_extended_bounding_box(local_boundaries.first, local_boundaries.second, 1.2f); 
+		//Vec3 local_min = local_boundaries.first; 
+		//Vec3 local_max = local_boundaries.second;  
 
 		const auto [it, inserted] =
 			cage_container_.emplace(cage_name, std::make_shared<cgogn::modeling::CageDeformationTool<MESH>>());
@@ -505,7 +509,7 @@ private:
 
 		if (inserted)
 		{
-			cdt->create_space_tool(l_cage, l_cage_vertex_position.get(), local_min, local_max, center, normal);
+			cdt->create_space_tool(l_cage, l_cage_vertex_position.get(), std::get<0>(extended_boundaries), std::get<1>(extended_boundaries), center, normal);
 
 			mesh_provider_->emit_connectivity_changed(*l_cage);
 			mesh_provider_->emit_attribute_changed(*l_cage, l_cage_vertex_position.get());
@@ -520,9 +524,7 @@ private:
 
 			surface_diff_pptes_->compute_normal(*l_cage, l_cage_vertex_position.get(), l_cage_vertex_normal.get());
 
-			std::tuple<Vec3,Vec3,Vec3> extended_local_cage = cgogn::modeling::get_extended_bounding_box(local_min, local_max, 2.f); 
-
-			cdt->set_center_control_cage(std::get<2>(extended_local_cage));
+			cdt->set_center_control_cage(std::get<2>(extended_boundaries));
 
 			MeshData<MESH>& md = mesh_provider_->mesh_data(m);
 			CellsSet<MESH, MeshVertex>& i_set = md.template add_cells_set<MeshVertex>();
@@ -1262,9 +1264,7 @@ protected:
 					if (!picked.empty())
 					{
 
-						CellCache<MESH> cache = geometry::within_sphere(*selected_mesh_, picked[0],
-																		p.vertex_base_size_ * p.sphere_scale_factor_,
-																		p.vertex_position_.get());
+						CellCache<MESH> cache = geometry::within_sphere(*selected_mesh_, picked[0], p.vertex_base_size_ * p.sphere_scale_factor_, p.vertex_position_.get());
 
 						switch (p.selecting_cell_)
 						{
@@ -1313,7 +1313,6 @@ protected:
 											p.selected_vertices_set_->select(v);
 											return true;
 										});
-
 										break;
 
 									case 1:
@@ -1321,6 +1320,7 @@ protected:
 											p.selected_vertices_set_->unselect(v);
 											return true;
 										});
+
 										break;
 									}
 									mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_vertices_set_);
@@ -1760,10 +1760,13 @@ protected:
 					}
 
 					CellsSet<MESH, MeshVertex>* control_set = nullptr;
+					//CellsSet<MESH, MeshVertex>* front_set = nullptr; 
 
 					if (ImGui::Button("Accept control set##vertices_set"))
 					{
 						control_set = model_p.selected_vertices_set_;
+						
+						//front_set = model_p.front_selected_vertices_set_; 
 
 						generate_local_cage(*model_, model_p.vertex_position_, control_set);
 
@@ -1852,6 +1855,7 @@ protected:
 					selected_mesh_ = model_;
 					ImGui::Separator();
 
+					//model_p.selected_vertices_set_ = model_md.template get_cells_set<MeshVertex>(); 
 					imgui_combo_cells_set(model_md, model_p.selected_vertices_set_, "Set_for_handle",
 										  [&](CellsSet<MESH, MeshVertex>* cs) {
 											  model_p.selected_vertices_set_ = cs;

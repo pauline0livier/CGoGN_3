@@ -60,12 +60,16 @@ public:
 	{
 	}
 
-	void create_space_tool(MESH* m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& center, const Vec3& normal)
+	void create_space_tool(MESH* m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max,
+						   const Vec3& center, const Vec3& normal)
 	{
 		control_cage_ = m;
 		cgogn::modeling::create_cage_box(*m, vertex_position, bb_min, bb_max, center, normal);
 
 		control_cage_vertex_position_ = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
+
+		control_cage_bb_min_ = bb_min;
+		control_cage_bb_max_ = bb_max;
 
 		std::shared_ptr<Attribute<uint32>> vertex_index =
 			cgogn::add_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
@@ -76,11 +80,73 @@ public:
 		cgogn::modeling::set_attribute_marked_vertices(*control_cage_, marked_vertices.get());
 	}
 
-	void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position){
+	void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+	{
 
+		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "vertex_index");
+
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+			get_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
+
+		std::shared_ptr<Attribute<bool>> cage_marked_vertices =
+			get_attribute<bool, Vertex>(*control_cage_, "marked_vertices");
+
+		uint32 nbv_object = nb_cells<Vertex>(object);
+		uint32 nbv_cage = nb_cells<Vertex>(*control_cage_);
+
+		control_cage_coords_.resize(nbv_object, nbv_cage);
+		control_cage_coords_.setZero();
+
+		this->influence_area_->foreach_cell([&](Vertex v) {
+			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
+
+			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
+
+			if (point_inside_cage(surface_point))
+			{
+				DartMarker dm(*control_cage_);
+				float sumMVC = 0.0;
+
+				for (Dart d = control_cage_->begin(), end = control_cage_->end(); d != end; d = control_cage_->next(d))
+				{
+					Vertex cage_vertex = CMap2::Vertex(d);
+					bool vc_marked = value<bool>(*control_cage_, cage_marked_vertices, cage_vertex);
+
+					if (!dm.is_marked(d) && !vc_marked)
+					{
+						const Vec3& cage_point =
+							value<Vec3>(*control_cage_, control_cage_vertex_position_, cage_vertex);
+						uint32 cage_point_idx = value<uint32>(*control_cage_, cage_vertex_index, cage_vertex);
+
+						float mvc_value = compute_mvc(surface_point, d, *control_cage_, cage_point,
+													  control_cage_vertex_position_.get());
+
+						contorl_cage_coords_(surface_point_idx, cage_point_idx) = mvc_value;
+
+						dm.mark(d);
+
+						value<bool>(*control_cage_, cage_marked_vertices, cage_vertex) = true;
+
+						sumMVC += mvc_value;
+					}
+				}
+
+				parallel_foreach_cell(*control_cage_, [&](Vertex vc) -> bool {
+					uint32 cage_point_idx2 = value<uint32>(*control_cage_, cage_vertex_index, vc);
+
+					control_cage_coords_(surface_point_idx, cage_point_idx2) = control_cage_coords_(surface_point_idx, cage_point_idx2) / sumMVC;
+
+					value<bool>(*control_cage_, cage_marked_vertices, vc) = false;
+
+					return true;
+				});
+			}
+			else
+			{
+				std::vector control_cage_points = find_visible_cage_points(surface_point);
+			}
+		});
 	}
-
-
 
 	/*void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
 	{
@@ -100,7 +166,7 @@ public:
 		coords_.resize(nbv_object, nbv_cage);
 		coords_.setZero();
 
-		influence_area_->foreach_cell([&](Vertex v) { 
+		influence_area_->foreach_cell([&](Vertex v) {
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
@@ -141,13 +207,13 @@ public:
 
 				return true;
 			});
-		}); 
+		});
 
 	}*/
 
 	void set_center_control_cage(Vec3& center)
 	{
-		center_control_cage_ = center;
+		control_cage_center_ = center;
 	}
 
 	void update_influence_cage_position()
@@ -155,9 +221,8 @@ public:
 		foreach_cell(*control_cage_, [&](Vertex v) -> bool {
 			const Vec3& cage_point = value<Vec3>(*control_cage_, control_cage_vertex_position_, v);
 
-			value<Vec3>(*(this->influence_cage_),
-						this->influence_cage_vertex_position_, v) =
-				((cage_point - center_control_cage_) * 1.5) + center_control_cage_;
+			value<Vec3>(*(this->influence_cage_), this->influence_cage_vertex_position_, v) =
+				((cage_point - control_cage_center_) * 1.5) + control_cage_center_;
 
 			return true;
 		});
@@ -165,7 +230,7 @@ public:
 
 	/*void set_up_attenuation(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
- 
+
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
 			get_attribute<uint32, Vertex>(object, "vertex_index");
 
@@ -177,7 +242,7 @@ public:
 		foreach_cell(object, [&](Vertex v) -> bool {
 			const Vec3& surface_point = value<Vec3>(object, vertex_position, v);
 
-			//bool inside_cage = local_mvc_pt_control_area(surface_point); 
+			//bool inside_cage = local_mvc_pt_control_area(surface_point);
 
 			if (inside_cage)
 			{
@@ -206,15 +271,49 @@ private:
 
 	float m_hFactor;
 
-	Vec3 center_control_cage_;
+	Vec3 control_cage_center_;
+	Vec3 control_cage_bb_min_;
+	Vec3 control_cage_bb_max_;
 
 	Eigen::VectorXd control_area_validity_;
 
 	Eigen::Matrix<Vec2, Eigen::Dynamic, Eigen::Dynamic> normal_weights_;
 
+	// https://stackoverflow.com/questions/21037241/how-to-determine-a-point-is-inside-or-outside-a-cube
+	bool point_inside_cage(const Vec3& point)
+	{
+		// simple case - axis aligned cube
+		return (point.x >= control_cage_bb_min_.x && point.x <= control_cage_bb_max_.x &&
+				point.y >= control_cage_bb_min_.y && point.y <= control_cage_bb_max_.y &&
+				point.z >= control_cage_bb_min_.z && point.z <= control_cage_bb_min_.z);
+	}
+
+
+	// TODO : check property visible == dist_ci < dist_center
+	//https://www.gamedev.net/forums/topic/105286-how-to-calculate-which-side-of-a-cube-is-closest-to-a-point/
+	std::vector<Vec3> find_visible_cage_points(const Vec3 point)
+	{
+
+		std::vector<Vec3> visible_points;
+		const Scalar dist_to_center = (point - control_cage_center_).squaredNorm();
+
+		parallel_foreach_cell(*control_cage, [&](MeshVertex v) -> bool {
+			const Vec3 control_cage_point = value<Vec3>(*control_cage, control_cage_vertex_position_, v)
+
+			const Scalar dist_to_ci = (point - control_cage_point).squaredNorm(); 
+			if (dist_to_ci < dist_to_center){
+				visible_points.push_back(control_cage_point); 
+			}
+			
+			return true;
+		});
+
+		return visible_points;
+	}
+
 	/*void compute_attenuation_cage(MESH& object)
 	{
-		 
+
 		std::shared_ptr<Attribute<uint32>> cage_face_indices =
 			add_attribute<uint32, Face>(*(this->influence_cage_), "face_indices");
 
@@ -236,7 +335,7 @@ private:
 		// first loop to find h
 		//
 		float h = 0.0f;
-		float max_dist = 0.0f; 
+		float max_dist = 0.0f;
 		std::vector<Vec2> attenuation_points;
 		this->influence_area_->foreach_cell([&](Vertex v) {
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
@@ -246,7 +345,7 @@ private:
 			this->attenuation_(surface_point_idx) = (float)sin(0.5*M_PI * (i_dist ));
 			/*if (control_area_validity_(surface_point_idx) == 1.0f)
 			{
-		
+
 				if (i_dist > h)
 				{
 					h = i_dist;
@@ -256,20 +355,20 @@ private:
 			}
 			else
 			{
-				
+
 				if (i_dist > max_dist){
-					max_dist = i_dist; 
+					max_dist = i_dist;
 				}
 				attenuation_points.push_back({surface_point_idx, i_dist});
 			}*/
-		//});
+	//});
 
-		
-		/*for (unsigned int i = 0; i < attenuation_points.size(); i++)
-		{
-			//this->attenuation_(attenuation_points[i][0]) = 0.5f * ((float)sin(M_PI * ((attenuation_points[i][1] / h) - 0.5f))) + 0.5f;
-			this->attenuation_(attenuation_points[i][0]) = (float)sin(0.5*M_PI * (attenuation_points[i][1] / h));
-		}*/
+	/*for (unsigned int i = 0; i < attenuation_points.size(); i++)
+	{
+		//this->attenuation_(attenuation_points[i][0]) = 0.5f * ((float)sin(M_PI * ((attenuation_points[i][1] / h) -
+	0.5f))) + 0.5f; this->attenuation_(attenuation_points[i][0]) = (float)sin(0.5*M_PI * (attenuation_points[i][1] /
+	h));
+	}*/
 	//}
 
 	/*bool local_mvc_pt_control_area(Vec3 pt)
@@ -293,7 +392,8 @@ private:
 
 				const Vec3& cage_point = value<Vec3>(*control_cage_, control_cage_vertex_position_, cage_vertex);
 
-				float mvc_value = cgogn::modeling::compute_mvc(pt, d, *control_cage_, cage_point, control_cage_vertex_position_.get());
+				float mvc_value = cgogn::modeling::compute_mvc(pt, d, *control_cage_, cage_point,
+	control_cage_vertex_position_.get());
 
 				dm.mark(d);
 
