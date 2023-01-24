@@ -235,6 +235,33 @@ public:
 		});
 	}
 
+	void update_deformation_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+	{
+		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "vertex_index");
+
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+			get_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
+
+		this->influence_area_->foreach_cell([&](Vertex v) -> bool {
+			uint32 vidx = value<uint32>(object, object_vertex_index, v);
+
+			Vec3 new_pos_ = {0.0, 0.0, 0.0};
+
+			foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
+				const Vec3& cage_point = value<Vec3>(*control_cage_, control_cage_vertex_position_, cv);
+
+				uint32 cage_point_idx = value<uint32>(*control_cage_, cage_vertex_index, cv);
+
+				new_pos_ += control_cage_coords_(vidx, cage_point_idx) * cage_point;
+
+				return true;
+			});
+
+			value<Vec3>(object, object_vertex_position, v) = new_pos_;
+			return true;
+		});
+	}
+
 	/*void set_up_attenuation(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
 
@@ -289,11 +316,12 @@ private:
 	// https://stackoverflow.com/questions/21037241/how-to-determine-a-point-is-inside-or-outside-a-cube
 	bool point_inside_cage(const Vec3& point)
 	{
-		// simple case - axis aligned cube
-		/*return (point.x >= control_cage_bb_min_.x && point.x <= control_cage_bb_max_.x &&
-				point.y >= control_cage_bb_min_.y && point.y <= control_cage_bb_max_.y &&
-				point.z >= control_cage_bb_min_.z && point.z <= control_cage_bb_min_.z);*/
-		return true; 
+		bool resX = (point[0] >= control_cage_bb_min_[0]) && (point[0] <= control_cage_bb_max_[0]); 
+		bool resY = (point[1] >= control_cage_bb_min_[1]) && (point[1] <= control_cage_bb_max_[1]); 
+		bool resZ = (point[2] >= control_cage_bb_min_[2]) && (point[2] <= control_cage_bb_max_[2]); 
+
+		// simple case - axis aligned cube 
+		return (resX && resY && resZ); 
 	}
 
 
@@ -307,38 +335,26 @@ private:
 		std::vector<Vec3> visible_points;
 
 		const Vec3 p_to_center = control_cage_center_ - point;
+
 		foreach_cell(*control_cage_, [&](Face fc) -> bool {
 			const Vec3 face_normal = value<Vec3>(*control_cage_, cage_face_normal, fc); 
 
-			Scalar res = face_normal.dot(p_to_center); 
+			double res = face_normal.dot(p_to_center); 
 
-			std::cout << res << std::endl; 
-			/*if (res < 0.0){
+			if (res < 0.0){
 				std::vector<Vertex> face_vertices = incident_vertices(*control_cage_, fc);
 
 				for (uint32_t i = 0; i < face_vertices.size(); i++){
 					const Vec3 cage_point = value<Vec3>(*control_cage_, control_cage_vertex_position_, face_vertices[i]); 
 
-					if (std::binary_search(visible_points.begin(), visible_points.end(), cage_point)){
+					if (!(std::find(visible_points.begin(), visible_points.end(), cage_point) != visible_points.end())){
 						visible_points.push_back(cage_point); 
 					}
 				}
-			}*/
+			}
 
 		return true;
 	} ); 
-		/*const Scalar dist_to_center = (point - control_cage_center_).squaredNorm();
-
-		parallel_foreach_cell(*control_cage, [&](MeshVertex v) -> bool {
-			const Vec3 control_cage_point = value<Vec3>(*control_cage, control_cage_vertex_position_, v)
-
-			const Scalar dist_to_ci = (point - control_cage_point).squaredNorm(); 
-			if (dist_to_ci < dist_to_center){
-				visible_points.push_back(control_cage_point); 
-			}
-			
-			return true;
-		});*/
 
 		return visible_points;
 	}

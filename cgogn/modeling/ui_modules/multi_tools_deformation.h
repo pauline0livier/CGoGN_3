@@ -829,9 +829,7 @@ private:
 							std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> current_cdt =
 								cage_container_[p_cage.name_];
 
-							// current_cdt->update_influence_cage_position();
-
-							// current_cdt->update_deformation_object(object, object_vertex_position,p.init_position_);
+							current_cdt->update_deformation_object(object, object_vertex_position);
 
 							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
 						}
