@@ -30,7 +30,9 @@ namespace cgogn
 namespace modeling
 {
 
-std::vector<CMap2::Vertex> create_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max){
+std::vector<CMap2::Vertex> create_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min,
+											   const Vec3& bb_max)
+{
 	CMap2::Volume v = add_prism(m, 4);
 	Dart f1 = v.dart;
 	Dart f2 = phi<2, 1, 1, 2>(m, f1);
@@ -46,12 +48,14 @@ std::vector<CMap2::Vertex> create_bounding_box(CMap2& m, CMap2::Attribute<Vec3>*
 	value<Vec3>(m, vertex_position, vertices[4]) = {bb_min[0], bb_max[1], bb_max[2]};
 	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min[0], bb_min[1], bb_max[2]};
 	value<Vec3>(m, vertex_position, vertices[6]) = {bb_max[0], bb_min[1], bb_max[2]};
-	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0], bb_max[1], bb_max[2]}; 
+	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0], bb_max[1], bb_max[2]};
 
-	return vertices; 
+	return vertices;
 }
 
-void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const std::vector<CMap2::Vertex>& vertices, const Vec3& bb_min, const Vec3& bb_max){
+void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const std::vector<CMap2::Vertex>& vertices,
+						 const Vec3& bb_min, const Vec3& bb_max)
+{
 
 	value<Vec3>(m, vertex_position, vertices[0]) = bb_min;
 	value<Vec3>(m, vertex_position, vertices[1]) = {bb_min[0], bb_max[1], bb_min[2]};
@@ -61,11 +65,11 @@ void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, cons
 	value<Vec3>(m, vertex_position, vertices[4]) = {bb_min[0], bb_max[1], bb_max[2]};
 	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min[0], bb_min[1], bb_max[2]};
 	value<Vec3>(m, vertex_position, vertices[6]) = {bb_max[0], bb_min[1], bb_max[2]};
-	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0], bb_max[1], bb_max[2]}; 
+	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0], bb_max[1], bb_max[2]};
 }
 
 void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max,
-				const Vec3& center, const Vec3& normal)
+					 const Vec3& center, const Vec3& normal)
 {
 	CMap2::Volume v = add_prism(m, 4);
 	Dart f1 = v.dart;
@@ -99,29 +103,28 @@ void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Ve
 	const Vec3 local_bb_max = local_frame * (bb_max - center);
 
 	const double radius = local_bb_min.norm();
-	
-	double min_n, max_n; 
+
+	double min_n, max_n;
 	if (local_bb_min[2] > local_bb_max[2])
 	{
-		min_n = local_bb_max[2]; 
-		max_n = local_bb_min[2]; 
+		min_n = local_bb_max[2];
+		max_n = local_bb_min[2];
 	}
 	else
 	{
-		min_n = local_bb_min[2]; 
-		max_n = local_bb_max[2]; 
+		min_n = local_bb_min[2];
+		max_n = local_bb_max[2];
 	}
 
 	Eigen::Vector3d local_vertex0 = {radius * std::cos(0), radius * std::sin(0), max_n};
 	Eigen::Vector3d local_vertex1 = {radius * std::cos(M_PI / 2), radius * std::sin(M_PI / 2), max_n};
 	Eigen::Vector3d local_vertex2 = {radius * std::cos(M_PI), radius * std::sin(M_PI), max_n};
-	Eigen::Vector3d local_vertex3 = {radius * std::cos(3*M_PI/2), radius * std::sin(3*M_PI/2), max_n};
+	Eigen::Vector3d local_vertex3 = {radius * std::cos(3 * M_PI / 2), radius * std::sin(3 * M_PI / 2), max_n};
 
-	Eigen::Vector3d local_vertex4 = {radius * std::cos(-3*M_PI/2), radius * std::sin(-3*M_PI/2), min_n};
+	Eigen::Vector3d local_vertex4 = {radius * std::cos(-3 * M_PI / 2), radius * std::sin(-3 * M_PI / 2), min_n};
 	Eigen::Vector3d local_vertex5 = {radius * std::cos(0), radius * std::sin(0), min_n};
 	Eigen::Vector3d local_vertex6 = {radius * std::cos(-M_PI / 2), radius * std::sin(-M_PI / 2), min_n};
 	Eigen::Vector3d local_vertex7 = {radius * std::cos(-M_PI), radius * std::sin(-M_PI), min_n};
-
 
 	value<Vec3>(m, vertex_position, vertices[0]) = (frame_inverse * local_vertex0) + center;
 	value<Vec3>(m, vertex_position, vertices[1]) = (frame_inverse * local_vertex1) + center;
@@ -131,7 +134,6 @@ void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Ve
 	value<Vec3>(m, vertex_position, vertices[5]) = frame_inverse * local_vertex5 + center;
 	value<Vec3>(m, vertex_position, vertices[6]) = frame_inverse * local_vertex6 + center;
 	value<Vec3>(m, vertex_position, vertices[7]) = frame_inverse * local_vertex7 + center;
-	
 }
 
 void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* local_vertex_position,
@@ -313,10 +315,38 @@ void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indi
 	});
 }
 
+void set_attribute_face_normal(CMap2& cage, CMap2::Attribute<Vec3>* vertex_position,
+							   CMap2::Attribute<Vec3>* face_normal)
+{
+	foreach_cell(cage, [&](CMap2::Face fc) -> bool {
+		std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(cage, fc);
+
+		// triangle 1
+
+		const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[1], face_vertices_[3], face_vertices_[0]};
+		const std::vector<Vec3> t1_values = {value<Vec3>(cage, vertex_position, triangle1[0]),
+											 value<Vec3>(cage, vertex_position, triangle1[1]),
+											 value<Vec3>(cage, vertex_position, triangle1[2])};
+
+		//Vec3 t1_normal = (cgogn::geometry::normal(t1_values[0], t1_values[1], t1_values[2])).normalized();
+
+		// triangle 2
+		/*const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[1], face_vertices_[2], face_vertices_[3]};
+		const std::vector<Vec3> t2_values = {value<Vec3>(cage, vertex_position, triangle2[0]),
+											 value<Vec3>(cage, vertex_position, triangle2[1]),
+											 value<Vec3>(cage, vertex_position, triangle2[2])};*/
+
+		//Vec3 t2_normal = (cgogn::geometry::normal(t2_values[0], t2_values[1], t2_values[2])).normalized();
+
+		value<Vec3>(cage, face_normal, fc) = (cgogn::geometry::normal(t1_values[0], t1_values[1], t1_values[2])).normalized(); 
+
+		return true;
+	} );
+}
+
 Graph::Vertex create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
 							const Vec3& center1)
 {
-
 	Graph::Vertex nv = add_vertex(g);
 
 	value<Vec3>(g, vertex_position, nv) = center1;
@@ -329,7 +359,6 @@ std::vector<Graph::Vertex> create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_
 									   Graph::Attribute<Scalar>* vertex_radius,
 									   const std::vector<Vec3>& vertices_positions)
 {
-
 	std::vector<Graph::Vertex> list_vertex;
 	Graph::Vertex nv = add_vertex(g);
 

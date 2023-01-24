@@ -78,6 +78,13 @@ public:
 		std::shared_ptr<Attribute<bool>> marked_vertices =
 			cgogn::add_attribute<bool, Vertex>(*control_cage_, "marked_vertices");
 		cgogn::modeling::set_attribute_marked_vertices(*control_cage_, marked_vertices.get());
+
+		// set control cage face normal 
+		std::shared_ptr<Attribute<Vec3>> cage_face_normal =
+			cgogn::add_attribute<Vec3, Face>(*control_cage_, "face_normal");
+
+		cgogn::modeling::set_attribute_face_normal(*control_cage_, control_cage_vertex_position_.get(), cage_face_normal.get()); 
+
 	}
 
 	void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
@@ -121,7 +128,7 @@ public:
 						float mvc_value = compute_mvc(surface_point, d, *control_cage_, cage_point,
 													  control_cage_vertex_position_.get());
 
-						contorl_cage_coords_(surface_point_idx, cage_point_idx) = mvc_value;
+						control_cage_coords_(surface_point_idx, cage_point_idx) = mvc_value;
 
 						dm.mark(d);
 
@@ -143,7 +150,7 @@ public:
 			}
 			else
 			{
-				std::vector control_cage_points = find_visible_cage_points(surface_point);
+				const std::vector control_cage_points = find_visible_cage_points(surface_point);
 			}
 		});
 	}
@@ -283,9 +290,10 @@ private:
 	bool point_inside_cage(const Vec3& point)
 	{
 		// simple case - axis aligned cube
-		return (point.x >= control_cage_bb_min_.x && point.x <= control_cage_bb_max_.x &&
+		/*return (point.x >= control_cage_bb_min_.x && point.x <= control_cage_bb_max_.x &&
 				point.y >= control_cage_bb_min_.y && point.y <= control_cage_bb_max_.y &&
-				point.z >= control_cage_bb_min_.z && point.z <= control_cage_bb_min_.z);
+				point.z >= control_cage_bb_min_.z && point.z <= control_cage_bb_min_.z);*/
+		return true; 
 	}
 
 
@@ -293,9 +301,33 @@ private:
 	//https://www.gamedev.net/forums/topic/105286-how-to-calculate-which-side-of-a-cube-is-closest-to-a-point/
 	std::vector<Vec3> find_visible_cage_points(const Vec3 point)
 	{
+		std::shared_ptr<Attribute<Vec3>> cage_face_normal =
+			cgogn::get_attribute<Vec3, Face>(*control_cage_, "face_normal");
 
 		std::vector<Vec3> visible_points;
-		const Scalar dist_to_center = (point - control_cage_center_).squaredNorm();
+
+		const Vec3 p_to_center = control_cage_center_ - point;
+		foreach_cell(*control_cage_, [&](Face fc) -> bool {
+			const Vec3 face_normal = value<Vec3>(*control_cage_, cage_face_normal, fc); 
+
+			Scalar res = face_normal.dot(p_to_center); 
+
+			std::cout << res << std::endl; 
+			/*if (res < 0.0){
+				std::vector<Vertex> face_vertices = incident_vertices(*control_cage_, fc);
+
+				for (uint32_t i = 0; i < face_vertices.size(); i++){
+					const Vec3 cage_point = value<Vec3>(*control_cage_, control_cage_vertex_position_, face_vertices[i]); 
+
+					if (std::binary_search(visible_points.begin(), visible_points.end(), cage_point)){
+						visible_points.push_back(cage_point); 
+					}
+				}
+			}*/
+
+		return true;
+	} ); 
+		/*const Scalar dist_to_center = (point - control_cage_center_).squaredNorm();
 
 		parallel_foreach_cell(*control_cage, [&](MeshVertex v) -> bool {
 			const Vec3 control_cage_point = value<Vec3>(*control_cage, control_cage_vertex_position_, v)
@@ -306,7 +338,7 @@ private:
 			}
 			
 			return true;
-		});
+		});*/
 
 		return visible_points;
 	}
