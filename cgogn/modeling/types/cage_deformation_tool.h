@@ -257,7 +257,12 @@ public:
 				return true;
 			});
 
-			value<Vec3>(object, object_vertex_position, v) = new_pos_;
+			if ((new_pos_[0] != 0.0) && (new_pos_[1] != 0.0) && (new_pos_[2] != 0.0)){
+				value<Vec3>(object, object_vertex_position, v) = new_pos_;
+			} else {
+				std::cout << "empty " << std::endl; 
+			}
+			
 			return true;
 		});
 	}
