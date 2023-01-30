@@ -814,6 +814,26 @@ private:
 		cdt->influence_area_ = &i_set;
 
 		cdt->set_influence_area(object, object_vertex_position, influence_set_);
+ 
+		// simple version 
+		std::string cage_name = "influence_cage"; 
+		MESH* i_cage = mesh_provider_->add_mesh(cage_name);
+
+		std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
+			cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "position");
+		mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
+
+		set_vertex_position(*i_cage, i_cage_vertex_position);
+
+		cdt->set_influence_cage(object, object_vertex_position.get(), i_cage, i_cage_vertex_position.get()); 
+
+		mesh_provider_->emit_connectivity_changed(*i_cage);
+		mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
+
+		View* v1 = app_.current_view();
+
+		surface_render_->set_vertex_position(*v1, *i_cage, i_cage_vertex_position);
+		surface_render_->set_render_faces(*v1, *i_cage, false);
 
 		if (binding_type == "MVC")
 		{

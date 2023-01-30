@@ -52,6 +52,8 @@ public:
 
 	std::shared_ptr<boost::synapse::connection> cage_attribute_update_connection_;
 
+	MESH* influence_cage_; 
+
 	CageDeformationTool() : SpaceDeformationTool<MESH>(), m_hFactor(-1.0f), control_cage_vertex_position_(nullptr)
 	{
 	}
@@ -64,7 +66,9 @@ public:
 						   const Vec3& center, const Vec3& normal)
 	{
 		control_cage_ = m;
-		cgogn::modeling::create_cage_box(*m, vertex_position, bb_min, bb_max, center, normal);
+		
+		/*cgogn::modeling::create_cage_box(*m, vertex_position, bb_min, bb_max, center, normal);*/ // not working well so far
+		cgogn::modeling::create_bounding_box(*m, vertex_position, bb_min, bb_max);
 
 		control_cage_vertex_position_ = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
 
@@ -85,6 +89,17 @@ public:
 
 		cgogn::modeling::set_attribute_face_normal(*control_cage_, control_cage_vertex_position_.get(), cage_face_normal.get()); 
 
+	}
+
+	void set_influence_cage(MESH& object, const CMap2::Attribute<Vec3>*  object_vertex_position, MESH* m, CMap2::Attribute<Vec3>* vertex_position){
+		influence_cage_ = m;
+
+		std::pair<Vec3, Vec3> influence_area_borders = cgogn::modeling::get_border_values_in_set(object, object_vertex_position, this->influence_area_); 
+
+		cgogn::modeling::create_bounding_box(*m, vertex_position, influence_area_borders.first, influence_area_borders.second);
+
+		influence_cage_bb_min_ = influence_area_borders.first; 
+		influence_cage_bb_max_ = influence_area_borders.second; 
 	}
 
 	void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
@@ -150,7 +165,7 @@ public:
 			}
 			else
 			{
-				const std::vector control_cage_points = find_visible_cage_points(surface_point);
+				const std::vector<Vec3> control_cage_points = find_visible_cage_points(surface_point);
 			}
 		});
 	}
@@ -314,6 +329,9 @@ private:
 	Vec3 control_cage_bb_min_;
 	Vec3 control_cage_bb_max_;
 
+	Vec3 influence_cage_bb_min_; 
+	Vec3 influence_cage_bb_max_; 
+
 	Eigen::VectorXd control_area_validity_;
 
 	Eigen::Matrix<Vec2, Eigen::Dynamic, Eigen::Dynamic> normal_weights_;
@@ -360,6 +378,8 @@ private:
 
 		return true;
 	} ); 
+
+	std::cout << "size visible points " << visible_points.size() << std::endl; 
 
 		return visible_points;
 	}

@@ -96,10 +96,8 @@ Vec3 get_mean_value_attribute_from_set(const CMap2& m, const CMap2::Attribute<Ve
 	return mean_value;
 }
 
-std::pair<Vec3, Vec3> get_border_values_in_set(const CMap2& m, const CMap2::Attribute<Vec3>* attribute,
-											   cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set)
-{
-
+std::pair<Vec3, Vec3> get_border_values_in_set(const CMap2& m, const CMap2::Attribute<Vec3>* attribute, cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set)
+{ 
 	Vec3 local_min = {1000.0, 1000.0, 1000.0};
 	Vec3 local_max = {0.0, 0.0, 0.0};
 
