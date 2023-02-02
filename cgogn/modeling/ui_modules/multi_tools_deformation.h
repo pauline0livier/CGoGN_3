@@ -813,7 +813,7 @@ private:
 
 		cdt->influence_area_ = &i_set;
 
-		cdt->set_influence_area(object, object_vertex_position, influence_set_);
+		//cdt->set_influence_area(object, object_vertex_position, influence_set_);
  
 		// simple version 
 		std::string cage_name = "influence_cage"; 

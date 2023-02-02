@@ -47,6 +47,7 @@ class CageDeformationTool : public SpaceDeformationTool<MESH>
 public:
 	MESH* control_cage_;
 	std::shared_ptr<Attribute<Vec3>> control_cage_vertex_position_;
+	std::shared_ptr<Attribute<Vec3>> influence_cage_vertex_position_;
 
 	Eigen::VectorXd attenuation_;
 
@@ -94,12 +95,36 @@ public:
 	void set_influence_cage(MESH& object, const CMap2::Attribute<Vec3>*  object_vertex_position, MESH* m, CMap2::Attribute<Vec3>* vertex_position){
 		influence_cage_ = m;
 
-		std::pair<Vec3, Vec3> influence_area_borders = cgogn::modeling::get_border_values_in_set(object, object_vertex_position, this->influence_area_); 
+		/*std::pair<Vec3, Vec3> influence_area_borders = cgogn::modeling::get_border_values_in_set(object, object_vertex_position, this->influence_area_); */
 
-		cgogn::modeling::create_bounding_box(*m, vertex_position, influence_area_borders.first, influence_area_borders.second);
+		// first simplification 3x control cage
+		std::tuple<Vec3, Vec3, Vec3> res_extended_bounding_box = cgogn::modeling::get_extended_bounding_box(control_cage_bb_min_, control_cage_bb_max_, 3.0); 
 
-		influence_cage_bb_min_ = influence_area_borders.first; 
-		influence_cage_bb_max_ = influence_area_borders.second; 
+		influence_cage_bb_min_ = std::get<0>(res_extended_bounding_box); 
+		influence_cage_bb_max_ = std::get<1>(res_extended_bounding_box); 
+
+		cgogn::modeling::create_bounding_box(*m, vertex_position, influence_cage_bb_min_, influence_cage_bb_max_);
+
+		influence_cage_vertex_position_ = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
+
+		std::shared_ptr<Attribute<bool>> marked_vertices =
+			cgogn::add_attribute<bool, Vertex>(*influence_cage_, "marked_vertices");
+		cgogn::modeling::set_attribute_marked_vertices(*influence_cage_, marked_vertices.get());
+
+		// update influence area 
+		foreach_cell(object, [&](Vertex v) -> bool {
+			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v); 
+
+			bool inside_cage = local_mvc_pt_surface(surface_point);
+
+			if (inside_cage)
+			{
+				this->influence_area_->select(v);
+			}
+
+			return true;
+		});
+		
 	}
 
 	void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
@@ -336,6 +361,48 @@ private:
 
 	Eigen::Matrix<Vec2, Eigen::Dynamic, Eigen::Dynamic> normal_weights_;
 
+	bool local_mvc_pt_surface(Vec3 pt)
+	{
+
+		std::shared_ptr<Attribute<bool>> cage_vertex_marked =
+			get_attribute<bool, Vertex>(*influence_cage_, "marked_vertices");
+
+		DartMarker dm(*influence_cage_);
+
+		bool checked = true;
+		for (Dart d = influence_cage_->begin(), end = influence_cage_->end(); d != end; d = influence_cage_->next(d))
+		{
+			Vertex cage_vertex = CMap2::Vertex(d);
+			bool vc_marked = value<bool>(*influence_cage_, cage_vertex_marked, cage_vertex);
+
+			if (!dm.is_marked(d) && !vc_marked)
+			{
+
+				const Vec3& cage_point =
+					value<Vec3>(*influence_cage_,influence_cage_vertex_position_, cage_vertex);
+
+				float mvc_value = cgogn::modeling::compute_mvc(pt, d, *influence_cage_, cage_point, influence_cage_vertex_position_.get());
+
+				dm.mark(d);
+
+				value<bool>(*influence_cage_, cage_vertex_marked, cage_vertex) = true;
+
+				if (mvc_value < 0)
+				{
+					checked = false;
+					break;
+				}
+			}
+		}
+
+		parallel_foreach_cell(*influence_cage_, [&](Vertex vc) -> bool {
+			value<bool>(*influence_cage_, cage_vertex_marked, vc) = false;
+			return true;
+		});
+
+		return checked;
+	}
+
 	// https://stackoverflow.com/questions/21037241/how-to-determine-a-point-is-inside-or-outside-a-cube
 	bool point_inside_cage(const Vec3& point)
 	{
@@ -379,7 +446,7 @@ private:
 		return true;
 	} ); 
 
-	std::cout << "size visible points " << visible_points.size() << std::endl; 
+	//std::cout << "size visible points " << visible_points.size() << std::endl; 
 
 		return visible_points;
 	}
