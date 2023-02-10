@@ -76,8 +76,8 @@ public:
 
 	std::string deformation_type_;
 
-	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> global_cage_coords_;
-	Eigen::Matrix<Vec2, Eigen::Dynamic, Eigen::Dynamic> global_cage_normal_coords_;
+	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> global_cage_coords_;
+	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> global_cage_normal_coords_;
 
 	GlobalCageDeformationTool() : global_cage_vertex_position_(nullptr)
 	{
@@ -99,41 +99,29 @@ public:
 			cgogn::add_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
 		cgogn::modeling::set_attribute_vertex_index(*global_cage_, vertex_index.get());
 
-		std::cout << "face index " << std::endl; 
+		/*std::shared_ptr<Attribute<uint32>> face_index = cgogn::add_attribute<uint32, Face>(*global_cage_, "face_index");
+		cgogn::modeling::set_attribute_face_index(*global_cage_, face_index.get());*/
 
-		std::shared_ptr<Attribute<uint32>> face_index =
-			cgogn::add_attribute<uint32, Face>(*global_cage_, "face_index");
-		cgogn::modeling::set_attribute_face_index(*global_cage_, face_index.get());
-
-		std::cout << "ok here" << std::endl; 
 		foreach_cell(*global_cage_, [&](Face fc) -> bool {
-			
-			std::cout << "ok loop inside" << std::endl; 
 			std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(*global_cage_, fc);
 
-			std::cout << "size face vertices " << face_vertices_.size() << std::endl;  
-
 			// triangle 1
-			std::vector<CMap2::Vertex> triangle1_vertex(3);  
-			triangle1_vertex[0] = face_vertices_[1]; 
-			triangle1_vertex[1] = face_vertices_[3]; 
+			std::vector<CMap2::Vertex> triangle1_vertex(3);
+			triangle1_vertex[0] = face_vertices_[1];
+			triangle1_vertex[1] = face_vertices_[3];
 			triangle1_vertex[2] = face_vertices_[0];
-
-			std::cout << "first triangle in" << std::endl; 
 
 			cage_triangles_.push_back(triangle1_vertex);
 
-			std::vector<CMap2::Vertex> triangle2_vertex(3); 
-			triangle2_vertex[0] = face_vertices_[1]; 
-			triangle2_vertex[1] = face_vertices_[2]; 
+			std::vector<CMap2::Vertex> triangle2_vertex(3);
+			triangle2_vertex[0] = face_vertices_[1];
+			triangle2_vertex[1] = face_vertices_[2];
 			triangle2_vertex[2] = face_vertices_[3];
-			
+
 			cage_triangles_.push_back(triangle2_vertex);
 
-			std::cout << "second triangle in" << std::endl; 
-
-			return true; 
-		});  
+			return true;
+		});
 	}
 
 	void update_global_cage(const Vec3& bb_min, const Vec3& bb_max)
@@ -157,75 +145,7 @@ public:
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
 			const uint32& surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
-			bool valid = compute_mvc_coordinates_on_point(surface_point, surface_point_idx);
-
-			return true;
-		});
-	}
-
-	void bind_mvc_old(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position)
-	{
-
-		uint32 nbv_object = nb_cells<Vertex>(object);
-
-		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
-
-		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "vertex_index");
-
-		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
-			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
-
-		std::shared_ptr<Attribute<bool>> cage_vertex_marked =
-			get_attribute<bool, Vertex>(*global_cage_, "marked_vertices");
-
-		global_cage_coords_.resize(nbv_object, nbv_cage);
-
-		foreach_cell(object, [&](Vertex v) -> bool {
-			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
-			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
-
-			DartMarker dm(*global_cage_);
-
-			float sumMVC = 0.0;
-			for (Dart d = global_cage_->begin(), end = global_cage_->end(); d != end; d = global_cage_->next(d))
-			{
-				Vertex cage_vertex = CMap2::Vertex(d);
-
-				bool vc_marked = value<bool>(*global_cage_, cage_vertex_marked, cage_vertex);
-
-				if (!dm.is_marked(d) && !vc_marked)
-				{
-
-					const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_vertex);
-					uint32 cage_point_idx = value<uint32>(*global_cage_, cage_vertex_index, cage_vertex);
-
-					float mvc_value = cgogn::modeling::compute_mvc(surface_point, d, *global_cage_, cage_point,
-																   global_cage_vertex_position_.get());
-
-					global_cage_coords_(surface_point_idx, cage_point_idx) = mvc_value;
-
-					dm.mark(d);
-
-					value<bool>(*global_cage_, cage_vertex_marked, cage_vertex) = true;
-
-					sumMVC += mvc_value;
-				}
-			}
-
-			// float sum_lambda = 0.0;
-
-			parallel_foreach_cell(*global_cage_, [&](Vertex vc) -> bool {
-				uint32 cage_point_idx2 = value<uint32>(*global_cage_, cage_vertex_index, vc);
-
-				global_cage_coords_(surface_point_idx, cage_point_idx2) =
-					global_cage_coords_(surface_point_idx, cage_point_idx2) / sumMVC;
-
-				// sum_lambda += global_cage_coords_(surface_point_idx, cage_point_idx2);
-
-				value<bool>(*global_cage_, cage_vertex_marked, vc) = false;
-
-				return true;
-			});
+			compute_mvc_coordinates_on_point(surface_point, surface_point_idx);
 
 			return true;
 		});
@@ -236,54 +156,11 @@ public:
 	{
 		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "vertex_index");
 
-		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
-			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
-
-		std::shared_ptr<Attribute<bool>> cage_vertex_marked =
-			get_attribute<bool, Vertex>(*global_cage_, "marked_vertices");
-
 		influence_area->foreach_cell([&](Vertex v) {
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
-			DartMarker dm(*global_cage_);
-
-			float sumMVC = 0.0;
-			for (Dart d = global_cage_->begin(), end = global_cage_->end(); d != end; d = global_cage_->next(d))
-			{
-				Vertex cage_vertex = CMap2::Vertex(d);
-
-				bool vc_marked = value<bool>(*global_cage_, cage_vertex_marked, cage_vertex);
-
-				if (!dm.is_marked(d) && !vc_marked)
-				{
-
-					const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_vertex);
-					uint32 cage_point_idx = value<uint32>(*global_cage_, cage_vertex_index, cage_vertex);
-
-					float mvc_value = cgogn::modeling::compute_mvc(surface_point, d, *global_cage_, cage_point,
-																   global_cage_vertex_position_.get());
-
-					global_cage_coords_(surface_point_idx, cage_point_idx) = mvc_value;
-
-					dm.mark(d);
-
-					value<bool>(*global_cage_, cage_vertex_marked, cage_vertex) = true;
-
-					sumMVC += mvc_value;
-				}
-			}
-
-			parallel_foreach_cell(*global_cage_, [&](Vertex vc) -> bool {
-				uint32 cage_point_idx2 = value<uint32>(*global_cage_, cage_vertex_index, vc);
-
-				global_cage_coords_(surface_point_idx, cage_point_idx2) =
-					global_cage_coords_(surface_point_idx, cage_point_idx2) / sumMVC;
-
-				value<bool>(*global_cage_, cage_vertex_marked, vc) = false;
-
-				return true;
-			});
+			compute_mvc_coordinates_on_point(surface_point, surface_point_idx);
 		});
 	}
 
@@ -296,56 +173,14 @@ public:
 		std::shared_ptr<GraphAttribute<uint32>> graph_vertex_index =
 			get_attribute<uint32, GraphVertex>(g, "vertex_index");
 
-		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
-			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
-
-		std::shared_ptr<Attribute<bool>> cage_vertex_marked =
-			get_attribute<bool, Vertex>(*global_cage_, "marked_vertices");
-
 		Eigen::VectorXf handle_weights;
 
 		handle_weights.resize(nbv_cage);
-		// handle_weights.setZero();
+		handle_weights.setZero();
 
 		const Vec3& graph_point = value<Vec3>(g, graph_vertex_position, handle_vertex);
 
-		DartMarker dm(*global_cage_);
-
-		float sumMVC = 0.0;
-		for (Dart d = global_cage_->begin(), end = global_cage_->end(); d != end; d = global_cage_->next(d))
-		{
-			Vertex cage_vertex = CMap2::Vertex(d);
-
-			bool vc_marked = value<bool>(*global_cage_, cage_vertex_marked, cage_vertex);
-
-			if (!dm.is_marked(d) && !vc_marked)
-			{
-
-				const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_vertex);
-				uint32 cage_point_idx = value<uint32>(*global_cage_, cage_vertex_index, cage_vertex);
-
-				float mvc_value = cgogn::modeling::compute_mvc(graph_point, d, *global_cage_, cage_point,
-															   global_cage_vertex_position_.get());
-
-				handle_weights[cage_point_idx] = mvc_value;
-
-				dm.mark(d);
-
-				value<bool>(*global_cage_, cage_vertex_marked, cage_vertex) = true;
-
-				sumMVC += mvc_value;
-			}
-		}
-
-		parallel_foreach_cell(*global_cage_, [&](Vertex vc) -> bool {
-			uint32 cage_point_idx2 = value<uint32>(*global_cage_, cage_vertex_index, vc);
-
-			handle_weights[cage_point_idx2] = handle_weights[cage_point_idx2] / sumMVC;
-
-			value<bool>(*global_cage_, cage_vertex_marked, vc) = false;
-
-			return true;
-		});
+		compute_mvc_coordinates_on_handle(graph_point, handle_weights);
 
 		return handle_weights;
 	}
@@ -353,159 +188,27 @@ public:
 	void bind_green(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position)
 	{
 
-		const Vec3 NULL_VECTOR(0.0, 0.0, 0);
-
 		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "vertex_index");
-
-		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
-			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
-
-		std::shared_ptr<Attribute<uint32>> cage_face_index = add_attribute<uint32, Face>(*global_cage_, "face_index");
-		uint32 nb_faces_cage = 0;
-		foreach_cell(*global_cage_, [&](Face f) -> bool {
-			value<uint32>(*global_cage_, cage_face_index, f) = nb_faces_cage++;
-			return true;
-		});
-
-		std::shared_ptr<Attribute<std::pair<Vec3, Vec3>>> cage_face_normal =
-			add_attribute<std::pair<Vec3, Vec3>, Face>(*global_cage_, "face_normal");
-
-		std::shared_ptr<Attribute<std::vector<Vec3>>> cage_face_edge =
-			add_attribute<std::vector<Vec3>, Face>(*global_cage_, "face_edge");
 
 		uint32 nbv_object = nb_cells<Vertex>(object);
 		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
-		uint32 nbf_cage = nb_cells<Face>(*global_cage_); // Warning valid only for square face (1 face = 2 triangles)
+		uint32 nbt_cage = cage_triangles_.size(); 
 
 		global_cage_coords_.resize(nbv_object, nbv_cage);
 		global_cage_coords_.setZero();
 
-		global_cage_normal_coords_.resize(nbv_object, nbf_cage);
+		global_cage_normal_coords_.resize(nbv_object, nbt_cage);
 		global_cage_normal_coords_.setZero();
+
+		cage_triangles_normal_.resize(nbt_cage);
+		cage_triangles_edge_.resize(nbt_cage);
 
 		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
-			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
-			foreach_cell(*global_cage_, [&](Face fc) -> bool {
-				uint32 cage_face_idx = value<uint32>(*global_cage_, cage_face_index, fc);
+			const uint32& surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
-				std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(*global_cage_, fc);
-
-				// triangle 1
-
-				const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[1], face_vertices_[3], face_vertices_[0]};
-				const std::vector<Vec3> t1_values = {
-					value<Vec3>(*global_cage_, global_cage_vertex_position_, triangle1[0]),
-					value<Vec3>(*global_cage_, global_cage_vertex_position_, triangle1[1]),
-					value<Vec3>(*global_cage_, global_cage_vertex_position_, triangle1[2])};
-
-				Vec3 t1_normal = (cgogn::geometry::normal(t1_values[0], t1_values[1], t1_values[2])).normalized();
-
-				// triangle 2
-				const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[1], face_vertices_[2], face_vertices_[3]};
-				const std::vector<Vec3> t2_values = {
-					value<Vec3>(*global_cage_, global_cage_vertex_position_, triangle2[0]),
-					value<Vec3>(*global_cage_, global_cage_vertex_position_, triangle2[1]),
-					value<Vec3>(*global_cage_, global_cage_vertex_position_, triangle2[2])};
-
-				Vec3 t2_normal = (cgogn::geometry::normal(t2_values[0], t2_values[1], t2_values[2])).normalized();
-
-				value<std::pair<Vec3, Vec3>>(*global_cage_, cage_face_normal, fc) = {t1_normal, t2_normal};
-
-				value<std::vector<Vec3>>(*global_cage_, cage_face_edge,
-										 fc) = {t1_values[1] - t1_values[0], t1_values[2] - t1_values[1],
-												t2_values[1] - t2_values[0], t2_values[2] - t2_values[1]};
-
-				std::vector<Vec3> t1_vj(3);
-				std::vector<Vec3> t2_vj(3);
-				for (size_t l = 0; l < 3; ++l)
-				{
-					t1_vj[l] = t1_values[l] - surface_point;
-					t2_vj[l] = t2_values[l] - surface_point;
-				}
-
-				const Vec3 t1_p_ = (t1_vj[0].dot(t1_normal)) * t1_normal;
-				const Vec3 t2_p_ = (t2_vj[0].dot(t2_normal)) * t2_normal;
-
-				Vec3 t1_I = {0.0, 0.0, 0.0};
-				std::vector<double> t1_II(3);
-				Vec3 t1_s = {0.0, 0.0, 0.0};
-				std::vector<Vec3> t1_N(3);
-
-				Vec3 t2_I = {0.0, 0.0, 0.0};
-				std::vector<double> t2_II(3);
-				Vec3 t2_s = {0.0, 0.0, 0.0};
-				std::vector<Vec3> t2_N(3);
-
-				for (size_t k = 0; k < 3; ++k)
-				{
-					const Vec3 t1_v0 = t1_vj[k];
-					const Vec3 t1_v1 = t1_vj[(k + 1) % 3];
-
-					const auto t1_vjpt = ((t1_v0 - t1_p_).cross((t1_v1 - t1_p_))).dot(t1_normal);
-					t1_s[k] = t1_vjpt < 0 ? -1.0 : 1.0;
-
-					t1_I[k] = cgogn::modeling::GCTriInt2(t1_p_, t1_v0, t1_v1);
-					t1_II[k] = cgogn::modeling::GCTriInt2(NULL_VECTOR, t1_v1, t1_v0);
-					t1_N[k] = (t1_v1.cross(t1_v0)).normalized();
-
-					const Vec3 t2_v0 = t2_vj[k];
-					const Vec3 t2_v1 = t2_vj[(k + 1) % 3];
-
-					const auto t2_vjpt = ((t2_v0 - t2_p_).cross((t2_v1 - t2_p_))).dot(t2_normal);
-					t2_s[k] = t2_vjpt < 0 ? -1.0 : 1.0;
-
-					t2_I[k] = cgogn::modeling::GCTriInt2(t2_p_, t2_v0, t2_v1);
-					t2_II[k] = cgogn::modeling::GCTriInt2(NULL_VECTOR, t2_v1, t2_v0);
-					t2_N[k] = (t2_v1.cross(t2_v0)).normalized();
-				}
-
-				const auto t1_I_ = -abs(t1_s.dot(t1_I));
-				const auto t2_I_ = -abs(t2_s.dot(t2_I));
-
-				global_cage_normal_coords_(surface_point_idx, cage_face_idx) = {-t1_I_, -t2_I_};
-
-				Vec3 t1_w = t1_I_ * t1_normal;
-				Vec3 t2_w = t2_I_ * t2_normal;
-				for (size_t a = 0; a < 3; ++a)
-				{
-					t1_w += (t1_II[a] * t1_N[a]);
-					t2_w += (t2_II[a] * t2_N[a]);
-				}
-
-				if (t1_w.norm() > DBL_EPSILON)
-				{
-					for (size_t l = 0; l < 3; l++)
-					{
-						const uint32 cage_vertex_idx = value<uint32>(*global_cage_, cage_vertex_index, triangle1[l]);
-
-						const auto Nl1 = t1_N[(l + 1) % 3];
-						const auto num = Nl1.dot(t1_w);
-						const auto denom = Nl1.dot(t1_vj[l]);
-
-						global_cage_coords_(surface_point_idx, cage_vertex_idx) =
-							global_cage_coords_(surface_point_idx, cage_vertex_idx) + num / denom;
-					}
-				}
-
-				if (t2_w.norm() > DBL_EPSILON)
-				{
-					for (size_t l = 0; l < 3; l++)
-					{
-						const uint32 cage_vertex_idx = value<uint32>(*global_cage_, cage_vertex_index, triangle2[l]);
-
-						const auto Nl1 = t2_N[(l + 1) % 3];
-						const auto num = Nl1.dot(t2_w);
-						const auto denom = Nl1.dot(t2_vj[l]);
-
-						global_cage_coords_(surface_point_idx, cage_vertex_idx) =
-							global_cage_coords_(surface_point_idx, cage_vertex_idx) + num / denom;
-					}
-				}
-
-				return true;
-			});
+			compute_green_coordinates_on_point(surface_point, surface_point_idx); 
 
 			return true;
 		});
@@ -574,11 +277,6 @@ public:
 		std::shared_ptr<Attribute<uint32>> cage_face_index =
 			cgogn::get_attribute<uint32, Face>(*global_cage_, "face_index");
 
-		std::shared_ptr<Attribute<std::vector<Vec3>>> cage_face_normal =
-			cgogn::get_attribute<std::vector<Vec3>, Face>(*global_cage_, "face_normal");
-
-		std::shared_ptr<Attribute<std::vector<Vec3>>> cage_face_edge =
-			cgogn::get_attribute<std::vector<Vec3>, Face>(*global_cage_, "face_edge");
 
 		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
@@ -599,60 +297,29 @@ public:
 
 			Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
 
-			foreach_cell(*global_cage_, [&](Face cf) -> bool {
-				uint32 cage_face_idx = value<uint32>(*global_cage_, cage_face_index, cf);
+			for (uint t = 0; t < cage_triangles_.size(); t++){
 
-				std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(*global_cage_, cf);
+				std::vector<Vec3> triangle_position(3);
+				for (uint i = 0; i < 3; i++)
+				{
+					triangle_position[i] = value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_triangles_[t][i]);
+				}
 
-				const std::vector<CMap2::Vertex> triangle1 = {face_vertices_[1], face_vertices_[3], face_vertices_[0]};
+				const Vec3 t_normal = cage_triangles_normal_[t]; 
+				const auto t_u0 = cage_triangles_edge_[t].first;
+				const auto t_v0 = cage_triangles_edge_[t].second;
 
-				const std::vector<Vec3> t1_values = {
-					value<Vec3>(*global_cage_, global_cage_vertex_position_, triangle1[0]),
-					value<Vec3>(*global_cage_, global_cage_vertex_position_, triangle1[1]),
-					value<Vec3>(*global_cage_, global_cage_vertex_position_, triangle1[2])};
+				const auto t_u1 = triangle_position[1] - triangle_position[0];
+				const auto t_v1 = triangle_position[2] - triangle_position[1];
 
-				const std::vector<CMap2::Vertex> triangle2 = {face_vertices_[1], face_vertices_[2], face_vertices_[3]};
-
-				const std::vector<Vec3> t2_values = {
-					value<Vec3>(*global_cage_, global_cage_vertex_position_, triangle2[0]),
-					value<Vec3>(*global_cage_, global_cage_vertex_position_, triangle2[1]),
-					value<Vec3>(*global_cage_, global_cage_vertex_position_, triangle2[2])};
-
-				const auto t1_normal = value<std::vector<Vec3>>(*global_cage_, cage_face_normal, cf)[0];
-				const auto t2_normal = value<std::vector<Vec3>>(*global_cage_, cage_face_normal, cf)[1];
-
-				// update triangle 1
-				const auto t1_u0 = value<std::vector<Vec3>>(*global_cage_, cage_face_edge, cf)[0];
-				const auto t1_v0 = value<std::vector<Vec3>>(*global_cage_, cage_face_edge, cf)[1];
-
-				const auto t1_u1 = t1_values[1] - t1_values[0];
-				const auto t1_v1 = t1_values[2] - t1_values[1];
-
-				const auto area_face = (t1_u0.cross(t1_v0)).norm() * 0.5;
-
-				double t1_sj =
-					sqrt((t1_u1.squaredNorm()) * (t1_v0.squaredNorm()) - 2.0 * (t1_u1.dot(t1_v1)) * (t1_u0.dot(t1_v0)) +
-						 (t1_v1.squaredNorm()) * (t1_u0.squaredNorm())) /
+				const auto area_face = (t_u0.cross(t_v0)).norm() * 0.5;
+				double t_sj =
+					sqrt((t_u1.squaredNorm()) * (t_v0.squaredNorm()) - 2.0 * (t_u1.dot(t_v1)) * (t_u0.dot(t_v0)) +
+						 (t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
 					(sqrt8 * area_face);
 
-				new_norm_update_ += global_cage_normal_coords_(vidx, cage_face_idx)[0] * t1_sj * t1_normal;
-
-				// update triangle 2
-				const auto t2_u0 = value<std::vector<Vec3>>(*global_cage_, cage_face_edge, cf)[2];
-				const auto t2_v0 = value<std::vector<Vec3>>(*global_cage_, cage_face_edge, cf)[3];
-
-				const auto t2_u1 = t2_values[1] - t2_values[0];
-				const auto t2_v1 = t2_values[2] - t2_values[1];
-
-				double t2_sj =
-					sqrt((t2_u1.squaredNorm()) * (t2_v0.squaredNorm()) - 2.0 * (t2_u1.dot(t2_v1)) * (t2_u0.dot(t2_v0)) +
-						 (t2_v1.squaredNorm()) * (t2_u0.squaredNorm())) /
-					(sqrt8 * area_face);
-
-				new_norm_update_ += global_cage_normal_coords_(vidx, cage_face_idx)[1] * t2_sj * t2_normal;
-
-				return true;
-			});
+				new_norm_update_ += global_cage_normal_coords_(vidx, t)* t_sj * t_normal;
+			}
 
 			value<Vec3>(object, object_vertex_position, v) = new_pos_update_ + new_norm_update_;
 
@@ -662,29 +329,27 @@ public:
 
 private:
 	std::vector<CMap2::Vertex> vertices_;
-	std::vector<std::vector<CMap2::Vertex>> cage_triangles_; 
+	std::vector<std::vector<CMap2::Vertex>> cage_triangles_;
+	std::vector<Vec3> cage_triangles_normal_;
+	std::vector<std::pair<Vec3, Vec3>> cage_triangles_edge_;
 
 	bool compute_mvc_coordinates_on_point(const Vec3& surface_point, const uint32& surface_point_idx)
 	{
 
 		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
-		uint32 nbf_cage = nb_cells<Face>(*global_cage_);
 
 		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
 			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
 
-		std::shared_ptr<Attribute<uint32>> cage_face_index =
-			cgogn::get_attribute<uint32, Face>(*global_cage_, "face_index");
-
 		double epsilon = 0.00000001;
-		double sumWeights = 0.0; 
+		double sumWeights = 0.0;
 
 		Eigen::VectorXd w_global_cage_coords_;
 
 		w_global_cage_coords_.resize(nbv_cage);
 		w_global_cage_coords_.setZero();
 
-		std::vector<double> d(nbv_cage); 
+		std::vector<double> d(nbv_cage);
 		std::vector<Vec3> u(nbv_cage);
 
 		parallel_foreach_cell(*global_cage_, [&](Vertex v) -> bool {
@@ -704,68 +369,79 @@ private:
 			return true;
 		});
 
-		double l[3]; 
-		double theta[3]; 
-		double w[3];  
-		double c[3]; 
-		double s[3]; 
+		double l[3];
+		double theta[3];
+		double w[3];
+		double c[3];
+		double s[3];
 
-		for (uint t = 0; t < cage_triangles_.size(); t++){
+		for (uint t = 0; t < cage_triangles_.size(); t++)
+		{
 
 			std::vector<uint32> triangle_index(3);
-			for (uint i = 0; i < 3; i++){
-				triangle_index[i] = value<uint32>(*global_cage_, cage_vertex_index, cage_triangles_[t][i]); 
+			for (uint i = 0; i < 3; i++)
+			{
+				triangle_index[i] = value<uint32>(*global_cage_, cage_vertex_index, cage_triangles_[t][i]);
 			}
 
-			for (uint i = 0; i < 3; i++){
-				l[i] = (u[triangle_index[(i+1)%3]] - u[triangle_index[(i+2)%3]]).norm(); 
+			for (uint i = 0; i < 3; i++)
+			{
+				l[i] = (u[triangle_index[(i + 1) % 3]] - u[triangle_index[(i + 2) % 3]]).norm();
 			}
 
-			for (uint i = 0; i < 3; i++){
-				theta[i] = 2.0 * asin( l[i] / 2.0 );
+			for (uint i = 0; i < 3; i++)
+			{
+				theta[i] = 2.0 * asin(l[i] / 2.0);
 			}
 
-			double h = (theta[0] + theta[1] + theta[2] ) / 2.0;
-			if (M_PI - h < epsilon){
-				for (uint i = 0; i < 3; i++){
-					w[ i ] = sin( theta[ i ] ) * l[ (i+2) % 3 ] * l[ (i+1) % 3 ];
+			double h = (theta[0] + theta[1] + theta[2]) / 2.0;
+			if (M_PI - h < epsilon)
+			{
+				for (uint i = 0; i < 3; i++)
+				{
+					w[i] = sin(theta[i]) * l[(i + 2) % 3] * l[(i + 1) % 3];
 				}
 
 				sumWeights = w[0] + w[1] + w[2];
-				w_global_cage_coords_[triangle_index[0]] = w[0]/sumWeights;
-				w_global_cage_coords_[triangle_index[1]] = w[1]/sumWeights;
-				w_global_cage_coords_[triangle_index[2]] = w[2]/sumWeights; 
+				w_global_cage_coords_[triangle_index[0]] = w[0] / sumWeights;
+				w_global_cage_coords_[triangle_index[1]] = w[1] / sumWeights;
+				w_global_cage_coords_[triangle_index[2]] = w[2] / sumWeights;
 
-				return true; 
-
+				return true;
 			}
 
-			for (uint i = 0; i < 3; i ++){
-				c[i] = ( 2.0 * sin(h) * sin(h - theta[ i ]) ) / ( sin(theta[ (i+1) % 3 ]) * sin(theta[ (i+2) % 3 ]) ) - 1.0;
+			for (uint i = 0; i < 3; i++)
+			{
+				c[i] = (2.0 * sin(h) * sin(h - theta[i])) / (sin(theta[(i + 1) % 3]) * sin(theta[(i + 2) % 3])) - 1.0;
 			}
 
 			double sign_Basis_u0u1u2 = 1;
-			Vec3 crossVec = u[triangle_index[0]].cross(u[triangle_index[1]]); 
-			if (crossVec.dot(u[triangle_index[2]]) < 0.0){
-				sign_Basis_u0u1u2 = -1; 
+			Vec3 crossVec = u[triangle_index[0]].cross(u[triangle_index[1]]);
+			if (crossVec.dot(u[triangle_index[2]]) < 0.0)
+			{
+				sign_Basis_u0u1u2 = -1;
 			}
 
-			for (uint i = 0; i < 3; i++){
-				s[i] = sign_Basis_u0u1u2 * sqrt( std::max<double>( 0.0 , 1.0 - c[ i ] * c[ i ] ) );
+			for (uint i = 0; i < 3; i++)
+			{
+				s[i] = sign_Basis_u0u1u2 * sqrt(std::max<double>(0.0, 1.0 - c[i] * c[i]));
 			}
 
-        	if( fabs( s[0] ) < epsilon   ||   fabs( s[1] ) < epsilon   ||   fabs( s[2] ) < epsilon ) {
-				continue; // eta is on the same plane, outside t  ->  ignore triangle t :  
-			} 
-			
-        	for( uint i = 0 ; i < 3 ; ++i ){
-				w[ i ] = ( theta[ i ] - c[ (i+1)% 3 ]*theta[ (i+2) % 3 ] - c[ (i+2) % 3 ]*theta[ (i+1) % 3 ] ) / ( 2.0 * d[ triangle_index[i] ] * sin( theta[ (i+1) % 3 ] ) * s[ (i+2) % 3 ] );
-			} 
+			if (fabs(s[0]) < epsilon || fabs(s[1]) < epsilon || fabs(s[2]) < epsilon)
+			{
+				continue; // eta is on the same plane, outside t  ->  ignore triangle t :
+			}
 
-        	sumWeights += ( w[0] + w[1] + w[2] );
-        	w_global_cage_coords_[ triangle_index[0] ] += w[0];
-        	w_global_cage_coords_[ triangle_index[1] ] += w[1];
-        	w_global_cage_coords_[ triangle_index[2] ] += w[2];
+			for (uint i = 0; i < 3; ++i)
+			{
+				w[i] = (theta[i] - c[(i + 1) % 3] * theta[(i + 2) % 3] - c[(i + 2) % 3] * theta[(i + 1) % 3]) /
+					   (2.0 * d[triangle_index[i]] * sin(theta[(i + 1) % 3]) * s[(i + 2) % 3]);
+			}
+
+			sumWeights += (w[0] + w[1] + w[2]);
+			w_global_cage_coords_[triangle_index[0]] += w[0];
+			w_global_cage_coords_[triangle_index[1]] += w[1];
+			w_global_cage_coords_[triangle_index[2]] += w[2];
 		}
 
 		parallel_foreach_cell(*global_cage_, [&](Vertex v) -> bool {
@@ -773,10 +449,209 @@ private:
 
 			global_cage_coords_(surface_point_idx, cage_point_idx) = w_global_cage_coords_[cage_point_idx] / sumWeights;
 
-				return true;
+			return true;
 		});
 
 		return false;
+	}
+
+	bool compute_mvc_coordinates_on_handle(const Vec3& handle_point, Eigen::VectorXf& handle_weights)
+	{
+		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
+
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
+
+		double epsilon = 0.00000001;
+		double sumWeights = 0.0;
+
+		Eigen::VectorXd w_global_cage_coords_;
+
+		w_global_cage_coords_.resize(nbv_cage);
+		w_global_cage_coords_.setZero();
+
+		std::vector<double> d(nbv_cage);
+		std::vector<Vec3> u(nbv_cage);
+
+		parallel_foreach_cell(*global_cage_, [&](Vertex v) -> bool {
+			const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, v);
+
+			uint32 cage_point_idx = value<uint32>(*global_cage_, cage_vertex_index, v);
+
+			d[cage_point_idx] = (handle_point - cage_point).norm();
+			if (d[cage_point_idx] < epsilon)
+			{
+				handle_weights[cage_point_idx] = 1.0;
+				return true;
+			}
+
+			u[cage_point_idx] = (cage_point - handle_point) / d[cage_point_idx];
+
+			return true;
+		});
+
+		double l[3];
+		double theta[3];
+		double w[3];
+		double c[3];
+		double s[3];
+
+		for (uint t = 0; t < cage_triangles_.size(); t++)
+		{
+
+			std::vector<uint32> triangle_index(3);
+			for (uint i = 0; i < 3; i++)
+			{
+				triangle_index[i] = value<uint32>(*global_cage_, cage_vertex_index, cage_triangles_[t][i]);
+			}
+
+			for (uint i = 0; i < 3; i++)
+			{
+				l[i] = (u[triangle_index[(i + 1) % 3]] - u[triangle_index[(i + 2) % 3]]).norm();
+			}
+
+			for (uint i = 0; i < 3; i++)
+			{
+				theta[i] = 2.0 * asin(l[i] / 2.0);
+			}
+
+			double h = (theta[0] + theta[1] + theta[2]) / 2.0;
+			if (M_PI - h < epsilon)
+			{
+				for (uint i = 0; i < 3; i++)
+				{
+					w[i] = sin(theta[i]) * l[(i + 2) % 3] * l[(i + 1) % 3];
+				}
+
+				sumWeights = w[0] + w[1] + w[2];
+				w_global_cage_coords_[triangle_index[0]] = w[0] / sumWeights;
+				w_global_cage_coords_[triangle_index[1]] = w[1] / sumWeights;
+				w_global_cage_coords_[triangle_index[2]] = w[2] / sumWeights;
+
+				return true;
+			}
+
+			for (uint i = 0; i < 3; i++)
+			{
+				c[i] = (2.0 * sin(h) * sin(h - theta[i])) / (sin(theta[(i + 1) % 3]) * sin(theta[(i + 2) % 3])) - 1.0;
+			}
+
+			double sign_Basis_u0u1u2 = 1;
+			Vec3 crossVec = u[triangle_index[0]].cross(u[triangle_index[1]]);
+			if (crossVec.dot(u[triangle_index[2]]) < 0.0)
+			{
+				sign_Basis_u0u1u2 = -1;
+			}
+
+			for (uint i = 0; i < 3; i++)
+			{
+				s[i] = sign_Basis_u0u1u2 * sqrt(std::max<double>(0.0, 1.0 - c[i] * c[i]));
+			}
+
+			if (fabs(s[0]) < epsilon || fabs(s[1]) < epsilon || fabs(s[2]) < epsilon)
+			{
+				continue; // eta is on the same plane, outside t  ->  ignore triangle t :
+			}
+
+			for (uint i = 0; i < 3; ++i)
+			{
+				w[i] = (theta[i] - c[(i + 1) % 3] * theta[(i + 2) % 3] - c[(i + 2) % 3] * theta[(i + 1) % 3]) /
+					   (2.0 * d[triangle_index[i]] * sin(theta[(i + 1) % 3]) * s[(i + 2) % 3]);
+			}
+
+			sumWeights += (w[0] + w[1] + w[2]);
+			w_global_cage_coords_[triangle_index[0]] += w[0];
+			w_global_cage_coords_[triangle_index[1]] += w[1];
+			w_global_cage_coords_[triangle_index[2]] += w[2];
+		}
+
+		parallel_foreach_cell(*global_cage_, [&](Vertex v) -> bool {
+			uint32 cage_point_idx = value<uint32>(*global_cage_, cage_vertex_index, v);
+
+			handle_weights[cage_point_idx] = w_global_cage_coords_[cage_point_idx] / sumWeights;
+
+			return true;
+		});
+
+		return false;
+	}
+
+	// GREEN
+	void compute_green_coordinates_on_point(const Vec3& surface_point, const uint32& surface_point_idx)
+	{
+		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
+
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
+
+		const Vec3 NULL_VECTOR(0.0, 0.0, 0);
+
+		for (uint t = 0; t < cage_triangles_.size(); t++)
+		{
+			std::vector<Vec3> triangle_position(3);
+			for (uint i = 0; i < 3; i++)
+			{
+				triangle_position[i] = value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_triangles_[t][i]);
+			}
+
+			const Vec3 t_normal = (cgogn::geometry::normal(triangle_position[0], triangle_position[1], triangle_position[2])).normalized();
+			cage_triangles_normal_[t] = t_normal; 
+
+			cage_triangles_edge_[t].first = triangle_position[1] - triangle_position[0]; 
+			cage_triangles_edge_[t].second = triangle_position[2] - triangle_position[1];
+
+			std::vector<Vec3> t_vj(3);
+			for (uint l = 0; l < 3; ++l)
+			{
+				t_vj[l] = triangle_position[l] - surface_point;
+			}
+
+			const Vec3 t_p_ = (t_vj[0].dot(t_normal)) * t_normal;
+
+			Vec3 t_I = {0.0, 0.0, 0.0};
+			std::vector<double> t_II(3);
+			Vec3 t_s = {0.0, 0.0, 0.0};
+			std::vector<Vec3> t_N(3);
+
+			for (uint l = 0; l < 3; ++l)
+			{
+				const Vec3 t_v0 = t_vj[l];
+				const Vec3 t_v1 = t_vj[(l + 1) % 3];
+
+				const auto t_vjpt = ((t_v0 - t_p_).cross((t_v1 - t_p_))).dot(t_normal);
+				t_s[l] = t_vjpt < 0 ? -1.0 : 1.0;
+
+				t_I[l] = cgogn::modeling::GCTriInt2(t_p_, t_v0, t_v1);
+				t_II[l] = cgogn::modeling::GCTriInt2(NULL_VECTOR, t_v1, t_v0);
+				t_N[l] = (t_v1.cross(t_v0)).normalized();
+			}
+
+			const auto t_I_ = -abs(t_s.dot(t_I));
+
+			global_cage_normal_coords_(surface_point_idx, t) = -t_I_;
+
+			Vec3 t_w = t_I_ * t_normal;
+			
+			for (uint k = 0; k < 3; ++k)
+			{
+				t_w += (t_II[k] * t_N[k]);
+			}
+
+			if (t_w.norm() > DBL_EPSILON)
+			{
+				for (size_t l = 0; l < 3; l++)
+				{
+					const uint32 cage_vertex_idx = value<uint32>(*global_cage_, cage_vertex_index, cage_triangles_[t][l]);
+
+					const auto Nl = t_N[(l + 1) % 3];
+					const auto num = Nl.dot(t_w);
+					const auto denom = Nl.dot(t_vj[l]);
+
+					global_cage_coords_(surface_point_idx, cage_vertex_idx) =
+						global_cage_coords_(surface_point_idx, cage_vertex_idx) + num / denom;
+				}
+			}
+		}
 	}
 };
 
