@@ -99,8 +99,8 @@ public:
 			cgogn::add_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
 		cgogn::modeling::set_attribute_vertex_index(*global_cage_, vertex_index.get());
 
-		/*std::shared_ptr<Attribute<uint32>> face_index = cgogn::add_attribute<uint32, Face>(*global_cage_, "face_index");
-		cgogn::modeling::set_attribute_face_index(*global_cage_, face_index.get());*/
+		/*std::shared_ptr<Attribute<uint32>> face_index = cgogn::add_attribute<uint32, Face>(*global_cage_,
+		"face_index"); cgogn::modeling::set_attribute_face_index(*global_cage_, face_index.get());*/
 
 		foreach_cell(*global_cage_, [&](Face fc) -> bool {
 			std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(*global_cage_, fc);
@@ -192,7 +192,7 @@ public:
 
 		uint32 nbv_object = nb_cells<Vertex>(object);
 		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
-		uint32 nbt_cage = cage_triangles_.size(); 
+		uint32 nbt_cage = cage_triangles_.size();
 
 		global_cage_coords_.resize(nbv_object, nbv_cage);
 		global_cage_coords_.setZero();
@@ -208,10 +208,38 @@ public:
 
 			const uint32& surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
-			compute_green_coordinates_on_point(surface_point, surface_point_idx); 
+			compute_green_coordinates_on_point(surface_point, surface_point_idx);
 
 			return true;
 		});
+	}
+
+	// TO TEST
+	std::pair<Eigen::VectorXf, Eigen::VectorXf> bind_green_handle(Graph& g, std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
+						   Graph::Vertex handle_vertex)
+	{
+
+		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
+		uint32 nbt_cage = cage_triangles_.size();
+
+		Eigen::VectorXf handle_weights;
+		Eigen::VectorXf handle_normal_weights;
+
+		handle_weights.resize(nbv_cage);
+		handle_weights.setZero();
+
+		handle_normal_weights.resize(nbt_cage);
+		handle_normal_weights.setZero();
+
+		// check if already computed or not => perhaps to compute by default
+		cage_triangles_normal_.resize(nbt_cage);
+		cage_triangles_edge_.resize(nbt_cage);
+
+		const Vec3& graph_point = value<Vec3>(g, graph_vertex_position, handle_vertex);
+
+		compute_green_coordinates_on_handle(graph_point, handle_weights, handle_normal_weights);
+
+		return std::make_pair(handle_weights, handle_normal_weights);
 	}
 
 	void update_mvc(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position)
@@ -277,7 +305,6 @@ public:
 		std::shared_ptr<Attribute<uint32>> cage_face_index =
 			cgogn::get_attribute<uint32, Face>(*global_cage_, "face_index");
 
-
 		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
@@ -297,15 +324,17 @@ public:
 
 			Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
 
-			for (uint t = 0; t < cage_triangles_.size(); t++){
+			for (uint t = 0; t < cage_triangles_.size(); t++)
+			{
 
 				std::vector<Vec3> triangle_position(3);
 				for (uint i = 0; i < 3; i++)
 				{
-					triangle_position[i] = value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_triangles_[t][i]);
+					triangle_position[i] =
+						value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_triangles_[t][i]);
 				}
 
-				const Vec3 t_normal = cage_triangles_normal_[t]; 
+				const Vec3 t_normal = cage_triangles_normal_[t];
 				const auto t_u0 = cage_triangles_edge_[t].first;
 				const auto t_v0 = cage_triangles_edge_[t].second;
 
@@ -318,7 +347,7 @@ public:
 						 (t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
 					(sqrt8 * area_face);
 
-				new_norm_update_ += global_cage_normal_coords_(vidx, t)* t_sj * t_normal;
+				new_norm_update_ += global_cage_normal_coords_(vidx, t) * t_sj * t_normal;
 			}
 
 			value<Vec3>(object, object_vertex_position, v) = new_pos_update_ + new_norm_update_;
@@ -594,10 +623,12 @@ private:
 				triangle_position[i] = value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_triangles_[t][i]);
 			}
 
-			const Vec3 t_normal = (cgogn::geometry::normal(triangle_position[0], triangle_position[1], triangle_position[2])).normalized();
-			cage_triangles_normal_[t] = t_normal; 
+			const Vec3 t_normal =
+				(cgogn::geometry::normal(triangle_position[0], triangle_position[1], triangle_position[2]))
+					.normalized();
+			cage_triangles_normal_[t] = t_normal;
 
-			cage_triangles_edge_[t].first = triangle_position[1] - triangle_position[0]; 
+			cage_triangles_edge_[t].first = triangle_position[1] - triangle_position[0];
 			cage_triangles_edge_[t].second = triangle_position[2] - triangle_position[1];
 
 			std::vector<Vec3> t_vj(3);
@@ -631,7 +662,7 @@ private:
 			global_cage_normal_coords_(surface_point_idx, t) = -t_I_;
 
 			Vec3 t_w = t_I_ * t_normal;
-			
+
 			for (uint k = 0; k < 3; ++k)
 			{
 				t_w += (t_II[k] * t_N[k]);
@@ -641,7 +672,8 @@ private:
 			{
 				for (size_t l = 0; l < 3; l++)
 				{
-					const uint32 cage_vertex_idx = value<uint32>(*global_cage_, cage_vertex_index, cage_triangles_[t][l]);
+					const uint32 cage_vertex_idx =
+						value<uint32>(*global_cage_, cage_vertex_index, cage_triangles_[t][l]);
 
 					const auto Nl = t_N[(l + 1) % 3];
 					const auto num = Nl.dot(t_w);
@@ -649,6 +681,86 @@ private:
 
 					global_cage_coords_(surface_point_idx, cage_vertex_idx) =
 						global_cage_coords_(surface_point_idx, cage_vertex_idx) + num / denom;
+				}
+			}
+		}
+	}
+
+	void compute_green_coordinates_on_handle(const Vec3& handle_point, Eigen::VectorXf& handle_weights,
+											 Eigen::VectorXf& handle_normal_weights)
+	{
+		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
+
+		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
+
+		const Vec3 NULL_VECTOR(0.0, 0.0, 0);
+
+		for (uint t = 0; t < cage_triangles_.size(); t++)
+		{
+			std::vector<Vec3> triangle_position(3);
+			for (uint i = 0; i < 3; i++)
+			{
+				triangle_position[i] = value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_triangles_[t][i]);
+			}
+
+			const Vec3 t_normal =
+				(cgogn::geometry::normal(triangle_position[0], triangle_position[1], triangle_position[2]))
+					.normalized();
+			cage_triangles_normal_[t] = t_normal;
+
+			cage_triangles_edge_[t].first = triangle_position[1] - triangle_position[0];
+			cage_triangles_edge_[t].second = triangle_position[2] - triangle_position[1];
+
+			std::vector<Vec3> t_vj(3);
+			for (uint l = 0; l < 3; ++l)
+			{
+				t_vj[l] = triangle_position[l] - handle_point;
+			}
+
+			const Vec3 t_p_ = (t_vj[0].dot(t_normal)) * t_normal;
+
+			Vec3 t_I = {0.0, 0.0, 0.0};
+			std::vector<double> t_II(3);
+			Vec3 t_s = {0.0, 0.0, 0.0};
+			std::vector<Vec3> t_N(3);
+
+			for (uint l = 0; l < 3; ++l)
+			{
+				const Vec3 t_v0 = t_vj[l];
+				const Vec3 t_v1 = t_vj[(l + 1) % 3];
+
+				const auto t_vjpt = ((t_v0 - t_p_).cross((t_v1 - t_p_))).dot(t_normal);
+				t_s[l] = t_vjpt < 0 ? -1.0 : 1.0;
+
+				t_I[l] = cgogn::modeling::GCTriInt2(t_p_, t_v0, t_v1);
+				t_II[l] = cgogn::modeling::GCTriInt2(NULL_VECTOR, t_v1, t_v0);
+				t_N[l] = (t_v1.cross(t_v0)).normalized();
+			}
+
+			const auto t_I_ = -abs(t_s.dot(t_I));
+
+			handle_normal_weights[t] = -t_I_;
+
+			Vec3 t_w = t_I_ * t_normal;
+
+			for (uint k = 0; k < 3; ++k)
+			{
+				t_w += (t_II[k] * t_N[k]);
+			}
+
+			if (t_w.norm() > DBL_EPSILON)
+			{
+				for (size_t l = 0; l < 3; l++)
+				{
+					const uint32 cage_vertex_idx =
+						value<uint32>(*global_cage_, cage_vertex_index, cage_triangles_[t][l]);
+
+					const auto Nl = t_N[(l + 1) % 3];
+					const auto num = Nl.dot(t_w);
+					const auto denom = Nl.dot(t_vj[l]);
+
+					handle_weights[cage_vertex_idx] = handle_weights[cage_vertex_idx] + num / denom;
 				}
 			}
 		}
