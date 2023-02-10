@@ -109,13 +109,13 @@ public:
 				if (d < d_x_min)
 				{
 					d_x_min = d;
-					control_cage_face_d_x_min_ = f; 
+					control_cage_face_d_x_min_ = f;
 				}
 
 				if (d > d_x_max)
 				{
 					d_x_max = d;
-					control_cage_face_d_x_max_ = f; 
+					control_cage_face_d_x_max_ = f;
 				}
 			}
 			else if (normal.dot(y_dir) != 0.0)
@@ -124,13 +124,13 @@ public:
 				if (d < d_y_min)
 				{
 					d_y_min = d;
-					control_cage_face_d_y_min_ = f; 
+					control_cage_face_d_y_min_ = f;
 				}
 
 				if (d > d_y_max)
 				{
 					d_y_max = d;
-					control_cage_face_d_y_min_ = f; 
+					control_cage_face_d_y_min_ = f;
 				}
 			}
 			else
@@ -139,13 +139,13 @@ public:
 				if (d < d_z_min)
 				{
 					d_z_min = d;
-					control_cage_face_d_z_min_ = f; 
+					control_cage_face_d_z_min_ = f;
 				}
 
 				if (d > d_z_max)
 				{
 					d_z_max = d;
-					control_cage_face_d_z_min_ = f; 
+					control_cage_face_d_z_min_ = f;
 				}
 			}
 
@@ -214,17 +214,17 @@ public:
 
 			const double d_x = -(surface_point.dot(std::get<0>(local_x_direction_control_planes_))),
 
-			d_y = -(surface_point.dot(std::get<0>(local_y_direction_control_planes_))),
+						 d_y = -(surface_point.dot(std::get<0>(local_y_direction_control_planes_))),
 
-			d_z = -(surface_point.dot(std::get<0>(local_z_direction_control_planes_)));
+						 d_z = -(surface_point.dot(std::get<0>(local_z_direction_control_planes_)));
 
 			const bool valid_x_dir = (d_x <= std::get<2>(local_x_direction_control_planes_) &&
 									  d_x >= std::get<1>(local_x_direction_control_planes_)),
 
-			valid_y_dir = (d_y <= std::get<2>(local_y_direction_control_planes_) &&
+					   valid_y_dir = (d_y <= std::get<2>(local_y_direction_control_planes_) &&
 									  d_y >= std::get<1>(local_y_direction_control_planes_)),
 
-			valid_z_dir = (d_z <= std::get<2>(local_z_direction_control_planes_) &&
+					   valid_z_dir = (d_z <= std::get<2>(local_z_direction_control_planes_) &&
 									  d_z >= std::get<1>(local_z_direction_control_planes_));
 
 			if (valid_x_dir)
@@ -238,27 +238,46 @@ public:
 				{
 					if (d_z > std::get<2>(local_z_direction_control_planes_))
 					{
-						std::vector<Vertex> closest_face_vertices = incident_vertices(*control_cage_, control_cage_face_d_z_max_);
+						std::vector<Vertex> closest_face_vertices =
+							incident_vertices(*control_cage_, control_cage_face_d_z_max_);
 
 						// find plane of "fake" cube
-						const double gap_z_plane = std::get<2>(local_z_direction_control_planes_) - std::get<1>(local_z_direction_control_planes_);
+						const double gap_z_plane = std::get<2>(local_z_direction_control_planes_) -
+												   std::get<1>(local_z_direction_control_planes_);
 
-						const double new_plane_d = std::get<2>(local_z_direction_control_planes_) + gap_z_plane; 
+						const double new_plane_d = std::get<2>(local_z_direction_control_planes_) + gap_z_plane;
 
-						const Vec3 shift = {0.0, 0.0, -new_plane_d}; 
+						const Vec3 shift = {0.0, 0.0, -new_plane_d};
 
-						std::vector<Vec3> position_vertices; 
-						// add the outside vertices 
-						for (uint32 i = 0; i < closest_face_vertices.size(); i++){
-							const Vec3 position = value<Vec3>(*control_cage_, control_cage_vertex_position_, closest_face_vertices[i]); 
-							position_vertices.push_back(position); 
+						std::vector<Vec3> position_vertices;
+						// add the outside vertices
+						for (uint32 i = 0; i < closest_face_vertices.size(); i++)
+						{
+							const Vec3 position =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, closest_face_vertices[i]);
+							position_vertices.push_back(position);
 
-							const Vec3 shifted_position = position - shift; 
-							position_vertices.push_back(shifted_position); 
-
+							const Vec3 shifted_position = position - shift;
+							position_vertices.push_back(shifted_position);
 						}
 
-						bind_mvc_customed_vertices(surface_point, surface_point_idx, position_vertices); 
+						std::pair<Vec3, Vec3> extreme_values = get_border_values_in_array_Vec3(position_vertices);
+
+						std::vector<Vec3> ordered_positions = std::vector<Vec3>(8);
+
+						const Vec3 bb_min = extreme_values.first;
+						const Vec3 bb_max = extreme_values.second;
+						ordered_positions[0] = bb_min; 
+						ordered_positions[1] = {bb_min[0], bb_max[1], bb_min[2]};
+						ordered_positions[2] = {bb_max[0], bb_max[1], bb_min[2]};
+						ordered_positions[3] = {bb_max[0], bb_min[1], bb_min[2]};
+
+						ordered_positions[4] = {bb_min[0], bb_max[1], bb_max[2]};
+						ordered_positions[5] = {bb_min[0], bb_min[1], bb_max[2]};
+						ordered_positions[6] = {bb_max[0], bb_min[1], bb_max[2]};
+						ordered_positions[7] = {bb_max[0], bb_max[1], bb_max[2]};
+
+						bind_mvc_customed_vertices(surface_point, surface_point_idx, position_vertices);
 					}
 					else
 					{
@@ -475,7 +494,7 @@ private:
 	Vec3 influence_cage_bb_min_;
 	Vec3 influence_cage_bb_max_;
 
-	Face control_cage_face_d_x_min_; 
+	Face control_cage_face_d_x_min_;
 	Face control_cage_face_d_x_max_;
 
 	Face control_cage_face_d_y_min_;
@@ -578,9 +597,9 @@ private:
 		});
 	}
 
-	void bind_mvc_customed_vertices(const Vec3 surface_point, uint32 surface_point_idx, std::vector<Vec3> position_vertices)
+	void bind_mvc_customed_vertices(const Vec3 surface_point, uint32 surface_point_idx,
+									std::vector<Vec3> position_vertices)
 	{
-		
 	}
 
 	// https://stackoverflow.com/questions/21037241/how-to-determine-a-point-is-inside-or-outside-a-cube
@@ -640,7 +659,7 @@ private:
 		std::shared_ptr<Attribute<uint32>> cage_face_indices =
 			add_attribute<uint32, Face>(*(this->influence_cage_), "face_indices");
 
-		cgogn::modeling::set_attribute_face_indices(*(this->influence_cage_),
+		cgogn::modeling::set_attribute_face_index(*(this->influence_cage_),
 													cage_face_indices.get());
 
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =

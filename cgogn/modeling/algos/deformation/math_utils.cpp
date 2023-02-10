@@ -121,6 +121,31 @@ std::pair<Vec3, Vec3> get_border_values_in_set(const CMap2& m, const CMap2::Attr
 	return std::make_pair(local_min, local_max);
 }
 
+std::pair<Vec3, Vec3> get_border_values_in_array_Vec3(const std::vector<Vec3> positions)
+{ 
+	Vec3 local_min = {1000.0, 1000.0, 1000.0};
+	Vec3 local_max = {0.0, 0.0, 0.0};
+
+	for (uint32_t i = 0; i < positions.size(); i++) {
+		const Vec3& pos = positions[i];
+
+		for (size_t j = 0; j < 3; j++)
+		{
+			if (pos[j] < local_min[j])
+			{
+				local_min[j] = pos[j];
+			}
+
+			if (pos[j] > local_max[j])
+			{
+				local_max[j] = pos[j];
+			}
+		}
+	}
+
+	return std::make_pair(local_min, local_max);
+}
+
 CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m, const CMap2::Attribute<Vec3>* vertex_position,
 											   cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set,
 											   const Vec3& target_position)

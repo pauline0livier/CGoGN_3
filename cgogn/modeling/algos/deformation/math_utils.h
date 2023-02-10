@@ -57,6 +57,8 @@ Vec3 get_mean_value_attribute_from_set(const CMap2& m, const CMap2::Attribute<Ve
 
 std::pair<Vec3,Vec3> get_border_values_in_set(const CMap2& m, const CMap2::Attribute<Vec3>* attribute, cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set); 
 
+std::pair<Vec3, Vec3> get_border_values_in_array_Vec3(const std::vector<Vec3> positions); 
+
 
 CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m, const CMap2::Attribute<Vec3>* vertex_position, cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set, const Vec3& target_position); 
 

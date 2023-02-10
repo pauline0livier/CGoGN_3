@@ -169,7 +169,7 @@ private:
 		std::shared_ptr<Attribute<uint32>> cage_face_indices =
 			add_attribute<uint32, MeshFace>(*(this->influence_cage_), "face_indices");
 
-		cgogn::modeling::set_attribute_face_indices(*(this->influence_cage_), cage_face_indices.get());
+		cgogn::modeling::set_attribute_face_index(*(this->influence_cage_), cage_face_indices.get());
 
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
 			get_attribute<uint32, MeshVertex>(object, "vertex_index");

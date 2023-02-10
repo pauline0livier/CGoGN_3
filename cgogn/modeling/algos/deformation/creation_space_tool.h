@@ -57,7 +57,7 @@ void set_attribute_vertex_index_graph(IncidenceGraph& graph, IncidenceGraph::Att
 
 void set_attribute_marked_vertices(CMap2& cage, CMap2::Attribute<bool>* marked_vertices); 
 
-void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indices); 
+void set_attribute_face_index(CMap2& cage, CMap2::Attribute<uint32>* face_indices); 
 
 void set_attribute_face_normal(CMap2& cage, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* face_normal); 
 

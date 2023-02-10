@@ -306,7 +306,7 @@ void set_attribute_marked_vertices(CMap2& cage, CMap2::Attribute<bool>* marked_v
 	});
 }
 
-void set_attribute_face_indices(CMap2& cage, CMap2::Attribute<uint32>* face_indices)
+void set_attribute_face_index(CMap2& cage, CMap2::Attribute<uint32>* face_indices)
 {
 	uint32 nb_faces = 0;
 	foreach_cell(cage, [&](CMap2::Face f) -> bool {
