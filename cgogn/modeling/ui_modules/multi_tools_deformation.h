@@ -669,6 +669,7 @@ private:
 
 	/// BIND
 
+	// TODO: clean & condense code 
 	void bind_global_cage(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 						  MESH& global_cage, std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position,
 						  std::string binding_type)

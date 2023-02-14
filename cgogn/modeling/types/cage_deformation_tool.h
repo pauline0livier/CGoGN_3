@@ -53,6 +53,10 @@ public:
 
 	std::shared_ptr<boost::synapse::connection> cage_attribute_update_connection_;
 
+	std::vector<std::vector<CMap2::Vertex>> cage_triangles_;
+	std::vector<Vec3> cage_triangles_normal_;
+	std::vector<std::pair<Vec3, Vec3>> cage_triangles_edge_;
+
 	MESH* influence_cage_;
 
 	CageDeformationTool() : SpaceDeformationTool<MESH>(), m_hFactor(-1.0f), control_cage_vertex_position_(nullptr)
@@ -80,17 +84,29 @@ public:
 		control_cage_vertex_index_ = cgogn::add_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
 		cgogn::modeling::set_attribute_vertex_index(*control_cage_, control_cage_vertex_index_.get());
 
-		control_cage_marked_vertices_ = cgogn::add_attribute<bool, Vertex>(*control_cage_, "marked_vertices");
-		cgogn::modeling::set_attribute_marked_vertices(*control_cage_, control_cage_marked_vertices_.get());
+		foreach_cell(*global_cage_, [&](Face fc) -> bool {
+			std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(*control_cage_, fc);
 
-		// set control cage face normal
-		std::shared_ptr<Attribute<Vec3>> cage_face_normal =
-			cgogn::add_attribute<Vec3, Face>(*control_cage_, "face_normal");
+			// triangle 1
+			std::vector<CMap2::Vertex> triangle1_vertex(3);
+			triangle1_vertex[0] = face_vertices_[1];
+			triangle1_vertex[1] = face_vertices_[3];
+			triangle1_vertex[2] = face_vertices_[0];
 
-		cgogn::modeling::set_attribute_face_normal(*control_cage_, control_cage_vertex_position_.get(),
-												   cage_face_normal.get());
+			cage_triangles_.push_back(triangle1_vertex);
 
-		// TODO local frame
+			std::vector<CMap2::Vertex> triangle2_vertex(3);
+			triangle2_vertex[0] = face_vertices_[1];
+			triangle2_vertex[1] = face_vertices_[2];
+			triangle2_vertex[2] = face_vertices_[3];
+
+			cage_triangles_.push_back(triangle2_vertex);
+
+			return true;
+		});
+
+		
+		// TODO set for local frame
 		const Vec3 x_dir = {1.0, 0.0, 0.0}, y_dir = {0.0, 1.0, 0.0}, z_dir = {0.0, 0.0, 1.0};
 
 		double d_x_min = 1000.0, d_x_max = -1000.0, d_y_min = 1000.0, d_y_max = -1000.0, d_z_min = 1000.0,
@@ -261,23 +277,8 @@ public:
 							position_vertices.push_back(shifted_position);
 						}
 
-						std::pair<Vec3, Vec3> extreme_values = get_border_values_in_array_Vec3(position_vertices);
-
-						std::vector<Vec3> ordered_positions = std::vector<Vec3>(8);
-
-						const Vec3 bb_min = extreme_values.first;
-						const Vec3 bb_max = extreme_values.second;
-						ordered_positions[0] = bb_min; 
-						ordered_positions[1] = {bb_min[0], bb_max[1], bb_min[2]};
-						ordered_positions[2] = {bb_max[0], bb_max[1], bb_min[2]};
-						ordered_positions[3] = {bb_max[0], bb_min[1], bb_min[2]};
-
-						ordered_positions[4] = {bb_min[0], bb_max[1], bb_max[2]};
-						ordered_positions[5] = {bb_min[0], bb_min[1], bb_max[2]};
-						ordered_positions[6] = {bb_max[0], bb_min[1], bb_max[2]};
-						ordered_positions[7] = {bb_max[0], bb_max[1], bb_max[2]};
-
-						bind_mvc_customed_vertices(surface_point, surface_point_idx, position_vertices);
+						
+						bind_mvc_customed_vertices(surface_point, surface_point_idx, triangle_set);
 					}
 					else
 					{

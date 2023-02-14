@@ -103,9 +103,6 @@ public:
 			cgogn::add_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
 		cgogn::modeling::set_attribute_vertex_index(*global_cage_, vertex_index.get());
 
-		/*std::shared_ptr<Attribute<uint32>> face_index = cgogn::add_attribute<uint32, Face>(*global_cage_,
-		"face_index"); cgogn::modeling::set_attribute_face_index(*global_cage_, face_index.get());*/
-
 		foreach_cell(*global_cage_, [&](Face fc) -> bool {
 			std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(*global_cage_, fc);
 
@@ -130,7 +127,6 @@ public:
 
 	void update_global_cage(const Vec3& bb_min, const Vec3& bb_max)
 	{
-		// cgogn::modeling::create_bounding_box(*global_cage_, global_cage_vertex_position_.get(), bb_min, bb_max);
 		cgogn::modeling::update_bounding_box(*global_cage_, global_cage_vertex_position_.get(), vertices_, bb_min,
 											 bb_max);
 	}
@@ -218,7 +214,6 @@ public:
 		});
 	}
 
-	// TO TEST
 	std::pair<Eigen::VectorXf, Eigen::VectorXf> bind_green_handle(Graph& g, std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 						   Graph::Vertex handle_vertex)
 	{
