@@ -57,6 +57,7 @@ public:
 	std::shared_ptr<boost::synapse::connection> handle_attribute_update_connection_;
 
 	Eigen::VectorXf global_cage_weights_;
+	Eigen::VectorXf global_cage_normal_weights_;
 
 	HandleDeformationTool() : SpaceDeformationTool<MESH>(),control_handle_vertex_position_(nullptr)
 	{

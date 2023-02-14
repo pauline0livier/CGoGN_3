@@ -74,6 +74,10 @@ public:
 
 	std::shared_ptr<boost::synapse::connection> cage_attribute_update_connection_;
 
+	std::vector<std::vector<CMap2::Vertex>> cage_triangles_;
+	std::vector<Vec3> cage_triangles_normal_;
+	std::vector<std::pair<Vec3, Vec3>> cage_triangles_edge_;
+
 	std::string deformation_type_;
 
 	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> global_cage_coords_;
@@ -358,9 +362,8 @@ public:
 
 private:
 	std::vector<CMap2::Vertex> vertices_;
-	std::vector<std::vector<CMap2::Vertex>> cage_triangles_;
-	std::vector<Vec3> cage_triangles_normal_;
-	std::vector<std::pair<Vec3, Vec3>> cage_triangles_edge_;
+	
+	
 
 	bool compute_mvc_coordinates_on_point(const Vec3& surface_point, const uint32& surface_point_idx)
 	{

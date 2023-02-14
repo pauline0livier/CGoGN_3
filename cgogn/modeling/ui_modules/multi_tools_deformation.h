@@ -317,8 +317,9 @@ public:
 					GraphParameters& p = graph_parameters_[g];
 					if (p.vertex_position_.get() == attribute)
 					{
-						p.vertex_base_size_ = 7; // float32(geometry::mean_edge_length(*g, p.vertex_position_.get()) /
-												 // 6); 1; // ;
+						p.vertex_base_size_ = 1;
+						// 7; // float32(geometry::mean_edge_length(*g, p.vertex_position_.get()) /
+						//  6); 1; // ;
 						p.update_selected_vertices_vbo();
 					}
 
@@ -780,6 +781,22 @@ private:
 		{
 			gcdt->bind_green(object, object_vertex_position.get());
 
+			if (handle_container_.size() > 0)
+			{
+				for (auto& [name, hdt] : handle_container_)
+				{
+					GraphParameters& p_handle = graph_parameters_[hdt->control_handle_];
+
+					GraphVertex handle_vertex = hdt->get_handle_vertex();
+
+					std::pair<Eigen::VectorXf, Eigen::VectorXf> weights =
+						gcdt->bind_green_handle(*(hdt->control_handle_), p_handle.vertex_position_, handle_vertex);
+
+					hdt->global_cage_weights_ = weights.first;
+					hdt->global_cage_normal_weights_ = weights.second;
+				}
+			}
+
 			gcdt->cage_attribute_update_connection_ =
 				boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
 					&global_cage, [&](MeshAttribute<Vec3>* attribute) {
@@ -788,9 +805,138 @@ private:
 							std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> current_gcdt =
 								global_cage_container_["global_cage"];
 
-							current_gcdt->update_green(object, object_vertex_position.get());
+							std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
+								get_attribute<uint32, MeshVertex>(object, "vertex_index");
+
+							std::shared_ptr<MeshAttribute<uint32>> cage_vertex_index =
+								get_attribute<uint32, MeshVertex>(*(current_gcdt->global_cage_), "vertex_index");
+
+							std::shared_ptr<MeshAttribute<uint32>> cage_face_index =
+								cgogn::get_attribute<uint32, MeshFace>(*(current_gcdt->global_cage_), "face_index");
+
+							parallel_foreach_cell(object, [&](MeshVertex v) -> bool {
+								uint32 vidx = value<uint32>(object, object_vertex_index, v);
+
+								Vec3 new_pos_update_ = {0.0, 0.0, 0.0};
+
+								const auto sqrt8 = sqrt(8);
+
+								foreach_cell(*(current_gcdt->global_cage_), [&](MeshVertex cv) -> bool {
+									const Vec3& cage_point = value<Vec3>(
+										*(current_gcdt->global_cage_), current_gcdt->global_cage_vertex_position_, cv);
+
+									uint32 cage_point_idx =
+										value<uint32>(*(current_gcdt->global_cage_), cage_vertex_index, cv);
+
+									new_pos_update_ +=
+										current_gcdt->global_cage_coords_(vidx, cage_point_idx) * cage_point;
+
+									return true;
+								});
+
+								Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
+
+								for (uint t = 0; t < current_gcdt->cage_triangles_.size(); t++)
+								{
+
+									std::vector<Vec3> triangle_position(3);
+									for (uint i = 0; i < 3; i++)
+									{
+										triangle_position[i] = value<Vec3>(*(current_gcdt->global_cage_),
+										current_gcdt->global_cage_vertex_position_,
+										current_gcdt->cage_triangles_[t][i]);
+									}
+
+									const Vec3 t_normal = current_gcdt->cage_triangles_normal_[t];
+									const auto t_u0 = current_gcdt->cage_triangles_edge_[t].first;
+									const auto t_v0 = current_gcdt->cage_triangles_edge_[t].second;
+
+									const auto t_u1 = triangle_position[1] - triangle_position[0];
+									const auto t_v1 = triangle_position[2] - triangle_position[1];
+
+									const auto area_face = (t_u0.cross(t_v0)).norm() * 0.5;
+									double t_sj = sqrt((t_u1.squaredNorm()) * (t_v0.squaredNorm()) -
+													   2.0 * (t_u1.dot(t_v1)) * (t_u0.dot(t_v0)) +
+													   (t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
+												  (sqrt8 * area_face);
+
+									new_norm_update_ +=
+										current_gcdt->global_cage_normal_coords_(vidx, t) * t_sj * t_normal;
+								}
+
+								value<Vec3>(object, object_vertex_position, v) = new_pos_update_ + new_norm_update_;
+
+								// current_gcdt->update_green(object, object_vertex_position.get());
+								return true; 
+							});
 
 							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+
+							if (handle_container_.size() > 0)
+							{
+								for (auto& [name, hdt] : handle_container_)
+								{
+									GraphParameters& p_handle = graph_parameters_[hdt->control_handle_];
+
+									Eigen::VectorXf weights = hdt->global_cage_weights_;
+
+									Eigen::VectorXf normal_weights = hdt->global_cage_normal_weights_;
+
+									GraphVertex handle_vertex = hdt->get_handle_vertex();
+
+									Vec3 new_pos_handle = {0.0, 0.0, 0.0};
+
+									const auto sqrt8 = sqrt(8);
+
+									foreach_cell(*(current_gcdt->global_cage_), [&](MeshVertex cv) -> bool {
+										const Vec3& cage_point =
+											value<Vec3>(*(current_gcdt->global_cage_),
+														current_gcdt->global_cage_vertex_position_, cv);
+
+										uint32 cage_point_idx =
+											value<uint32>(*(current_gcdt->global_cage_), cage_vertex_index, cv);
+
+										new_pos_handle += weights[cage_point_idx] * cage_point;
+
+										return true;
+									});
+
+									Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
+
+									for (uint t = 0; t < current_gcdt->cage_triangles_.size(); t++)
+									{
+
+										std::vector<Vec3> triangle_position(3);
+										for (uint i = 0; i < 3; i++)
+										{
+											triangle_position[i] = value<Vec3>(
+												*(current_gcdt->global_cage_),
+												current_gcdt->global_cage_vertex_position_, current_gcdt->cage_triangles_[t][i]);
+										}
+
+										const Vec3 t_normal = current_gcdt->cage_triangles_normal_[t];
+										const auto t_u0 = current_gcdt->cage_triangles_edge_[t].first;
+										const auto t_v0 = current_gcdt->cage_triangles_edge_[t].second;
+
+										const auto t_u1 = triangle_position[1] - triangle_position[0];
+										const auto t_v1 = triangle_position[2] - triangle_position[1];
+
+										const auto area_face = (t_u0.cross(t_v0)).norm() * 0.5;
+										double t_sj = sqrt((t_u1.squaredNorm()) * (t_v0.squaredNorm()) -
+														   2.0 * (t_u1.dot(t_v1)) * (t_u0.dot(t_v0)) +
+														   (t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
+													  (sqrt8 * area_face);
+
+										new_norm_update_ += normal_weights[t] * t_sj * t_normal;
+									}
+
+									value<Vec3>(*(hdt->control_handle_), p_handle.vertex_position_, handle_vertex) =
+										new_pos_handle + new_norm_update_;
+
+									graph_provider_->emit_attribute_changed(*(hdt->control_handle_),
+									hdt->control_handle_vertex_position_.get());
+								}
+							}
 						}
 					});
 		}
@@ -813,10 +959,10 @@ private:
 
 		cdt->influence_area_ = &i_set;
 
-		//cdt->set_influence_area(object, object_vertex_position, influence_set_);
- 
-		// simple version 
-		std::string cage_name = "influence_cage"; 
+		// cdt->set_influence_area(object, object_vertex_position, influence_set_);
+
+		// simple version
+		std::string cage_name = "influence_cage";
 		MESH* i_cage = mesh_provider_->add_mesh(cage_name);
 
 		std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
@@ -825,7 +971,7 @@ private:
 
 		set_vertex_position(*i_cage, i_cage_vertex_position);
 
-		cdt->set_influence_cage(object, object_vertex_position.get(), i_cage, i_cage_vertex_position.get()); 
+		cdt->set_influence_cage(object, object_vertex_position.get(), i_cage, i_cage_vertex_position.get());
 
 		mesh_provider_->emit_connectivity_changed(*i_cage);
 		mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
