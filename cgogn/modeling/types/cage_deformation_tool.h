@@ -84,7 +84,7 @@ public:
 		control_cage_vertex_index_ = cgogn::add_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
 		cgogn::modeling::set_attribute_vertex_index(*control_cage_, control_cage_vertex_index_.get());
 
-		foreach_cell(*global_cage_, [&](Face fc) -> bool {
+		foreach_cell(*control_cage_, [&](Face fc) -> bool {
 			std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(*control_cage_, fc);
 
 			// triangle 1
@@ -112,8 +112,8 @@ public:
 		double d_x_min = 1000.0, d_x_max = -1000.0, d_y_min = 1000.0, d_y_max = -1000.0, d_z_min = 1000.0,
 			   d_z_max = -1000.0;
 
-		foreach_cell(*control_cage_, [&](Face f) -> bool {
-			const Vec3 normal = value<Vec3>(*control_cage_, cage_face_normal, f);
+		/*foreach_cell(*control_cage_, [&](Face f) -> bool {
+			const Vec3 normal = value<Vec3>(*control_cage_, cage_face_normal_, f);
 
 			std::vector<Vertex> vertices = incident_vertices(*control_cage_, f);
 			const Vec3 surface_point = value<Vec3>(*control_cage_, control_cage_vertex_position_, vertices[0]);
@@ -166,13 +166,13 @@ public:
 			}
 
 			return true;
-		});
+		});*/
 
-		local_x_direction_control_planes_ = std::make_tuple(x_dir, d_x_min, d_x_max);
+		//local_x_direction_control_planes_ = std::make_tuple(x_dir, d_x_min, d_x_max);
 
-		local_y_direction_control_planes_ = std::make_tuple(y_dir, d_y_min, d_y_max);
+		//local_y_direction_control_planes_ = std::make_tuple(y_dir, d_y_min, d_y_max);
 
-		local_z_direction_control_planes_ = std::make_tuple(z_dir, d_z_min, d_z_max);
+		//local_z_direction_control_planes_ = std::make_tuple(z_dir, d_z_min, d_z_max);
 	}
 
 	void set_influence_cage(MESH& object, const CMap2::Attribute<Vec3>* object_vertex_position, MESH* m,
@@ -265,7 +265,7 @@ public:
 
 						const Vec3 shift = {0.0, 0.0, -new_plane_d};
 
-						std::vector<Vec3> position_vertices;
+						/*std::vector<Vec3> position_vertices;
 						// add the outside vertices
 						for (uint32 i = 0; i < closest_face_vertices.size(); i++)
 						{
@@ -275,10 +275,10 @@ public:
 
 							const Vec3 shifted_position = position - shift;
 							position_vertices.push_back(shifted_position);
-						}
+						}*/
 
 						
-						bind_mvc_customed_vertices(surface_point, surface_point_idx, triangle_set);
+						//bind_mvc_customed_vertices(surface_point, surface_point_idx, triangle_set);
 					}
 					else
 					{
