@@ -323,11 +323,11 @@ public:
 
 			Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
 
-			for (uint t = 0; t < cage_triangles_.size(); t++)
+			for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 			{
 
 				std::vector<Vec3> triangle_position(3);
-				for (uint i = 0; i < 3; i++)
+				for (std::size_t i = 0; i < 3; i++)
 				{
 					triangle_position[i] =
 						value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_triangles_[t][i]);
@@ -357,8 +357,6 @@ public:
 
 private:
 	std::vector<CMap2::Vertex> vertices_;
-	
-	
 
 	bool compute_mvc_coordinates_on_point(const Vec3& surface_point, const uint32& surface_point_idx)
 	{
@@ -402,21 +400,21 @@ private:
 		double c[3];
 		double s[3];
 
-		for (uint t = 0; t < cage_triangles_.size(); t++)
+		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 		{
 
 			std::vector<uint32> triangle_index(3);
-			for (uint i = 0; i < 3; i++)
+			for (std::size_t i = 0; i < 3; i++)
 			{
 				triangle_index[i] = value<uint32>(*global_cage_, cage_vertex_index, cage_triangles_[t][i]);
 			}
 
-			for (uint i = 0; i < 3; i++)
+			for (std::size_t i = 0; i < 3; i++)
 			{
 				l[i] = (u[triangle_index[(i + 1) % 3]] - u[triangle_index[(i + 2) % 3]]).norm();
 			}
 
-			for (uint i = 0; i < 3; i++)
+			for (std::size_t i = 0; i < 3; i++)
 			{
 				theta[i] = 2.0 * asin(l[i] / 2.0);
 			}
@@ -424,7 +422,7 @@ private:
 			double h = (theta[0] + theta[1] + theta[2]) / 2.0;
 			if (M_PI - h < epsilon)
 			{
-				for (uint i = 0; i < 3; i++)
+				for (std::size_t i = 0; i < 3; i++)
 				{
 					w[i] = sin(theta[i]) * l[(i + 2) % 3] * l[(i + 1) % 3];
 				}
@@ -437,7 +435,7 @@ private:
 				return true;
 			}
 
-			for (uint i = 0; i < 3; i++)
+			for (std::size_t i = 0; i < 3; i++)
 			{
 				c[i] = (2.0 * sin(h) * sin(h - theta[i])) / (sin(theta[(i + 1) % 3]) * sin(theta[(i + 2) % 3])) - 1.0;
 			}
@@ -449,7 +447,7 @@ private:
 				sign_Basis_u0u1u2 = -1;
 			}
 
-			for (uint i = 0; i < 3; i++)
+			for (std::size_t i = 0; i < 3; i++)
 			{
 				s[i] = sign_Basis_u0u1u2 * sqrt(std::max<double>(0.0, 1.0 - c[i] * c[i]));
 			}
@@ -459,7 +457,7 @@ private:
 				continue; // eta is on the same plane, outside t  ->  ignore triangle t :
 			}
 
-			for (uint i = 0; i < 3; ++i)
+			for (std::size_t i = 0; i < 3; ++i)
 			{
 				w[i] = (theta[i] - c[(i + 1) % 3] * theta[(i + 2) % 3] - c[(i + 2) % 3] * theta[(i + 1) % 3]) /
 					   (2.0 * d[triangle_index[i]] * sin(theta[(i + 1) % 3]) * s[(i + 2) % 3]);
@@ -523,21 +521,21 @@ private:
 		double c[3];
 		double s[3];
 
-		for (uint t = 0; t < cage_triangles_.size(); t++)
+		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 		{
 
 			std::vector<uint32> triangle_index(3);
-			for (uint i = 0; i < 3; i++)
+			for (std::size_t i = 0; i < 3; i++)
 			{
 				triangle_index[i] = value<uint32>(*global_cage_, cage_vertex_index, cage_triangles_[t][i]);
 			}
 
-			for (uint i = 0; i < 3; i++)
+			for (std::size_t i = 0; i < 3; i++)
 			{
 				l[i] = (u[triangle_index[(i + 1) % 3]] - u[triangle_index[(i + 2) % 3]]).norm();
 			}
 
-			for (uint i = 0; i < 3; i++)
+			for (std::size_t i = 0; i < 3; i++)
 			{
 				theta[i] = 2.0 * asin(l[i] / 2.0);
 			}
@@ -545,7 +543,7 @@ private:
 			double h = (theta[0] + theta[1] + theta[2]) / 2.0;
 			if (M_PI - h < epsilon)
 			{
-				for (uint i = 0; i < 3; i++)
+				for (std::size_t i = 0; i < 3; i++)
 				{
 					w[i] = sin(theta[i]) * l[(i + 2) % 3] * l[(i + 1) % 3];
 				}
@@ -558,7 +556,7 @@ private:
 				return true;
 			}
 
-			for (uint i = 0; i < 3; i++)
+			for (std::size_t i = 0; i < 3; i++)
 			{
 				c[i] = (2.0 * sin(h) * sin(h - theta[i])) / (sin(theta[(i + 1) % 3]) * sin(theta[(i + 2) % 3])) - 1.0;
 			}
@@ -570,7 +568,7 @@ private:
 				sign_Basis_u0u1u2 = -1;
 			}
 
-			for (uint i = 0; i < 3; i++)
+			for (std::size_t i = 0; i < 3; i++)
 			{
 				s[i] = sign_Basis_u0u1u2 * sqrt(std::max<double>(0.0, 1.0 - c[i] * c[i]));
 			}
@@ -580,7 +578,7 @@ private:
 				continue; // eta is on the same plane, outside t  ->  ignore triangle t :
 			}
 
-			for (uint i = 0; i < 3; ++i)
+			for (std::size_t i = 0; i < 3; ++i)
 			{
 				w[i] = (theta[i] - c[(i + 1) % 3] * theta[(i + 2) % 3] - c[(i + 2) % 3] * theta[(i + 1) % 3]) /
 					   (2.0 * d[triangle_index[i]] * sin(theta[(i + 1) % 3]) * s[(i + 2) % 3]);
@@ -613,10 +611,10 @@ private:
 
 		const Vec3 NULL_VECTOR(0.0, 0.0, 0);
 
-		for (uint t = 0; t < cage_triangles_.size(); t++)
+		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 		{
 			std::vector<Vec3> triangle_position(3);
-			for (uint i = 0; i < 3; i++)
+			for (std::size_t i = 0; i < 3; i++)
 			{
 				triangle_position[i] = value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_triangles_[t][i]);
 			}
@@ -630,7 +628,7 @@ private:
 			cage_triangles_edge_[t].second = triangle_position[2] - triangle_position[1];
 
 			std::vector<Vec3> t_vj(3);
-			for (uint l = 0; l < 3; ++l)
+			for (std::size_t l = 0; l < 3; ++l)
 			{
 				t_vj[l] = triangle_position[l] - surface_point;
 			}
@@ -642,7 +640,7 @@ private:
 			Vec3 t_s = {0.0, 0.0, 0.0};
 			std::vector<Vec3> t_N(3);
 
-			for (uint l = 0; l < 3; ++l)
+			for (std::size_t l = 0; l < 3; ++l)
 			{
 				const Vec3 t_v0 = t_vj[l];
 				const Vec3 t_v1 = t_vj[(l + 1) % 3];
@@ -661,7 +659,7 @@ private:
 
 			Vec3 t_w = t_I_ * t_normal;
 
-			for (uint k = 0; k < 3; ++k)
+			for (std::size_t k = 0; k < 3; ++k)
 			{
 				t_w += (t_II[k] * t_N[k]);
 			}
@@ -694,10 +692,10 @@ private:
 
 		const Vec3 NULL_VECTOR(0.0, 0.0, 0);
 
-		for (uint t = 0; t < cage_triangles_.size(); t++)
+		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 		{
 			std::vector<Vec3> triangle_position(3);
-			for (uint i = 0; i < 3; i++)
+			for (std::size_t i = 0; i < 3; i++)
 			{
 				triangle_position[i] = value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_triangles_[t][i]);
 			}
@@ -711,7 +709,7 @@ private:
 			cage_triangles_edge_[t].second = triangle_position[2] - triangle_position[1];
 
 			std::vector<Vec3> t_vj(3);
-			for (uint l = 0; l < 3; ++l)
+			for (std::size_t l = 0; l < 3; ++l)
 			{
 				t_vj[l] = triangle_position[l] - handle_point;
 			}
@@ -723,7 +721,7 @@ private:
 			Vec3 t_s = {0.0, 0.0, 0.0};
 			std::vector<Vec3> t_N(3);
 
-			for (uint l = 0; l < 3; ++l)
+			for (std::size_t l = 0; l < 3; ++l)
 			{
 				const Vec3 t_v0 = t_vj[l];
 				const Vec3 t_v1 = t_vj[(l + 1) % 3];
@@ -742,7 +740,7 @@ private:
 
 			Vec3 t_w = t_I_ * t_normal;
 
-			for (uint k = 0; k < 3; ++k)
+			for (std::size_t k = 0; k < 3; ++k)
 			{
 				t_w += (t_II[k] * t_N[k]);
 			}

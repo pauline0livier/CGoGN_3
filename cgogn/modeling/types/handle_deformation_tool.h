@@ -35,6 +35,10 @@ namespace modeling
 {
 
 template <typename MESH>
+/**
+ * @Class Handle Deformation Tool
+ * Represents the specificities of the handle tool 
+*/
 class HandleDeformationTool : public SpaceDeformationTool<MESH>
 {
 	using Graph = cgogn::IncidenceGraph;

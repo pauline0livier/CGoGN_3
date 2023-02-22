@@ -837,11 +837,11 @@ private:
 
 								Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
 
-								for (uint t = 0; t < current_gcdt->cage_triangles_.size(); t++)
+								for (std::size_t t = 0; t < current_gcdt->cage_triangles_.size(); t++)
 								{
 
 									std::vector<Vec3> triangle_position(3);
-									for (uint i = 0; i < 3; i++)
+									for (std::size_t i = 0; i < 3; i++)
 									{
 										triangle_position[i] = value<Vec3>(*(current_gcdt->global_cage_),
 										current_gcdt->global_cage_vertex_position_,
@@ -904,11 +904,11 @@ private:
 
 									Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
 
-									for (uint t = 0; t < current_gcdt->cage_triangles_.size(); t++)
+									for (std::size_t t = 0; t < current_gcdt->cage_triangles_.size(); t++)
 									{
 
 										std::vector<Vec3> triangle_position(3);
-										for (uint i = 0; i < 3; i++)
+										for (std::size_t i = 0; i < 3; i++)
 										{
 											triangle_position[i] = value<Vec3>(
 												*(current_gcdt->global_cage_),
