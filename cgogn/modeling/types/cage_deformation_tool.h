@@ -60,16 +60,16 @@ class CageDeformationTool : public SpaceDeformationTool<MESH>
 
 	struct Local_direction_control_planes
 	{
-		double d_min;
-		double d_max;
-		double d_gap;
+		const double d_min;
+		const double d_max;
+		const double d_gap;
 
-		std::pair<Triangle, Triangle> triangles_d_min;
-		std::pair<Triangle, Triangle> triangles_d_max;
+		const std::pair<Triangle, Triangle> triangles_d_min;
+		const std::pair<Triangle, Triangle> triangles_d_max;
 
-		Vec3 direction;
-		Vec3 shift_after_d_max;
-		Vec3 shift_before_d_min;
+		const Vec3 direction;
+		const Vec3 shift_after_d_max;
+		const Vec3 shift_before_d_min;
 	}
 
 	public : MESH* control_cage_;
@@ -185,318 +185,412 @@ class CageDeformationTool : public SpaceDeformationTool<MESH>
 					   valid_z_dir = (d_z <= local_z_direction_control_planes_.d_max &&
 									  d_z >= local_z_direction_control_planes_.d_min);
 
-			if (valid_x_dir)
+			if (valid_x_dir && valid_y_dir && valid_z_dir)
 			{
-				if (valid_y_dir && valid_z_dir)
+				compute_mvc_on_point_inside_cage(surface_point, surface_point_index);
+			}
+			else
+			{
+				std::vector<Triangle> virtual_cube_triangles; 
+				if (valid_x_dir)
 				{
-					// inside cube
-					compute_mvc_on_point_inside_cage(surface_point, surface_point_index);
-				}
-				else if (valid_y_dir)
-				{
-					if (d_z > local_z_direction_control_planes_.d_max)
+					if (valid_y_dir)
 					{
-						// fakeCube[5]
+						if (d_z > local_z_direction_control_planes_.d_max)
+						{
+							// fakeCube[5]
 
-						// Beware, need to inverse the normal of the triangle1 and triangle2
+							// Beware, need to inverse the normal of the triangle1 and triangle2
 
-						std::vector<Triangle> virtual_cube_triangles =
-							get_virtual_cube_triangles(local_z_direction_control_planes_.triangles_d_max,
-													   local_z_direction_control_planes_.shift_after_d_max);
+							virtual_cube_triangles =
+								get_virtual_cube_triangles(local_z_direction_control_planes_.triangles_d_max,
+														   local_z_direction_control_planes_.shift_after_d_max);
 
-						// compute_mvc_on_point_outside_cage(surface_point, surface_point_index,
-						// virtual_cube_triangles);
+							
+						}
+						else
+						{
+							// fakeCube[4]
+
+							virtual_cube_triangles =
+								get_virtual_cube_triangles(local_z_direction_control_planes_.triangles_d_min,
+														   local_z_direction_control_planes_.shift_before_d_min);
+						}
+					}
+					else if (valid_z_dir)
+					{
+						if (d_y > local_y_direction_control_planes_.d_max)
+						{
+							// fakeCube[3]
+							virtual_cube_triangles =
+								get_virtual_cube_triangles(local_y_direction_control_planes_.triangles_d_max,
+														   local_y_direction_control_planes_.shift_after_d_max);
+						}
+						else
+						{
+							// fakeCube[2]
+							virtual_cube_triangles =
+								get_virtual_cube_triangles(local_y_direction_control_planes_.triangles_d_min,
+														   local_y_direction_control_planes_.shift_before_d_min);
+						}
 					}
 					else
 					{
-						// fakeCube[4]
+						if (d_y > local_y_direction_control_planes_.d_max)
+						{
 
-						std::vector<Triangle> virtual_cube_triangles =
-							get_virtual_cube_triangles(local_z_direction_control_planes_.triangles_d_min,
-													   local_z_direction_control_planes_.shift_before_d_min);
+							if (d_z > local_z_direction_control_planes_.d_max)
+							{
+								// fakeCubeDiag[11]
+
+								// find intersection edge between y and z triangle
+								std::vector<CMap::Vertex> intersect_vertices =
+									find_intersection_vertices_face(local_y_direction_control_planes_.triangles_d_max,
+																	local_z_direction_control_planes_.triangles_d_max);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
+									intersect_vertices, local_y_direction_control_planes_.shift_after_d_max);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_after_d_max);
+							}
+							else
+							{
+								// fakeCubeDiag[9]
+								std::vector<CMap::Vertex> intersect_vertices =
+									find_intersection_vertices_face(local_y_direction_control_planes_.triangles_d_max,
+																	local_z_direction_control_planes_.triangles_d_min);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
+									intersect_vertices, local_y_direction_control_planes_.shift_after_d_max);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_before_d_min);
+							}
+						}
+						else
+						{
+
+							if (d_z > local_z_direction_control_planes_.d_max)
+							{
+								// fakeCubeDiag[10]
+								std::vector<CMap::Vertex> intersect_vertices =
+									find_intersection_vertices_face(local_y_direction_control_planes_.triangles_d_min,
+																	local_z_direction_control_planes_.triangles_d_max);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
+									intersect_vertices, local_y_direction_control_planes_.shift_before_d_min);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_after_d_max);
+							}
+							else
+							{
+								// fakeCubeDiag[8]
+								std::vector<CMap::Vertex> intersect_vertices =
+									find_intersection_vertices_face(local_y_direction_control_planes_.triangles_d_min,
+																	local_z_direction_control_planes_.triangles_d_min);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
+									intersect_vertices, local_y_direction_control_planes_.shift_before_d_min);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_before_d_min);
+							}
+						}
+					}
+				}
+				else if (valid_y_dir)
+				{
+					if (valid_z_dir)
+					{
+						if (d_x > local_x_direction_control_planes_.d_max)
+						{
+							// fakeCube[1]
+
+							virtual_cube_triangles =
+								get_virtual_cube_triangles(local_x_direction_control_planes_.triangles_d_max,
+														   local_x_direction_control_planes_.shift_after_d_max);
+						}
+						else
+						{
+							// fakeCube[0]
+
+							virtual_cube_triangles =
+								get_virtual_cube_triangles(local_x_direction_control_planes_.triangles_d_min,
+														   local_x_direction_control_planes_.shift_previous_d_min);
+						}
+					}
+					else
+					{
+						if (d_x > local_x_direction_control_planes_.d_max)
+						{
+
+							if (d_z > local_z_direction_control_planes_.d_max)
+							{
+								// fakeCubeDiag[3]
+								std::vector<CMap::Vertex> intersect_vertices =
+									find_intersection_vertices_face(local_x_direction_control_planes_.triangles_d_max,
+																	local_z_direction_control_planes_.triangles_d_max);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
+									intersect_vertices, local_x_direction_control_planes_.shift_after_d_max);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_after_d_max);
+							}
+							else
+							{
+								// fakeCubeDiag[1]
+								std::vector<CMap::Vertex> intersect_vertices =
+									find_intersection_vertices_face(local_x_direction_control_planes_.triangles_d_max,
+																	local_z_direction_control_planes_.triangles_d_min);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
+									intersect_vertices, local_x_direction_control_planes_.shift_after_d_max);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_before_d_min);
+							}
+						}
+						else
+						{
+
+							if (d_z > local_z_direction_control_planes_.d_max)
+							{
+								// fakeCubeDiag[2]
+								std::vector<CMap::Vertex> intersect_vertices =
+									find_intersection_vertices_face(local_x_direction_control_planes_.triangles_d_min,
+																	local_z_direction_control_planes_.triangles_d_max);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
+									intersect_vertices, local_x_direction_control_planes_.shift_before_d_min);
+
+								std::vector<Triangle> virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_after_d_max);
+							}
+							else
+							{
+								// fakeCubeDiag[0]
+								std::vector<CMap::Vertex> intersect_vertices =
+									find_intersection_vertices_face(local_x_direction_control_planes_.triangles_d_min,
+																	local_z_direction_control_planes_.triangles_d_min);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
+									intersect_vertices, local_x_direction_control_planes_.shift_before_d_min);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_before_d_min);
+							}
+						}
 					}
 				}
 				else if (valid_z_dir)
 				{
-					if (d_y > std::get<2>(local_y_direction_control_planes_))
+					if (d_y > local_y_direction_control_planes_.d_max)
 					{
-						// fakeCube[3]
-						std::vector<Triangle> virtual_cube_triangles =
-							get_virtual_cube_triangles(local_y_direction_control_planes_.triangles_d_max,
-													   local_y_direction_control_planes_.shift_after_d_max);
-					}
-					else
-					{
-						// fakeCube[2]
-						std::vector<Triangle> virtual_cube_triangles =
-							get_virtual_cube_triangles(local_y_direction_control_planes_.triangles_d_min,
-													   local_y_direction_control_planes_.shift_before_d_min);
-					}
-				}
-				else
-				{
-					if (d_y > std::get<2>(local_y_direction_control_planes_))
-					{
-
-						if (d_z > std::get<2>(local_z_direction_control_planes_))
+						if (d_x > local_x_direction_control_planes_.d_max)
 						{
-							// fakeCubeDiag[11]
-
-							// find intersection edge between y and z triangle
+							// fakeCubeDiag[7]
 							std::vector<CMap::Vertex> intersect_vertices =
-								find_intersection_vertices_face(local_y_direction_control_planes_.triangles_d_max,
-																local_z_direction_control_planes_.triangles_d_max);
-
-							std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
-								intersect_vertices, local_y_direction_control_planes_.shift_after_d_max);
-
-							std::vector<Triangle> virtual_cube_triangles = get_virtual_cube_triangles(
-								new_face, local_z_direction_control_planes_.shift_after_d_max);
-						}
-						else
-						{
-							// fakeCubeDiag[9]
-							std::vector<CMap::Vertex> intersect_vertices =
-								find_intersection_vertices_face(local_y_direction_control_planes_.triangles_d_max,
-																local_z_direction_control_planes_.triangles_d_min);
-
-							std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
-								intersect_vertices, local_y_direction_control_planes_.shift_after_d_max);
-
-							std::vector<Triangle> virtual_cube_triangles =
-								get_virtual_cube_triangles(new_face, local_z_direction_control_planes_.shift_before_d_min);
-						}
-					}
-					else
-					{
-	
-						if (d_z > std::get<2>(local_z_direction_control_planes_))
-						{
-							// fakeCubeDiag[10]
-							std::vector<CMap::Vertex> intersect_vertices =
-								find_intersection_vertices_face(local_y_direction_control_planes_.triangles_d_min,
-																local_z_direction_control_planes_.triangles_d_max);
-
-							std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
-								intersect_vertices, local_y_direction_control_planes_.shift_before_d_min);
-
-							std::vector<Triangle> virtual_cube_triangles =
-								get_virtual_cube_triangles(new_face, local_z_direction_control_planes_.shift_after_d_max);
-						}
-						else
-						{
-							// fakeCubeDiag[8]
-							std::vector<CMap::Vertex> intersect_vertices =
-								find_intersection_vertices_face(local_y_direction_control_planes_.triangles_d_min,
-																local_z_direction_control_planes_.triangles_d_min);
-
-							std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
-								intersect_vertices, local_y_direction_control_planes_.shift_before_d_min);
-
-
-							std::vector<Triangle> virtual_cube_triangles =
-								get_virtual_cube_triangles(new_face, local_z_direction_control_planes_.shift_before_d_min);
-						}
-					}
-				}
-			}
-			else if (valid_y_dir)
-			{
-				if (valid_z_dir)
-				{
-					if (d_x > std::get<2>(local_x_direction_control_planes_))
-					{
-						// fakeCube[1]
-
-						std::vector<Triangle> virtual_cube_triangles =
-							get_virtual_cube_triangles(local_x_direction_control_planes_.triangles_d_max, local_x_direction_control_planes_.shift_after_d_max);
-					}
-					else
-					{
-						// fakeCube[0]
-
-						std::vector<Triangle> virtual_cube_triangles =
-							get_virtual_cube_triangles(local_x_direction_control_planes_.triangles_d_min, local_x_direction_control_planes_.shift_previous_d_min);
-					}
-				}
-				else
-				{
-					if (d_x > std::get<2>(local_x_direction_control_planes_))
-					{
-
-						if (d_z > std::get<2>(local_z_direction_control_planes_))
-						{
-							// fakeCubeDiag[3]
-							std::vector<CMap::Vertex> intersect_vertices =
-								find_intersection_vertices_face(local_x_direction_control_planes_.triangles_d_max,
-																local_z_direction_control_planes_.triangles_d_max);
-
-							std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
-								intersect_vertices, local_x_direction_control_planes_.shift_after_d_max);
-
-							std::vector<Triangle> virtual_cube_triangles = get_virtual_cube_triangles(
-								new_face, local_z_direction_control_planes_.shift_after_d_max);
-						}
-						else
-						{
-							// fakeCubeDiag[1]
-							std::vector<CMap::Vertex> intersect_vertices =
-								find_intersection_vertices_face(local_x_direction_control_planes_.triangles_d_max,
-																local_z_direction_control_planes_.triangles_d_min);
-
-							std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
-								intersect_vertices, local_x_direction_control_planes_.shift_after_d_max);
-
-							std::vector<Triangle> virtual_cube_triangles =
-								get_virtual_cube_triangles(new_face, local_z_direction_control_planes_.shift_before_d_min);
-						}
-					}
-					else
-					{
-					
-						if (d_z > std::get<2>(local_z_direction_control_planes_))
-						{
-							// fakeCubeDiag[2]
-							std::vector<CMap::Vertex> intersect_vertices =
-								find_intersection_vertices_face(local_x_direction_control_planes_.triangles_d_min,
-																local_z_direction_control_planes_.triangles_d_max);
-
-							std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
-								intersect_vertices, local_x_direction_control_planes_.shift_before_d_min);
-
-							std::vector<Triangle> virtual_cube_triangles = get_virtual_cube_triangles(
-								new_face, local_z_direction_control_planes_.shift_after_d_max);
-						}
-						else
-						{
-							// fakeCubeDiag[0]
-							std::vector<CMap::Vertex> intersect_vertices =
-								find_intersection_vertices_face(local_x_direction_control_planes_.triangles_d_min,
-																local_z_direction_control_planes_.triangles_d_min);
-
-							std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
-								intersect_vertices, local_x_direction_control_planes_.shift_before_d_min);
-
-							std::vector<Triangle> virtual_cube_triangles = get_virtual_cube_triangles(
-								new_face, local_z_direction_control_planes_.shift_before_d_min);
-						}
-					}
-				}
-			}
-			else if (valid_z_dir)
-			{
-				if (d_y > std::get<2>(local_y_direction_control_planes_))
-				{
-					if (d_x > std::get<2>(local_x_direction_control_planes_))
-					{
-						// fakeCubeDiag[7]
-						std::vector<CMap::Vertex> intersect_vertices =
 								find_intersection_vertices_face(local_y_direction_control_planes_.triangles_d_max,
 																local_x_direction_control_planes_.triangles_d_max);
 
 							std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
 								intersect_vertices, local_y_direction_control_planes_.shift_after_d_max);
 
-							std::vector<Triangle> virtual_cube_triangles = get_virtual_cube_triangles(
+							virtual_cube_triangles = get_virtual_cube_triangles(
 								new_face, local_x_direction_control_planes_.shift_after_d_max);
-					}
-					else
-					{
-						// fakeCubeDiag[5]
-						std::vector<CMap::Vertex> intersect_vertices =
+						}
+						else
+						{
+							// fakeCubeDiag[5]
+							std::vector<CMap::Vertex> intersect_vertices =
 								find_intersection_vertices_face(local_y_direction_control_planes_.triangles_d_max,
 																local_x_direction_control_planes_.triangles_d_min);
 
 							std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
 								intersect_vertices, local_y_direction_control_planes_.shift_after_d_max);
 
-							std::vector<Triangle> virtual_cube_triangles = get_virtual_cube_triangles(
+							virtual_cube_triangles = get_virtual_cube_triangles(
 								new_face, local_x_direction_control_planes_.shift_before_d_min);
+						}
 					}
-				}
-				else
-				{
-			
-					if (d_x > std::get<2>(local_x_direction_control_planes_))
+					else
 					{
-						// fakeCubeDiag[6]
-						std::vector<CMap::Vertex> intersect_vertices =
+
+						if (d_x > local_x_direction_control_planes_.d_max)
+						{
+							// fakeCubeDiag[6]
+							std::vector<CMap::Vertex> intersect_vertices =
 								find_intersection_vertices_face(local_y_direction_control_planes_.triangles_d_min,
 																local_x_direction_control_planes_.triangles_d_max);
 
 							std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
 								intersect_vertices, local_y_direction_control_planes_.shift_before_d_min);
 
-							std::vector<Triangle> virtual_cube_triangles = get_virtual_cube_triangles(
+							virtual_cube_triangles = get_virtual_cube_triangles(
 								new_face, local_x_direction_control_planes_.shift_after_d_max);
-					}
-					else
-					{
-						// fakeCubeDiag[4]
-						std::vector<CMap::Vertex> intersect_vertices =
+						}
+						else
+						{
+							// fakeCubeDiag[4]
+							std::vector<CMap::Vertex> intersect_vertices =
 								find_intersection_vertices_face(local_y_direction_control_planes_.triangles_d_min,
 																local_x_direction_control_planes_.triangles_d_min);
 
 							std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_edge(
 								intersect_vertices, local_y_direction_control_planes_.shift_before_d_min);
 
-							std::vector<Triangle> virtual_cube_triangles = get_virtual_cube_triangles(
+							virtual_cube_triangles = get_virtual_cube_triangles(
 								new_face, local_x_direction_control_planes_.shift_before_d_min);
-					}
-				}
-			}
-			else
-			{
-				if (d_x > std::get<2>(local_x_direction_control_planes_))
-				{
-					if (d_y > std::get<2>(local_y_direction_control_planes_))
-					{
-						if (d_z > std::get<2>(local_z_direction_control_planes_))
-						{
-							// fakeCubeOut[7]
-						}
-						else
-						{
-							// fakeCubeOut[5]
-						}
-					}
-					else
-					{
-						if (d_z > std::get<2>(local_z_direction_control_planes_))
-						{
-							// fakeCubeOut[3]
-						}
-						else
-						{
-							// fakeCubeOut[1]
 						}
 					}
 				}
 				else
 				{
-					if (d_y > std::get<2>(local_y_direction_control_planes_))
+					if (d_x > local_x_direction_control_planes_.d_max)
 					{
-						if (d_z > std::get<2>(local_z_direction_control_planes_))
+						if (d_y > local_y_direction_control_planes_.d_max)
 						{
-							// fakeCubeOut[6]
+							if (d_z > local_z_direction_control_planes_.d_max)
+							{
+								// fakeCubeOut[7]
+								CMap2::Vertex intersection_vertex =
+									find_intersection_vertex(local_x_direction_control_planes_.triangles_d_max,
+															 local_y_direction_control_planes_.triangles_d_max,
+															 local_z_direction_control_planes_.triangles_d_max);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_vertex(
+									intersection_vertex, local_x_direction_control_planes_.shift_after_d_max,
+									local_y_direction_control_planes_.shift_after_d_max);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_after_d_max);
+							}
+							else
+							{
+								// fakeCubeOut[5]
+								CMap2::Vertex intersection_vertex =
+									find_intersection_vertex(local_x_direction_control_planes_.triangles_d_max,
+															 local_y_direction_control_planes_.triangles_d_max,
+															 local_z_direction_control_planes_.triangles_d_min);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_vertex(
+									intersection_vertex, local_x_direction_control_planes_.shift_after_d_max,
+									local_y_direction_control_planes_.shift_after_d_max);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_before_d_min);
+							}
 						}
 						else
 						{
-							// fakeCubeOut[4]
+							if (d_z > local_z_direction_control_planes_.d_max)
+							{
+								// fakeCubeOut[3]
+								CMap2::Vertex intersection_vertex =
+									find_intersection_vertex(local_x_direction_control_planes_.triangles_d_max,
+															 local_y_direction_control_planes_.triangles_d_min,
+															 local_z_direction_control_planes_.triangles_d_max);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_vertex(
+									intersection_vertex, local_x_direction_control_planes_.shift_after_d_max,
+									local_y_direction_control_planes_.shift_before_d_min);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_after_d_max);
+							}
+							else
+							{
+								// fakeCubeOut[1]
+								CMap2::Vertex intersection_vertex =
+									find_intersection_vertex(local_x_direction_control_planes_.triangles_d_max,
+															 local_y_direction_control_planes_.triangles_d_min,
+															 local_z_direction_control_planes_.triangles_d_min);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_vertex(
+									intersection_vertex, local_x_direction_control_planes_.shift_after_d_max,
+									local_y_direction_control_planes_.shift_before_d_min);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_before_d_min);
+							}
 						}
 					}
 					else
 					{
-						if (d_z > std::get<2>(local_z_direction_control_planes_))
+						if (d_y > local_y_direction_control_planes_.d_max)
 						{
-							// fakeCubeOut[2]
+							if (d_z > local_z_direction_control_planes_.d_max)
+							{
+								// fakeCubeOut[6]
+								CMap2::Vertex intersection_vertex =
+									find_intersection_vertex(local_x_direction_control_planes_.triangles_d_min,
+															 local_y_direction_control_planes_.triangles_d_max,
+															 local_z_direction_control_planes_.triangles_d_max);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_vertex(
+									intersection_vertex, local_x_direction_control_planes_.shift_before_d_min,
+									local_y_direction_control_planes_.shift_after_d_max);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_after_d_max);
+							}
+							else
+							{
+								// fakeCubeOut[4]
+								CMap2::Vertex intersection_vertex =
+									find_intersection_vertex(local_x_direction_control_planes_.triangles_d_min,
+															 local_y_direction_control_planes_.triangles_d_max,
+															 local_z_direction_control_planes_.triangles_d_min);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_vertex(
+									intersection_vertex, local_x_direction_control_planes_.shift_before_d_min,
+									local_y_direction_control_planes_.shift_after_d_max);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_before_d_min);
+							}
 						}
 						else
 						{
-							// fakeCubeOut[0]
+							if (d_z > local_z_direction_control_planes_.d_max)
+							{
+								// fakeCubeOut[2]
+								CMap2::Vertex intersection_vertex =
+									find_intersection_vertex(local_x_direction_control_planes_.triangles_d_min,
+															 local_y_direction_control_planes_.triangles_d_min,
+															 local_z_direction_control_planes_.triangles_d_max);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_vertex(
+									intersection_vertex, local_x_direction_control_planes_.shift_before_d_min,
+									local_y_direction_control_planes_.shift_before_d_min);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_after_d_max);
+							}
+							else
+							{
+								// fakeCubeOut[0]
+								CMap2::Vertex intersection_vertex =
+									find_intersection_vertex(local_x_direction_control_planes_.triangles_d_min,
+															 local_y_direction_control_planes_.triangles_d_min,
+															 local_z_direction_control_planes_.triangles_d_min);
+
+								std::pair<Triangle, Triangle> new_face = get_face_from_intersecting_vertex(
+									intersection_vertex, local_x_direction_control_planes_.shift_before_d_min,
+									local_y_direction_control_planes_.shift_before_d_min);
+
+								virtual_cube_triangles = get_virtual_cube_triangles(
+									new_face, local_z_direction_control_planes_.shift_before_d_min);
+							}
 						}
 					}
 				}
+
+				compute_mvc_on_point_outside_cage(surface_point, surface_point_index,
+							 virtual_cube_triangles);
 			}
 		});
 	}
@@ -947,6 +1041,121 @@ private:
 		return false;
 	}
 
+	bool compute_mvc_on_point_outside_cage(const Vec3& surface_point, const uint32& surface_point_index, const std::vector<Triangle> virtual_cube_triangles)
+	{
+		uint32 nbv_cage = 8; //nb_cells<Vertex>(*control_cage_);
+
+		/*double epsilon = 0.00000001;
+		double sumWeights = 0.0;
+
+		Eigen::VectorXd w_control_cage_coords_;
+
+		w_control_cage_coords_.resize(nbv_cage);
+		w_control_cage_coords_.setZero();
+
+		std::vector<double> d(nbv_cage);
+		std::vector<Vec3> u(nbv_cage);
+
+		parallel_foreach_cell(*control_cage_, [&](Vertex v) -> bool {
+			const Vec3& cage_point = value<Vec3>(*control_cage_, control_cage_vertex_position_, v);
+
+			uint32 cage_point_index = value<uint32>(*control_cage_, control_cage_vertex_index_, v);
+
+			d[cage_point_index] = (surface_point - cage_point).norm();
+			if (d[cage_point_index] < epsilon)
+			{
+				control_cage_coords_(surface_point_index, cage_point_index) = 1.0;
+				return true;
+			}
+
+			u[cage_point_index] = (cage_point - surface_point) / d[cage_point_index];
+
+			return true;
+		});
+
+		double l[3];
+		double theta[3];
+		double w[3];
+		double c[3];
+		double s[3];
+
+		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
+		{
+
+			std::vector<uint32> triangle_index = cage_triangles_[t].indices;
+
+			for (std::size_t i = 0; i < 3; i++)
+			{
+				l[i] = (u[triangle_index[(i + 1) % 3]] - u[triangle_index[(i + 2) % 3]]).norm();
+			}
+
+			for (std::size_t i = 0; i < 3; i++)
+			{
+				theta[i] = 2.0 * asin(l[i] / 2.0);
+			}
+
+			double h = (theta[0] + theta[1] + theta[2]) / 2.0;
+			if (M_PI - h < epsilon)
+			{
+				for (std::size_t i = 0; i < 3; i++)
+				{
+					w[i] = sin(theta[i]) * l[(i + 2) % 3] * l[(i + 1) % 3];
+				}
+
+				sumWeights = w[0] + w[1] + w[2];
+				w_control_cage_coords_[triangle_index[0]] = w[0] / sumWeights;
+				w_control_cage_coords_[triangle_index[1]] = w[1] / sumWeights;
+				w_control_cage_coords_[triangle_index[2]] = w[2] / sumWeights;
+
+				return true;
+			}
+
+			for (std::size_t i = 0; i < 3; i++)
+			{
+				c[i] = (2.0 * sin(h) * sin(h - theta[i])) / (sin(theta[(i + 1) % 3]) * sin(theta[(i + 2) % 3])) - 1.0;
+			}
+
+			double sign_Basis_u0u1u2 = 1;
+			Vec3 crossVec = u[triangle_index[0]].cross(u[triangle_index[1]]);
+			if (crossVec.dot(u[triangle_index[2]]) < 0.0)
+			{
+				sign_Basis_u0u1u2 = -1;
+			}
+
+			for (std::size_t i = 0; i < 3; i++)
+			{
+				s[i] = sign_Basis_u0u1u2 * sqrt(std::max<double>(0.0, 1.0 - c[i] * c[i]));
+			}
+
+			if (fabs(s[0]) < epsilon || fabs(s[1]) < epsilon || fabs(s[2]) < epsilon)
+			{
+				continue; // eta is on the same plane, outside t  ->  ignore triangle t :
+			}
+
+			for (std::size_t i = 0; i < 3; ++i)
+			{
+				w[i] = (theta[i] - c[(i + 1) % 3] * theta[(i + 2) % 3] - c[(i + 2) % 3] * theta[(i + 1) % 3]) /
+					   (2.0 * d[triangle_index[i]] * sin(theta[(i + 1) % 3]) * s[(i + 2) % 3]);
+			}
+
+			sumWeights += (w[0] + w[1] + w[2]);
+			w_control_cage_coords_[triangle_index[0]] += w[0];
+			w_control_cage_coords_[triangle_index[1]] += w[1];
+			w_control_cage_coords_[triangle_index[2]] += w[2];
+		}
+
+		parallel_foreach_cell(*control_cage_, [&](Vertex v) -> bool {
+			uint32 cage_point_index = value<uint32>(*control_cage_, control_cage_vertex_index_, v);
+
+			control_cage_coords_(surface_point_index, cage_point_index) =
+				w_control_cage_coords_[cage_point_index] / sumWeights;
+
+			return true;
+		});*/
+
+		return false;
+	}
+
 	void bind_mvc_customed_vertices(const Vec3 surface_point, uint32 surface_point_index,
 									std::vector<Vec3> position_vertices)
 	{
@@ -993,22 +1202,22 @@ private:
 		return checked;
 	}
 
-	std::vector<CMap2::Vertex> find_intersection_vertices_face(std::pair<Triangle, Triangle> face1,
-															   std::pair<Triangle, Triangle> face2)
+	std::vector<CMap2::Vertex> find_intersection_vertices_face(const std::pair<Triangle, Triangle>& face1,
+															   const std::pair<Triangle, Triangle>& face2)
 	{
 		std::vector<CMap::Vertex> intersect_vertices;
 
 		const std::vector<CMap2::Vertex> vertex_face_1;
-		vertex_face_y.push_back(face1.first.vertices[2]);
-		vertex_face_y.push_back(face1.first.vertices[0]);
-		vertex_face_y.push_back(face1.second.vertices[1]);
-		vertex_face_y.push_back(face1.first.vertices[1]);
+		vertex_face_1.push_back(face1.first.vertices[2]);
+		vertex_face_1.push_back(face1.first.vertices[0]);
+		vertex_face_1.push_back(face1.second.vertices[1]);
+		vertex_face_1.push_back(face1.first.vertices[1]);
 
 		const std::vector<CMap2::Vertex> vertex_face_2;
-		vertex_face_z.push_back(face2.first.vertices[2]);
-		vertex_face_z.push_back(face2.first.vertices[0]);
-		vertex_face_z.push_back(face2.second.vertices[1]);
-		vertex_face_z.push_back(face2.first.vertices[1]);
+		vertex_face_2.push_back(face2.first.vertices[2]);
+		vertex_face_2.push_back(face2.first.vertices[0]);
+		vertex_face_2.push_back(face2.second.vertices[1]);
+		vertex_face_2.push_back(face2.first.vertices[1]);
 
 		// TODO: find alternative to double loops
 		for (std::size_t i = 0; i < 4; i++)
@@ -1020,13 +1229,63 @@ private:
 
 				if (target_vertex_face1 == target_vertex_face2)
 				{
-					intersect_vertices.push_back(target_y_vertex);
+					intersect_vertices.push_back(target_vertex_face1);
 					continue;
 				}
 			}
 		}
 
 		return intersect_vertices;
+	}
+
+	CMap2::Vertex find_intersection_vertex(const std::pair<Triangle, Triangle>& face1,
+										   const std::pair<Triangle, Triangle>& face2,
+										   const std::pair<Triangle, Triangle>& face3)
+	{
+		CMap2::Vertex intersection_vertex;
+
+		const std::vector<CMap2::Vertex> vertex_face_1;
+		vertex_face_1.push_back(face1.first.vertices[2]);
+		vertex_face_1.push_back(face1.first.vertices[0]);
+		vertex_face_1.push_back(face1.second.vertices[1]);
+		vertex_face_1.push_back(face1.first.vertices[1]);
+
+		const std::vector<CMap2::Vertex> vertex_face_2;
+		vertex_face_2.push_back(face2.first.vertices[2]);
+		vertex_face_2.push_back(face2.first.vertices[0]);
+		vertex_face_2.push_back(face2.second.vertices[1]);
+		vertex_face_2.push_back(face2.first.vertices[1]);
+
+		const std::vector<CMap2::Vertex> vertex_face_3;
+		vertex_face_3.push_back(face3.first.vertices[2]);
+		vertex_face_3.push_back(face3.first.vertices[0]);
+		vertex_face_3.push_back(face3.second.vertices[1]);
+		vertex_face_3.push_back(face3.first.vertices[1]);
+
+		// TODO: find alternative to double loops
+		for (std::size_t i = 0; i < 4; i++)
+		{
+			CMap2::Vertex target_vertex_face1 = vertex_face_1[i];
+			for (std::size_t j = 0; j < 4; j++)
+			{
+				CMap2::Vertex target_vertex_face2 = vertex_face_2[j];
+
+				if (target_vertex_face1 == target_vertex_face2)
+				{
+					for (std::size_t k = 0; k < 4; k++)
+					{
+						CMap2::Vertex target_vertex_face3 = vertex_face_3[k];
+
+						if (target_vertex_face1 == target_vertex_face3)
+						{
+							return target_vertex_face1;
+						}
+					}
+				}
+			}
+		}
+
+		return intersection_vertex;
 	}
 
 	std::pair<Triangle, Triangle> get_face_from_intersecting_edge(const std::vector<CMap::Vertex>& intersect_vertices,
@@ -1043,7 +1302,25 @@ private:
 		local_triangle1.positions = {face_position1, face_position3, face_position0};
 		local_triangle2.positions = {face_position1, face_position2, face_position3};
 
-		return std::make_pair(local_triangle1, local_triangle2); 
+		return std::make_pair(local_triangle1, local_triangle2);
+	}
+
+	std::pair<Triangle, Triangle> get_face_from_intersecting_vertex(const CMap2::Vertex& intersection_vertex,
+																	const Vec3& shiftVector1, const Vec3& shiftVector2)
+	{
+		// create new face composed of the intersection vertex and shifted in two directions
+		const Vec3 face_position0 = value<Vec3>(*control_cage_, control_cage_vertex_position_, intersection_vertex);
+
+		const Vec3 face_position1 = face_position0 + shiftVector1;
+
+		const Vec3 face_position2 = (face_position1 + shiftVector1) + shiftVector2;
+		const Vec3 face_position3 = face_position0 + shiftVector2;
+
+		const Triangle local_triangle1, triangle2;
+		local_triangle1.positions = {face_position1, face_position3, face_position0};
+		local_triangle2.positions = {face_position1, face_position2, face_position3};
+
+		return std::make_pair(local_triangle1, local_triangle2);
 	}
 };
 
