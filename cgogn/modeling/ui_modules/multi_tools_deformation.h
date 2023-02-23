@@ -984,11 +984,8 @@ private:
 
 		if (binding_type == "MVC")
 		{
-			std::cout << "before bind " << std::endl; 
 			cdt->bind_mvc(object, object_vertex_position);
 			// cdt->set_up_attenuation(object, object_vertex_position);
-
-			std::cout << "after bind" << std::endl; 
 
 			cdt->cage_attribute_update_connection_ =
 				boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(

@@ -186,13 +186,10 @@ public:
 									  d_y >= local_y_direction_control_planes_.d_min),
 
 					   valid_z_dir = (d_z <= local_z_direction_control_planes_.d_max &&
-									  d_z >= local_z_direction_control_planes_.d_min);
-
-			std::cout << "before big loop" << std::endl; 
+									  d_z >= local_z_direction_control_planes_.d_min); 
 
 			if (valid_x_dir && valid_y_dir && valid_z_dir)
-			{
-				std::cout << "inside cage " << std::endl; 
+			{ 
 				compute_mvc_on_point_inside_cage(surface_point, surface_point_index);
 			}
 			else
@@ -205,7 +202,6 @@ public:
 						if (d_z > local_z_direction_control_planes_.d_max)
 						{
 							// fakeCube[5]
-							std::cout << "fake cube 5" << std::endl; 
 							// Beware, need to inverse the normal of the triangle1 and triangle2
 
 							virtual_cube_triangles =
@@ -215,7 +211,6 @@ public:
 						else
 						{
 							// fakeCube[4]
-							std::cout << "fake cube 4" << std::endl; 
 							virtual_cube_triangles =
 								get_virtual_cube_triangles(local_z_direction_control_planes_.triangles_d_min,
 														   local_z_direction_control_planes_.shift_before_d_min);
@@ -225,8 +220,7 @@ public:
 					{
 						if (d_y > local_y_direction_control_planes_.d_max)
 						{
-							// fakeCube[3]
-							std::cout << "fake cube 3" << std::endl; 
+							// fakeCube[3] 
 							virtual_cube_triangles =
 								get_virtual_cube_triangles(local_y_direction_control_planes_.triangles_d_max,
 														   local_y_direction_control_planes_.shift_after_d_max);
@@ -234,7 +228,6 @@ public:
 						else
 						{
 							// fakeCube[2]
-							std::cout << "fake cube 2" << std::endl; 
 							virtual_cube_triangles =
 								get_virtual_cube_triangles(local_y_direction_control_planes_.triangles_d_min,
 														   local_y_direction_control_planes_.shift_before_d_min);
@@ -248,7 +241,6 @@ public:
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
 								// fakeCubeDiag[11]
-								std::cout << "fake diag cube 11" << std::endl; 
 								// find intersection edge between y and z triangle
 								std::vector<Vec3> intersect_positions =
 									find_intersection_positions_face(local_y_direction_control_planes_.triangles_d_max,
@@ -263,7 +255,6 @@ public:
 							else
 							{
 								// fakeCubeDiag[9]
-								std::cout << "fake diag cube 9" << std::endl; 
 								std::vector<Vec3> intersect_positions =
 									find_intersection_positions_face(local_y_direction_control_planes_.triangles_d_max,
 																	local_z_direction_control_planes_.triangles_d_min);
@@ -281,7 +272,6 @@ public:
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
 								// fakeCubeDiag[10]
-								std::cout << "fake diag cube 10" << std::endl; 
 								std::vector<Vec3> intersect_positions =
 									find_intersection_positions_face(local_y_direction_control_planes_.triangles_d_min,
 																	local_z_direction_control_planes_.triangles_d_max);
@@ -295,7 +285,6 @@ public:
 							else
 							{
 								// fakeCubeDiag[8]
-								std::cout << "fake diag cube 8" << std::endl; 
 								std::vector<Vec3> intersect_positions =
 									find_intersection_positions_face(local_y_direction_control_planes_.triangles_d_min,
 																	local_z_direction_control_planes_.triangles_d_min);
@@ -315,8 +304,7 @@ public:
 					{
 						if (d_x > local_x_direction_control_planes_.d_max)
 						{
-							// fakeCube[1]
-							std::cout << "fake cube 1" << std::endl; 
+							// fakeCube[1] 
 							virtual_cube_triangles =
 								get_virtual_cube_triangles(local_x_direction_control_planes_.triangles_d_max,
 														   local_x_direction_control_planes_.shift_after_d_max);
@@ -324,7 +312,6 @@ public:
 						else
 						{
 							// fakeCube[0]
-							std::cout << "fake cube 0" << std::endl; 
 							virtual_cube_triangles =
 								get_virtual_cube_triangles(local_x_direction_control_planes_.triangles_d_min,
 														   local_x_direction_control_planes_.shift_before_d_min);
@@ -337,8 +324,7 @@ public:
 
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
-								// fakeCubeDiag[3]
-								std::cout << "fake diag cube 3" << std::endl; 
+								// fakeCubeDiag[3] 
 								std::vector<Vec3> intersect_positions =
 									find_intersection_positions_face(local_x_direction_control_planes_.triangles_d_max,
 																	local_z_direction_control_planes_.triangles_d_max);
@@ -352,7 +338,6 @@ public:
 							else
 							{
 								// fakeCubeDiag[1]
-								std::cout << "fake diag cube 1" << std::endl; 
 								std::vector<Vec3> intersect_positions =
 									find_intersection_positions_face(local_x_direction_control_planes_.triangles_d_max,
 																	local_z_direction_control_planes_.triangles_d_min);
@@ -370,7 +355,6 @@ public:
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
 								// fakeCubeDiag[2]
-								std::cout << "fake diag cube 2" << std::endl; 
 								std::vector<Vec3> intersect_positions =
 									find_intersection_positions_face(local_x_direction_control_planes_.triangles_d_min,
 																	local_z_direction_control_planes_.triangles_d_max);
@@ -383,8 +367,7 @@ public:
 							}
 							else
 							{
-								// fakeCubeDiag[0]
-								std::cout << "fake diag cube 0" << std::endl; 
+								// fakeCubeDiag[0] 
 								std::vector<Vec3> intersect_positions =
 									find_intersection_positions_face(local_x_direction_control_planes_.triangles_d_min,
 																	local_z_direction_control_planes_.triangles_d_min);
@@ -405,7 +388,6 @@ public:
 						if (d_x > local_x_direction_control_planes_.d_max)
 						{
 							// fakeCubeDiag[7]
-							std::cout << "fake diag cube 7" << std::endl; 
 							std::vector<Vec3> intersect_positions =
 								find_intersection_positions_face(local_y_direction_control_planes_.triangles_d_max,
 																local_x_direction_control_planes_.triangles_d_max);
@@ -418,8 +400,7 @@ public:
 						}
 						else
 						{
-							// fakeCubeDiag[5]
-							std::cout << "fake diag cube 5" << std::endl; 
+							// fakeCubeDiag[5] 
 							std::vector<Vec3> intersect_positions =
 								find_intersection_positions_face(local_y_direction_control_planes_.triangles_d_max,
 																local_x_direction_control_planes_.triangles_d_min);
@@ -437,7 +418,6 @@ public:
 						if (d_x > local_x_direction_control_planes_.d_max)
 						{
 							// fakeCubeDiag[6]
-							std::cout << "fake diag cube 6" << std::endl; 
 							std::vector<Vec3> intersect_positions =
 								find_intersection_positions_face(local_y_direction_control_planes_.triangles_d_min,
 																local_x_direction_control_planes_.triangles_d_max);
@@ -451,7 +431,6 @@ public:
 						else
 						{
 							// fakeCubeDiag[4]
-							std::cout << "fake diag cube 4" << std::endl; 
 							std::vector<Vec3> intersect_positions =
 								find_intersection_positions_face(local_y_direction_control_planes_.triangles_d_min,
 																local_x_direction_control_planes_.triangles_d_min);
@@ -472,8 +451,7 @@ public:
 						{
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
-								// fakeCubeOut[7]
-								std::cout << "fake out cube 7" << std::endl; 
+								// fakeCubeOut[7] 
 								Vec3 intersection_position =
 									find_intersection_position(local_x_direction_control_planes_.triangles_d_max,
 															 local_y_direction_control_planes_.triangles_d_max,
@@ -489,7 +467,6 @@ public:
 							else
 							{
 								// fakeCubeOut[5]
-								std::cout << "fake out cube 5" << std::endl; 
 								Vec3 intersection_position =
 									find_intersection_position(local_x_direction_control_planes_.triangles_d_max,
 															 local_y_direction_control_planes_.triangles_d_max,
@@ -508,7 +485,6 @@ public:
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
 								// fakeCubeOut[3]
-								std::cout << "fake out cube 3" << std::endl; 
 								Vec3 intersection_position =
 									find_intersection_position(local_x_direction_control_planes_.triangles_d_max,
 															 local_y_direction_control_planes_.triangles_d_min,
@@ -523,8 +499,7 @@ public:
 							}
 							else
 							{
-								// fakeCubeOut[1]
-								std::cout << "fake out cube 1" << std::endl; 
+								// fakeCubeOut[1] 
 								Vec3 intersection_position =
 									find_intersection_position(local_x_direction_control_planes_.triangles_d_max,
 															 local_y_direction_control_planes_.triangles_d_min,
@@ -546,7 +521,6 @@ public:
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
 								// fakeCubeOut[6]
-								std::cout << "fake out cube 6" << std::endl; 
 								Vec3 intersection_position =
 									find_intersection_position(local_x_direction_control_planes_.triangles_d_min,
 															 local_y_direction_control_planes_.triangles_d_max,
@@ -561,8 +535,7 @@ public:
 							}
 							else
 							{
-								// fakeCubeOut[4]
-								std::cout << "fake out cube 4" << std::endl; 
+								// fakeCubeOut[4] 
 								Vec3 intersection_position =
 									find_intersection_position(local_x_direction_control_planes_.triangles_d_min,
 															 local_y_direction_control_planes_.triangles_d_max,
@@ -581,7 +554,6 @@ public:
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
 								// fakeCubeOut[2]
-								std::cout << "fake out cube 2" << std::endl; 
 								Vec3 intersection_position =
 									find_intersection_position(local_x_direction_control_planes_.triangles_d_min,
 															 local_y_direction_control_planes_.triangles_d_min,
@@ -597,7 +569,6 @@ public:
 							else
 							{
 								// fakeCubeOut[0]
-								std::cout << "fake out cube 0" << std::endl; 
 								Vec3 intersection_position =
 									find_intersection_position(local_x_direction_control_planes_.triangles_d_min,
 															 local_y_direction_control_planes_.triangles_d_min,
@@ -614,7 +585,7 @@ public:
 					}
 				}
 
-				compute_mvc_on_point_outside_cage(surface_point, surface_point_index, virtual_cube_triangles);
+				//compute_mvc_on_point_outside_cage(surface_point, surface_point_index, virtual_cube_triangles);
 			}
 		});
 	}
@@ -1298,8 +1269,6 @@ private:
 			std::cout << "Warning, size not 2: " << intersect_positions.size() << std::endl; 
 		}
 
-		std::cout << "size intersect positions " << intersect_positions.size() << std::endl; 
-
 		return intersect_positions;
 	}
 
@@ -1359,23 +1328,15 @@ private:
 																  const Vec3& shiftVector)
 	{
 		// create new face composed of the intersecting edge and this edge shifted by y
-		std::cout << "first " << intersect_positions[0] << std::endl; 
-		std::cout << "second " << intersect_positions[1] << std::endl; 
 		const Vec3 face_position0 = intersect_positions[0];
 		const Vec3 face_position1 = intersect_positions[1];
-
-		std::cout << "test here " << std::endl; 
 
 		const Vec3 face_position2 = face_position1 + shiftVector;
 		const Vec3 face_position3 = face_position0 + shiftVector;
 
-		std::cout << "valid here " << std::endl; 
-
 		Triangle local_triangle1, local_triangle2;
 		local_triangle1.positions = {face_position1, face_position3, face_position0};
 		local_triangle2.positions = {face_position1, face_position2, face_position3};
-
-		std::cout << "ok end function " << std::endl; 
 
 		return std::make_pair(local_triangle1, local_triangle2);
 	}
