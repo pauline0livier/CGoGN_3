@@ -50,6 +50,9 @@ namespace modeling
 {
 
 template <typename MESH>
+/**
+ * @Class Global Cage Deformation Tool
+*/
 class GlobalCageDeformationTool
 {
 	template <typename T>
@@ -767,4 +770,4 @@ private:
 
 } // namespace cgogn
 
-#endif // CGOGN_MODELING_CAGE_DEFORMATION_TOOL_H_
+#endif // CGOGN_MODELING_GLOBAL_CAGE_DEFORMATION_TOOL_H_

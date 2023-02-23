@@ -37,8 +37,8 @@ template <typename MESH>
 
 /**
  * @Class CageDeformationTool
- * Represents the local cage deformation tool 
-*/
+ * Represents the local cage deformation tool
+ */
 class CageDeformationTool : public SpaceDeformationTool<MESH>
 {
 	template <typename T>
@@ -49,13 +49,14 @@ class CageDeformationTool : public SpaceDeformationTool<MESH>
 	using Vec2 = geometry::Vec2;
 	using Vec3 = geometry::Vec3;
 
-	struct Triangle {
-		std::vector<CMap2::Vertex> vertices; 
-		std::vector<Vec3> positions; 
-		std::vector<uint32_t> indices; 
-		Vec3 normal; 
-		std::pair<Vec3, Vec3> edges; 
-	}; 
+	struct Triangle
+	{
+		std::vector<CMap2::Vertex> vertices;
+		std::vector<Vec3> positions;
+		std::vector<uint32_t> indices;
+		Vec3 normal;
+		std::pair<Vec3, Vec3> edges;
+	};
 
 public:
 	MESH* control_cage_;
@@ -98,9 +99,9 @@ public:
 		control_cage_vertex_index_ = cgogn::add_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
 		cgogn::modeling::set_attribute_vertex_index(*control_cage_, control_cage_vertex_index_.get());
 
-		init_triangles(); 
+		init_triangles();
 
-		init_control_cage_plane(); 
+		init_control_cage_plane();
 	}
 
 	void set_influence_cage(MESH& object, const CMap2::Attribute<Vec3>* object_vertex_position, MESH* m,
@@ -130,7 +131,7 @@ public:
 		foreach_cell(object, [&](Vertex v) -> bool {
 			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
 
-			bool inside_cage = local_mvc_pt_surface(surface_point);
+			bool inside_cage = check_mvc_on_point_inside_influence_cage(surface_point);
 
 			if (inside_cage)
 			{
@@ -182,13 +183,9 @@ public:
 				{
 					if (d_z > std::get<2>(local_z_direction_control_planes_))
 					{
-						std::vector<Triangle> virtual_cube_triangles(6); 
-
-						const Triangle local_triangle1 = control_cage_face_d_z_max_.first; 
-						const Triangle local_triangle2 = control_cage_face_d_z_max_.second; 
-
-						virtual_cube_triangles[0] = local_triangle1; 
-						virtual_cube_triangles[1] = local_triangle2; 
+						// Beware, need to inverse the normal of the triangle1 and triangle2
+						const Triangle local_triangle1 = control_cage_face_d_z_max_.first;
+						const Triangle local_triangle2 = control_cage_face_d_z_max_.second;
 
 						// find plane of "fake" cube
 						const double gap_z_plane = std::get<2>(local_z_direction_control_planes_) -
@@ -198,77 +195,60 @@ public:
 
 						const Vec3 shift = {0.0, 0.0, -new_plane_d};
 
-						std::vector<Vec3> new_positions; 
+						std::vector<Triangle> virtual_cube_triangles =
+							get_virtual_cube_triangles(local_triangle1, local_triangle2, shift);
 
-						for (std::size_t i = 0; i < 3; i++){
-							const Vec3 shifted_position = local_triangle1.positions[i] - shift; 
-							new_positions.push_back(shifted_position); 
-						}
-
-						for (std::size_t i = 0; i < 3; i++){
-							const Vec3 shifted_position = local_triangle2.positions[i] - shift; 
-							new_positions.push_back(shifted_position); 
-						}
-
-						Triangle triangle3; 
-						triangle3.positions = {new_positions.begin(), big_vector.end() - 3};
-						triangle3.normal = -1.0*triangle1.normal; 
-
-
-						Triangle triangle4; 
-						triangle4.positions = {new_positions.begin() + 3, big_vector.end()};
-						triangle4.normal = -1.0*triangle2.normal;
-
-						virtual_cube_triangles[3] = triangle3; 
-						virtual_cube_triangles[4] = triangle4;
-
-						Triangle triangle5; 
-						triangle5.positions = {triangle1.positions[0], triangle3.positions[2], triangle1.positions[2]}; 
-						
-						Triangle triangle6; 
-						triangle6.positions = {triangle1.positions[0], triangle3.positions[0], triangle3.positions[2]}; 
-
-						Triangle triangle7; 
-						triangle7.positions = {triangle1.positions[2], triangle3.positions[1], triangle3.positions[2]};
-
-						Triangle triangle8; 
-						triangle8.positions = {triangle1.positions[2], triangle1.positions[1], triangle3.positions[1]}; 
-
-						Triangle triangle9; 
-						triangle9.positions = {triangle1.positions[0], triangle4.positions[1], triangle3.positions[0]};
-
-						Triangle triangle10; 
-						triangle10.positions = {triangle1.positions[0], triangle2.positions[1], triangle4.positions[1]};
-
-						Triangle triangle11; 
-						triangle11.positions = {triangle4.positions[1], triangle1.positions[1], triangle3.positions[1]};
-
-						Triangle triangle12; 
-						triangle12.positions = {triangle4.positions[1], triangle2.positions[1], triangle1.positions[1]};
-
-						virtual_cube_triangles[5] = triangle5; 
-						virtual_cube_triangles[6] = triangle6;
-						virtual_cube_triangles[7] = triangle7; 
-						virtual_cube_triangles[8] = triangle8;
-						virtual_cube_triangles[9] = triangle9; 
-						virtual_cube_triangles[10] = triangle10;
-						virtual_cube_triangles[11] = triangle11; 
-						virtual_cube_triangles[12] = triangle12;
-
-						//compute_mvc_on_point_outside_cage(surface_point, surface_point_index, virtual_cube_triangles);
-
+						// compute_mvc_on_point_outside_cage(surface_point, surface_point_index,
+						// virtual_cube_triangles);
 					}
 					else
 					{
+						const Triangle local_triangle1 = control_cage_face_d_z_min_.first;
+						const Triangle local_triangle2 = control_cage_face_d_z_min_.second;
+
+						const double gap_z_plane = std::get<2>(local_z_direction_control_planes_) -
+												   std::get<1>(local_z_direction_control_planes_);
+
+						const double new_plane_d = std::get<1>(local_z_direction_control_planes_) - gap_z_plane;
+
+						const Vec3 shift = {0.0, 0.0, -new_plane_d};
+
+						std::vector<Triangle> virtual_cube_triangles =
+							get_virtual_cube_triangles(local_triangle1, local_triangle2, shift);
 					}
 				}
 				else if (valid_z_dir)
 				{
 					if (d_y > std::get<2>(local_y_direction_control_planes_))
 					{
+						const Triangle local_triangle1 = control_cage_face_d_y_max_.first;
+						const Triangle local_triangle2 = control_cage_face_d_y_max_.second;
+
+						const double gap_y_plane = std::get<2>(local_y_direction_control_planes_) -
+												   std::get<1>(local_y_direction_control_planes_);
+
+						const double new_plane_d = std::get<2>(local_y_direction_control_planes_) + gap_y_plane;
+
+						const Vec3 shift = {0.0, 0.0, -new_plane_d};
+
+						std::vector<Triangle> virtual_cube_triangles =
+							get_virtual_cube_triangles(local_triangle1, local_triangle2, shift);
+
 					}
 					else
 					{
+						const Triangle local_triangle1 = control_cage_face_d_y_min_.first;
+						const Triangle local_triangle2 = control_cage_face_d_y_min_.second;
+
+						const double gap_y_plane = std::get<2>(local_y_direction_control_planes_) -
+												   std::get<1>(local_y_direction_control_planes_);
+
+						const double new_plane_d = std::get<1>(local_y_direction_control_planes_) - gap_y_plane;
+
+						const Vec3 shift = {0.0, 0.0, -new_plane_d};
+
+						std::vector<Triangle> virtual_cube_triangles =
+							get_virtual_cube_triangles(local_triangle1, local_triangle2, shift);
 					}
 				}
 			}
@@ -278,9 +258,33 @@ public:
 				{
 					if (d_x > std::get<2>(local_x_direction_control_planes_))
 					{
+						const Triangle local_triangle1 = control_cage_face_d_x_max_.first;
+						const Triangle local_triangle2 = control_cage_face_d_x_max_.second;
+
+						const double gap_x_plane = std::get<2>(local_x_direction_control_planes_) -
+												   std::get<1>(local_x_direction_control_planes_);
+
+						const double new_plane_d = std::get<2>(local_x_direction_control_planes_) + gap_x_plane;
+
+						const Vec3 shift = {0.0, 0.0, -new_plane_d};
+
+						std::vector<Triangle> virtual_cube_triangles =
+							get_virtual_cube_triangles(local_triangle1, local_triangle2, shift);
 					}
 					else
 					{
+						const Triangle local_triangle1 = control_cage_face_d_x_min_.first;
+						const Triangle local_triangle2 = control_cage_face_d_x_min_.second;
+
+						const double gap_x_plane = std::get<2>(local_x_direction_control_planes_) -
+												   std::get<1>(local_x_direction_control_planes_);
+
+						const double new_plane_d = std::get<1>(local_x_direction_control_planes_) - gap_x_plane;
+
+						const Vec3 shift = {0.0, 0.0, -new_plane_d};
+
+						std::vector<Triangle> virtual_cube_triangles =
+							get_virtual_cube_triangles(local_triangle1, local_triangle2, shift);
 					}
 				}
 				else
@@ -289,6 +293,7 @@ public:
 					{
 						if (d_z > std::get<2>(local_z_direction_control_planes_))
 						{
+							
 						}
 						else
 						{
@@ -393,10 +398,10 @@ public:
 
 	void update_deformation_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
 	{
-		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "vertex_index");
+		std::shared_ptr<Attribute<uint32>> object_vertex_indices = get_attribute<uint32, Vertex>(object, "vertex_index");
 
 		this->influence_area_->foreach_cell([&](Vertex v) -> bool {
-			uint32 object_vertex_index = value<uint32>(object, object_vertex_index, v);
+			uint32 object_vertex_index = value<uint32>(object, object_vertex_indices, v);
 
 			Vec3 new_pos_ = {0.0, 0.0, 0.0};
 
@@ -456,9 +461,6 @@ public:
 	}*/
 
 private:
-	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> control_cage_coords_;
-
-	Eigen::VectorXd mixing_factor_;
 
 	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> global_matrix_;
 
@@ -495,9 +497,8 @@ private:
 
 	std::shared_ptr<Attribute<bool>> control_cage_marked_vertices_;
 
-	void init_triangles(){
-		uint32 nbt_cage = 2.0*nb_cells<Face>(*control_cage_);
-		cage_triangles_normal_.resize(nbt_cage); 
+	void init_triangles()
+	{
 
 		foreach_cell(*control_cage_, [&](Face fc) -> bool {
 			std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(*control_cage_, fc);
@@ -513,31 +514,19 @@ private:
 			triangle2_vertex[2] = face_vertices_[3];
 
 			std::vector<Vec3> triangle1_position(3);
-			std::vector<uint32_t> triangle1_index(3); 
+			std::vector<uint32_t> triangle1_index(3);
 
 			std::vector<Vec3> triangle2_position(3);
-			std::vector<uint32_t> triangle2_index(3); 
+			std::vector<uint32_t> triangle2_index(3);
 			for (std::size_t i = 0; i < triangle1_vertex.size(); i++)
 			{
-				triangle1_position[i] = 
-					value<Vec3>(*control_cage_, 
-					control_cage_vertex_position_, 
-					triangle1_vertex[i]);
+				triangle1_position[i] = value<Vec3>(*control_cage_, control_cage_vertex_position_, triangle1_vertex[i]);
 
-				triangle1_index[i] = 
-					value<uint32_t>(*control_cage_, 
-					control_cage_vertex_index_, 
-					triangle1_vertex[i]);
+				triangle1_index[i] = value<uint32_t>(*control_cage_, control_cage_vertex_index_, triangle1_vertex[i]);
 
-				triangle2_position[i] = 
-					value<Vec3>(*control_cage_, 
-					control_cage_vertex_position_, 
-					triangle2_vertex[i]);	
+				triangle2_position[i] = value<Vec3>(*control_cage_, control_cage_vertex_position_, triangle2_vertex[i]);
 
-				triangle2_index[i] = 
-					value<uint32_t>(*control_cage_, 
-					control_cage_vertex_index_, 
-					triangle2_vertex[i]);			
+				triangle2_index[i] = value<uint32_t>(*control_cage_, control_cage_vertex_index_, triangle2_vertex[i]);
 			}
 
 			const Vec3 t1_normal =
@@ -548,38 +537,40 @@ private:
 				(cgogn::geometry::normal(triangle2_position[0], triangle2_position[1], triangle2_position[2]))
 					.normalized();
 
-			Triangle triangle1; 
-			triangle1.vertices = triangle1_vertex; 
-			triangle1.positions = triangle1_position; 
-			triangle1.indices = triangle1_index; 
-			triangle1.normal = t1_normal; 
+			Triangle triangle1;
+			triangle1.vertices = triangle1_vertex;
+			triangle1.positions = triangle1_position;
+			triangle1.indices = triangle1_index;
+			triangle1.normal = t1_normal;
 			cage_triangles_.push_back(triangle1);
 
-			Triangle triangle2; 
-			triangle2.vertices = triangle2_vertex; 
-			triangle2.positions = triangle2_position; 
-			triangle2.indices = triangle2_index; 
-			triangle2.normal = t2_normal; 
+			Triangle triangle2;
+			triangle2.vertices = triangle2_vertex;
+			triangle2.positions = triangle2_position;
+			triangle2.indices = triangle2_index;
+			triangle2.normal = t2_normal;
 			cage_triangles_.push_back(triangle2);
 
 			return true;
 		});
 	}
 
-	void init_control_cage_plane(){
+	void init_control_cage_plane()
+	{
 		// TODO set for local frame
 		const Vec3 x_dir = {1.0, 0.0, 0.0}, y_dir = {0.0, 1.0, 0.0}, z_dir = {0.0, 0.0, 1.0};
 
 		double d_x_min = 1000.0, d_x_max = -1000.0, d_y_min = 1000.0, d_y_max = -1000.0, d_z_min = 1000.0,
 			   d_z_max = -1000.0;
-			
-		for (std::size_t i = 0; i < 6; i++){ // for each face
-			const Triangle triangle1 = cage_triangles[2*i]; 
-			const Triangle triangle2 = cage_triangles[2*i+1]; 
 
-			const normal = triangle1.normal;  
+		for (std::size_t i = 0; i < 6; i++)
+		{ // for each face
+			const Triangle triangle1 = cage_triangles_[2 * i];
+			const Triangle triangle2 = cage_triangles_[2 * i + 1];
 
-			const Vec3 triangle_point = triangle1.positions[0]; 
+			const Vec3 normal = triangle1.normal;
+
+			const Vec3 triangle_point = triangle1.positions[0];
 
 			if (normal.dot(x_dir) != 0.0)
 			{
@@ -626,7 +617,6 @@ private:
 					control_cage_face_d_z_min_ = std::make_pair(triangle1, triangle2);
 				}
 			}
-
 		}
 
 		local_x_direction_control_planes_ = std::make_tuple(x_dir, d_x_min, d_x_max);
@@ -634,8 +624,67 @@ private:
 		local_y_direction_control_planes_ = std::make_tuple(y_dir, d_y_min, d_y_max);
 
 		local_z_direction_control_planes_ = std::make_tuple(z_dir, d_z_min, d_z_max);
+	}
 
-	}	
+	std::vector<Triangle> get_virtual_cube_triangles(const Triangle& triangle1, const Triangle& triangle2,
+													 const Vec3& shift_vector)
+	{
+		std::vector<Triangle> virtual_cube_triangles(6);
+		virtual_cube_triangles[0] = triangle1;
+		virtual_cube_triangles[1] = triangle2;
+
+		std::vector<Vec3> new_positions;
+
+		for (std::size_t i = 0; i < 3; i++)
+		{
+			const Vec3 shifted_position = triangle1.positions[i] - shift_vector;
+			new_positions.push_back(shifted_position);
+		}
+
+		for (std::size_t i = 0; i < 3; i++)
+		{
+			const Vec3 shifted_position = triangle2.positions[i] - shift_vector;
+			new_positions.push_back(shifted_position);
+		}
+
+		Triangle triangle3, triangle4, triangle5, triangle6, 
+		triangle7, triangle8, triangle9, triangle10, triangle11, triangle12;
+
+		triangle3.positions = {new_positions.begin(), new_positions.end() - 3};
+		//triangle3.normal = -1.0 * triangle1.normal;
+
+		triangle4.positions = {new_positions.begin() + 3, new_positions.end()};
+		//triangle4.normal = -1.0 * triangle2.normal;
+		
+		triangle5.positions = {triangle1.positions[0], triangle3.positions[2], triangle1.positions[2]};
+
+		triangle6.positions = {triangle1.positions[0], triangle3.positions[0], triangle3.positions[2]};
+
+		triangle7.positions = {triangle1.positions[2], triangle3.positions[1], triangle3.positions[2]};
+
+		triangle8.positions = {triangle1.positions[2], triangle1.positions[1], triangle3.positions[1]};
+		
+		triangle9.positions = {triangle1.positions[0], triangle4.positions[1], triangle3.positions[0]};
+
+		triangle10.positions = {triangle1.positions[0], triangle2.positions[1], triangle4.positions[1]};
+
+		triangle11.positions = {triangle4.positions[1], triangle1.positions[1], triangle3.positions[1]};
+
+		triangle12.positions = {triangle4.positions[1], triangle2.positions[1], triangle1.positions[1]};
+
+		virtual_cube_triangles[3] = triangle3;
+		virtual_cube_triangles[4] = triangle4;
+		virtual_cube_triangles[5] = triangle5;
+		virtual_cube_triangles[6] = triangle6;
+		virtual_cube_triangles[7] = triangle7;
+		virtual_cube_triangles[8] = triangle8;
+		virtual_cube_triangles[9] = triangle9;
+		virtual_cube_triangles[10] = triangle10;
+		virtual_cube_triangles[11] = triangle11;
+		virtual_cube_triangles[12] = triangle12;
+
+		return virtual_cube_triangles;
+	}
 
 	bool compute_mvc_on_point_inside_cage(const Vec3& surface_point, const uint32& surface_point_index)
 	{
@@ -663,7 +712,7 @@ private:
 			d[cage_point_index] = (surface_point - cage_point).norm();
 			if (d[cage_point_index] < epsilon)
 			{
-				global_cage_coords_(surface_point_index, cage_point_index) = 1.0;
+				control_cage_coords_(surface_point_index, cage_point_index) = 1.0;
 				return true;
 			}
 
@@ -681,7 +730,7 @@ private:
 		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 		{
 
-			std::vector<uint32> triangle_index = cage_triangles_[t].indices; 
+			std::vector<uint32> triangle_index = cage_triangles_[t].indices;
 
 			for (std::size_t i = 0; i < 3; i++)
 			{
@@ -746,7 +795,8 @@ private:
 		parallel_foreach_cell(*control_cage_, [&](Vertex v) -> bool {
 			uint32 cage_point_index = value<uint32>(*control_cage_, control_cage_vertex_index_, v);
 
-			control_cage_coords_(surface_point_index, cage_point_index) = w_global_cage_coords_[cage_point_index] / sumWeights;
+			control_cage_coords_(surface_point_index, cage_point_index) =
+				w_control_cage_coords_[cage_point_index] / sumWeights;
 
 			return true;
 		});
@@ -759,58 +809,56 @@ private:
 	{
 	}
 
-	// https://stackoverflow.com/questions/21037241/how-to-determine-a-point-is-inside-or-outside-a-cube
-	bool point_inside_cage(const Vec3& point)
+	bool check_mvc_on_point_inside_influence_cage(Vec3 point)
 	{
-		bool resX = (point[0] >= control_cage_bb_min_[0]) && (point[0] <= control_cage_bb_max_[0]);
-		bool resY = (point[1] >= control_cage_bb_min_[1]) && (point[1] <= control_cage_bb_max_[1]);
-		bool resZ = (point[2] >= control_cage_bb_min_[2]) && (point[2] <= control_cage_bb_max_[2]);
+		std::shared_ptr<Attribute<bool>> cage_vertex_marked =
+			get_attribute<bool, Vertex>(*influence_cage_, "marked_vertices");
 
-		// simple case - axis aligned cube
-		return (resX && resY && resZ);
-	}
+		DartMarker dm(*influence_cage_);
 
-	// TODO : check property visible == dist_ci < dist_center
-	// https://www.gamedev.net/forums/topic/105286-how-to-calculate-which-side-of-a-cube-is-closest-to-a-point/
-	std::vector<Vec3> find_visible_cage_points(const Vec3 point)
-	{
-		std::shared_ptr<Attribute<Vec3>> cage_face_normal =
-			cgogn::get_attribute<Vec3, Face>(*control_cage_, "face_normal");
+		bool checked = true;
+		for (Dart d = influence_cage_->begin(), end = influence_cage_->end(); d != end; d = influence_cage_->next(d))
+		{
+			Vertex cage_vertex = CMap2::Vertex(d);
+			bool vc_marked = value<bool>(*influence_cage_, cage_vertex_marked, cage_vertex);
 
-		std::vector<Vec3> visible_points;
-
-		const Vec3 p_to_center = control_cage_center_ - point;
-
-		foreach_cell(*control_cage_, [&](Face fc) -> bool {
-			const Vec3 face_normal = value<Vec3>(*control_cage_, cage_face_normal, fc);
-
-			double res = face_normal.dot(p_to_center);
-
-			if (res < 0.0)
+			if (!dm.is_marked(d) && !vc_marked)
 			{
-				std::vector<Vertex> face_vertices = incident_vertices(*control_cage_, fc);
 
-				for (uint32_t i = 0; i < face_vertices.size(); i++)
+				const Vec3& cage_point =
+					value<Vec3>(*influence_cage_,influence_cage_vertex_position_, cage_vertex);
+
+				float mvc_value = compute_mvc(point, d, *influence_cage_, cage_point, influence_cage_vertex_position_.get());
+
+				dm.mark(d);
+
+				value<bool>(*influence_cage_, cage_vertex_marked, cage_vertex) = true;
+
+				if (mvc_value < 0)
 				{
-					const Vec3 cage_point =
-						value<Vec3>(*control_cage_, control_cage_vertex_position_, face_vertices[i]);
-
-					if (!(std::find(visible_points.begin(), visible_points.end(), cage_point) != visible_points.end()))
-					{
-						visible_points.push_back(cage_point);
-					}
+					checked = false;
+					break;
 				}
 			}
+		}
 
+		parallel_foreach_cell(*influence_cage_, [&](Vertex vc) -> bool {
+			value<bool>(*influence_cage_, cage_vertex_marked, vc) = false;
 			return true;
 		});
 
-		// std::cout << "size visible points " << visible_points.size() << std::endl;
-
-		return visible_points;
+		return checked;
 	}
+};
 
-	/*void compute_attenuation_cage(MESH& object)
+} // namespace modeling
+
+} // namespace cgogn
+
+#endif // CGOGN_MODELING_CAGE_DEFORMATION_TOOL_H_
+
+
+		/*void compute_attenuation_cage(MESH& object)
 	{
 
 		std::shared_ptr<Attribute<uint32>> cage_face_indices =
@@ -912,145 +960,4 @@ private:
 		});
 
 		return checked;
-	}*/
-};
-
-} // namespace modeling
-
-} // namespace cgogn
-
-#endif // CGOGN_MODELING_CAGE_DEFORMATION_TOOL_H_
-
-/*
-
-void bind_mvc_old(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
-	{
-
-		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "vertex_index");
-
-		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
-			get_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
-
-		std::shared_ptr<Attribute<bool>> cage_marked_vertices =
-			get_attribute<bool, Vertex>(*control_cage_, "marked_vertices");
-
-		uint32 nbv_object = nb_cells<Vertex>(object);
-		uint32 nbv_cage = nb_cells<Vertex>(*control_cage_);
-
-		control_cage_coords_.resize(nbv_object, nbv_cage);
-		control_cage_coords_.setZero();
-
-		this->influence_area_->foreach_cell([&](Vertex v) {
-			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
-
-			uint32 surface_point_index = value<uint32>(object, object_vertex_index, v);
-
-			if (point_inside_cage(surface_point))
-			{
-				DartMarker dm(*control_cage_);
-				float sumMVC = 0.0;
-
-				for (Dart d = control_cage_->begin(), end = control_cage_->end(); d != end; d = control_cage_->next(d))
-				{
-					Vertex cage_vertex = CMap2::Vertex(d);
-					bool vc_marked = value<bool>(*control_cage_, cage_marked_vertices, cage_vertex);
-
-					if (!dm.is_marked(d) && !vc_marked)
-					{
-						const Vec3& cage_point =
-							value<Vec3>(*control_cage_, control_cage_vertex_position_, cage_vertex);
-						uint32 cage_point_index = value<uint32>(*control_cage_, cage_vertex_index, cage_vertex);
-
-						float mvc_value = compute_mvc(surface_point, d, *control_cage_, cage_point,
-													  control_cage_vertex_position_.get());
-
-						control_cage_coords_(surface_point_index, cage_point_index) = mvc_value;
-
-						dm.mark(d);
-
-						value<bool>(*control_cage_, cage_marked_vertices, cage_vertex) = true;
-
-						sumMVC += mvc_value;
-					}
-				}
-
-				parallel_foreach_cell(*control_cage_, [&](Vertex vc) -> bool {
-					uint32 cage_point_index2 = value<uint32>(*control_cage_, cage_vertex_index, vc);
-
-					control_cage_coords_(surface_point_index, cage_point_index2) = control_cage_coords_(surface_point_index,
-cage_point_index2) / sumMVC;
-
-					value<bool>(*control_cage_, cage_marked_vertices, vc) = false;
-
-					return true;
-				});
-			}
-			else
-			{
-				const std::vector<Vec3> control_cage_points = find_visible_cage_points(surface_point);
-			}
-		});
-	}
-
-	/*void bind_mvc(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
-	{
-
-		std::shared_ptr<Attribute<uint32>> object_vertex_index =
-			get_attribute<uint32, Vertex>(object, "vertex_index");
-
-		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
-			get_attribute<uint32, Vertex>(*influence_cage_, "vertex_index");
-
-		std::shared_ptr<Attribute<bool>> cage_marked_vertices =
-			get_attribute<bool, Vertex>(*influence_cage_, "marked_vertices");
-
-		uint32 nbv_object = nb_cells<Vertex>(object);
-		uint32 nbv_cage = nb_cells<Vertex>(*influence_cage_);
-
-		coords_.resize(nbv_object, nbv_cage);
-		coords_.setZero();
-
-		influence_area_->foreach_cell([&](Vertex v) {
-			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
-			uint32 surface_point_index = value<uint32>(object, object_vertex_index, v);
-
-			DartMarker dm(*influence_cage_);
-			float sumMVC = 0.0;
-
-			for (Dart d = influence_cage_->begin(), end = influence_cage_->end(); d != end;
-				 d = influence_cage_->next(d))
-			{
-				Vertex cage_vertex = CMap2::Vertex(d);
-				bool vc_marked = value<bool>(*influence_cage_, cage_marked_vertices, cage_vertex);
-
-				if (!dm.is_marked(d) && !vc_marked)
-				{
-					const Vec3& cage_point =
-						value<Vec3>(*influence_cage_, influence_cage_vertex_position_, cage_vertex);
-					uint32 cage_point_index = value<uint32>(*influence_cage_, cage_vertex_index, cage_vertex);
-
-					float mvc_value = compute_mvc(surface_point, d, *influence_cage_, cage_point,
-												  influence_cage_vertex_position_.get());
-
-					coords_(surface_point_index, cage_point_index) = mvc_value;
-
-					dm.mark(d);
-
-					value<bool>(*influence_cage_, cage_marked_vertices, cage_vertex) = true;
-
-					sumMVC += mvc_value;
-				}
-			}
-
-			parallel_foreach_cell(*influence_cage_, [&](Vertex vc) -> bool {
-				uint32 cage_point_index2 = value<uint32>(*influence_cage_, cage_vertex_index, vc);
-
-				coords_(surface_point_index, cage_point_index2) = coords_(surface_point_index, cage_point_index2) / sumMVC;
-
-				value<bool>(*influence_cage_, cage_marked_vertices, vc) = false;
-
-				return true;
-			});
-		});
-
 	}*/
