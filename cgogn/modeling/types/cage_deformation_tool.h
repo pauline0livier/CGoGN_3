@@ -183,6 +183,8 @@ public:
 				{
 					if (d_z > std::get<2>(local_z_direction_control_planes_))
 					{
+						// fakeCube[5]
+
 						// Beware, need to inverse the normal of the triangle1 and triangle2
 						const Triangle local_triangle1 = control_cage_face_d_z_max_.first;
 						const Triangle local_triangle2 = control_cage_face_d_z_max_.second;
@@ -203,6 +205,7 @@ public:
 					}
 					else
 					{
+						// fakeCube[4]
 						const Triangle local_triangle1 = control_cage_face_d_z_min_.first;
 						const Triangle local_triangle2 = control_cage_face_d_z_min_.second;
 
@@ -221,6 +224,7 @@ public:
 				{
 					if (d_y > std::get<2>(local_y_direction_control_planes_))
 					{
+						// fakeCube[3]
 						const Triangle local_triangle1 = control_cage_face_d_y_max_.first;
 						const Triangle local_triangle2 = control_cage_face_d_y_max_.second;
 
@@ -229,14 +233,14 @@ public:
 
 						const double new_plane_d = std::get<2>(local_y_direction_control_planes_) + gap_y_plane;
 
-						const Vec3 shift = {0.0, 0.0, -new_plane_d};
+						const Vec3 shift = {0.0, -new_plane_d, 0.0};
 
 						std::vector<Triangle> virtual_cube_triangles =
 							get_virtual_cube_triangles(local_triangle1, local_triangle2, shift);
-
 					}
 					else
 					{
+						// fakeCube[2]
 						const Triangle local_triangle1 = control_cage_face_d_y_min_.first;
 						const Triangle local_triangle2 = control_cage_face_d_y_min_.second;
 
@@ -245,10 +249,272 @@ public:
 
 						const double new_plane_d = std::get<1>(local_y_direction_control_planes_) - gap_y_plane;
 
-						const Vec3 shift = {0.0, 0.0, -new_plane_d};
+						const Vec3 shift = {0.0, -new_plane_d, 0.0};
 
 						std::vector<Triangle> virtual_cube_triangles =
 							get_virtual_cube_triangles(local_triangle1, local_triangle2, shift);
+					}
+				}
+				else
+				{
+					if (d_y > std::get<2>(local_y_direction_control_planes_))
+					{
+						const Triangle y_triangle1 = control_cage_face_d_y_max_.first;
+						const Triangle y_triangle2 = control_cage_face_d_y_max_.second;
+
+						const double gap_y_plane = std::get<2>(local_y_direction_control_planes_) -
+												   std::get<1>(local_y_direction_control_planes_);
+
+						const double new_plane_d_y = std::get<2>(local_y_direction_control_planes_) + gap_y_plane;
+
+						const Vec3 shift_y = {0.0, -new_plane_d_y, 0.0};
+
+						if (d_z > std::get<2>(local_z_direction_control_planes_))
+						{
+							// fakeCubeDiag[11]
+							const Triangle z_triangle1 = control_cage_face_d_z_max_.first;
+							const Triangle z_triangle2 = control_cage_face_d_z_max_.second;
+
+							// find plane of "fake" cube
+							const double gap_z_plane = std::get<2>(local_z_direction_control_planes_) -
+													   std::get<1>(local_z_direction_control_planes_);
+
+							const double new_plane_d_z = std::get<2>(local_z_direction_control_planes_) + gap_z_plane;
+
+							const Vec3 shift_z = {0.0, 0.0, -new_plane_d_z};
+
+							// find intersection edge between y and z triangle
+							const std::vector<CMap2::Vertex> vertex_face_y;
+							vertex_face_y.push_back(y_triangle1.vertices[2]);
+							vertex_face_y.push_back(y_triangle1.vertices[0]);
+							vertex_face_y.push_back(y_triangle2.vertices[1]);
+							vertex_face_y.push_back(y_triangle1.vertices[1]);
+
+							const std::vector<CMap2::Vertex> vertex_face_z;
+							vertex_face_z.push_back(z_triangle1.vertices[2]);
+							vertex_face_z.push_back(z_triangle1.vertices[0]);
+							vertex_face_z.push_back(z_triangle2.vertices[1]);
+							vertex_face_z.push_back(z_triangle1.vertices[1]);
+
+							std::vector<CMap::Vertex> intersect_vertices;
+							// TODO: find alternative to double loops
+							for (std::size_t i = 0; i < 4; i++)
+							{
+								CMap2::Vertex target_y_vertex = vertex_face_y[i];
+								for (std::size_t j = 0; j < 4; j++)
+								{
+									CMap2::Vertex target_z_vertex = vertex_face_z[j];
+
+									if (target_y_vertex == target_z_vertex)
+									{
+										intersect_vertices.push_back(target_y_vertex);
+									}
+								}
+							}
+
+							// create new face composed of the intersecting edge and this edge shifted by y
+							const Vec3 face_position0 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[0]);
+							const Vec3 face_position1 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[1]);
+
+							const Vec3 face_position2 = face_position1 + shift_y;
+							const Vec3 face_position3 = face_position0 + shift_y;
+
+							const Triangle local_triangle1, triangle2;
+							local_triangle1.positions = {face_position1, face_position3, face_position0};
+							local_triangle2.positions = {face_position1, face_position2, face_position3};
+
+							std::vector<Triangle> virtual_cube_triangles =
+								get_virtual_cube_triangles(local_triangle1, local_triangle2, shift_z);
+						}
+						else
+						{
+							// fakeCubeDiag[9]
+							const Triangle z_triangle1 = control_cage_face_d_z_min_.first;
+							const Triangle z_triangle2 = control_cage_face_d_z_min_.second;
+
+							const double gap_z_plane = std::get<2>(local_z_direction_control_planes_) -
+													   std::get<1>(local_z_direction_control_planes_);
+
+							const double new_plane_d_z = std::get<1>(local_z_direction_control_planes_) - gap_z_plane;
+
+							const Vec3 shift_z = {0.0, 0.0, -new_plane_d_z};
+
+							// find intersection edge between y and z triangle
+							const std::vector<CMap2::Vertex> vertex_face_y;
+							vertex_face_y.push_back(y_triangle1.vertices[2]);
+							vertex_face_y.push_back(y_triangle1.vertices[0]);
+							vertex_face_y.push_back(y_triangle2.vertices[1]);
+							vertex_face_y.push_back(y_triangle1.vertices[1]);
+
+							const std::vector<CMap2::Vertex> vertex_face_z;
+							vertex_face_z.push_back(z_triangle1.vertices[2]);
+							vertex_face_z.push_back(z_triangle1.vertices[0]);
+							vertex_face_z.push_back(z_triangle2.vertices[1]);
+							vertex_face_z.push_back(z_triangle1.vertices[1]);
+
+							std::vector<CMap::Vertex> intersect_vertices;
+							// TODO: find alternative to double loops
+							for (std::size_t i = 0; i < 4; i++)
+							{
+								CMap2::Vertex target_y_vertex = vertex_face_y[i];
+								for (std::size_t j = 0; j < 4; j++)
+								{
+									CMap2::Vertex target_z_vertex = vertex_face_z[j];
+
+									if (target_y_vertex == target_z_vertex)
+									{
+										intersect_vertices.push_back(target_y_vertex);
+									}
+								}
+							}
+
+							// create new face composed of the intersecting edge and this edge shifted by y
+							const Vec3 face_position0 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[0]);
+							const Vec3 face_position1 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[1]);
+
+							const Vec3 face_position2 = face_position1 + shift_y;
+							const Vec3 face_position3 = face_position0 + shift_y;
+
+							const Triangle local_triangle1, triangle2;
+							local_triangle1.positions = {face_position1, face_position3, face_position0};
+							local_triangle2.positions = {face_position1, face_position2, face_position3};
+
+							std::vector<Triangle> virtual_cube_triangles =
+								get_virtual_cube_triangles(local_triangle1, local_triangle2, shift_z);
+						}
+					}
+					else
+					{
+						const Triangle y_triangle1 = control_cage_face_d_y_min_.first;
+						const Triangle y_triangle2 = control_cage_face_d_y_min_.second;
+
+						const double gap_y_plane = std::get<2>(local_y_direction_control_planes_) -
+												   std::get<1>(local_y_direction_control_planes_);
+
+						const double new_plane_d_y = std::get<1>(local_y_direction_control_planes_) - gap_y_plane;
+
+						const Vec3 shift_y = {0.0, -new_plane_d_y, 0.0};
+						if (d_z > std::get<2>(local_z_direction_control_planes_))
+						{
+							// fakeCubeDiag[10]
+							const Triangle z_triangle1 = control_cage_face_d_z_max_.first;
+							const Triangle z_triangle2 = control_cage_face_d_z_max_.second;
+
+							// find plane of "fake" cube
+							const double gap_z_plane = std::get<2>(local_z_direction_control_planes_) -
+													   std::get<1>(local_z_direction_control_planes_);
+
+							const double new_plane_d_z = std::get<2>(local_z_direction_control_planes_) + gap_z_plane;
+
+							const Vec3 shift_z = {0.0, 0.0, -new_plane_d_z};
+
+							// find intersection edge between y and z triangle
+							const std::vector<CMap2::Vertex> vertex_face_y;
+							vertex_face_y.push_back(y_triangle1.vertices[2]);
+							vertex_face_y.push_back(y_triangle1.vertices[0]);
+							vertex_face_y.push_back(y_triangle2.vertices[1]);
+							vertex_face_y.push_back(y_triangle1.vertices[1]);
+
+							const std::vector<CMap2::Vertex> vertex_face_z;
+							vertex_face_z.push_back(z_triangle1.vertices[2]);
+							vertex_face_z.push_back(z_triangle1.vertices[0]);
+							vertex_face_z.push_back(z_triangle2.vertices[1]);
+							vertex_face_z.push_back(z_triangle1.vertices[1]);
+
+							std::vector<CMap::Vertex> intersect_vertices;
+							// TODO: find alternative to double loops
+							for (std::size_t i = 0; i < 4; i++)
+							{
+								CMap2::Vertex target_y_vertex = vertex_face_y[i];
+								for (std::size_t j = 0; j < 4; j++)
+								{
+									CMap2::Vertex target_z_vertex = vertex_face_z[j];
+
+									if (target_y_vertex == target_z_vertex)
+									{
+										intersect_vertices.push_back(target_y_vertex);
+									}
+								}
+							}
+
+							// create new face composed of the intersecting edge and this edge shifted by y
+							const Vec3 face_position0 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[0]);
+							const Vec3 face_position1 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[1]);
+
+							const Vec3 face_position2 = face_position1 + shift_y;
+							const Vec3 face_position3 = face_position0 + shift_y;
+
+							const Triangle local_triangle1, triangle2;
+							local_triangle1.positions = {face_position1, face_position3, face_position0};
+							local_triangle2.positions = {face_position1, face_position2, face_position3};
+
+							std::vector<Triangle> virtual_cube_triangles =
+								get_virtual_cube_triangles(local_triangle1, local_triangle2, shift_z);
+						}
+						else
+						{
+							// fakeCubeDiag[8]
+							const Triangle z_triangle1 = control_cage_face_d_z_min_.first;
+							const Triangle z_triangle2 = control_cage_face_d_z_min_.second;
+
+							const double gap_z_plane = std::get<2>(local_z_direction_control_planes_) -
+													   std::get<1>(local_z_direction_control_planes_);
+
+							const double new_plane_d_z = std::get<1>(local_z_direction_control_planes_) - gap_z_plane;
+
+							const Vec3 shift_z = {0.0, 0.0, -new_plane_d_z};
+
+							// find intersection edge between y and z triangle
+							const std::vector<CMap2::Vertex> vertex_face_y;
+							vertex_face_y.push_back(y_triangle1.vertices[2]);
+							vertex_face_y.push_back(y_triangle1.vertices[0]);
+							vertex_face_y.push_back(y_triangle2.vertices[1]);
+							vertex_face_y.push_back(y_triangle1.vertices[1]);
+
+							const std::vector<CMap2::Vertex> vertex_face_z;
+							vertex_face_z.push_back(z_triangle1.vertices[2]);
+							vertex_face_z.push_back(z_triangle1.vertices[0]);
+							vertex_face_z.push_back(z_triangle2.vertices[1]);
+							vertex_face_z.push_back(z_triangle1.vertices[1]);
+
+							std::vector<CMap::Vertex> intersect_vertices;
+							// TODO: find alternative to double loops
+							for (std::size_t i = 0; i < 4; i++)
+							{
+								CMap2::Vertex target_y_vertex = vertex_face_y[i];
+								for (std::size_t j = 0; j < 4; j++)
+								{
+									CMap2::Vertex target_z_vertex = vertex_face_z[j];
+
+									if (target_y_vertex == target_z_vertex)
+									{
+										intersect_vertices.push_back(target_y_vertex);
+									}
+								}
+							}
+
+							// create new face composed of the intersecting edge and this edge shifted by y
+							const Vec3 face_position0 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[0]);
+							const Vec3 face_position1 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[1]);
+
+							const Vec3 face_position2 = face_position1 + shift_y;
+							const Vec3 face_position3 = face_position0 + shift_y;
+
+							const Triangle local_triangle1, triangle2;
+							local_triangle1.positions = {face_position1, face_position3, face_position0};
+							local_triangle2.positions = {face_position1, face_position2, face_position3};
+
+							std::vector<Triangle> virtual_cube_triangles =
+								get_virtual_cube_triangles(local_triangle1, local_triangle2, shift_z);
+						}
 					}
 				}
 			}
@@ -258,6 +524,7 @@ public:
 				{
 					if (d_x > std::get<2>(local_x_direction_control_planes_))
 					{
+						// fakeCube[1]
 						const Triangle local_triangle1 = control_cage_face_d_x_max_.first;
 						const Triangle local_triangle2 = control_cage_face_d_x_max_.second;
 
@@ -266,13 +533,14 @@ public:
 
 						const double new_plane_d = std::get<2>(local_x_direction_control_planes_) + gap_x_plane;
 
-						const Vec3 shift = {0.0, 0.0, -new_plane_d};
+						const Vec3 shift = {-new_plane_d, 0.0, 0.0};
 
 						std::vector<Triangle> virtual_cube_triangles =
 							get_virtual_cube_triangles(local_triangle1, local_triangle2, shift);
 					}
 					else
 					{
+						// fakeCube[0]
 						const Triangle local_triangle1 = control_cage_face_d_x_min_.first;
 						const Triangle local_triangle2 = control_cage_face_d_x_min_.second;
 
@@ -281,7 +549,7 @@ public:
 
 						const double new_plane_d = std::get<1>(local_x_direction_control_planes_) - gap_x_plane;
 
-						const Vec3 shift = {0.0, 0.0, -new_plane_d};
+						const Vec3 shift = {-new_plane_d, 0.0, 0.0};
 
 						std::vector<Triangle> virtual_cube_triangles =
 							get_virtual_cube_triangles(local_triangle1, local_triangle2, shift);
@@ -291,21 +559,261 @@ public:
 				{
 					if (d_x > std::get<2>(local_x_direction_control_planes_))
 					{
+						const Triangle x_triangle1 = control_cage_face_d_x_max_.first;
+						const Triangle x_triangle2 = control_cage_face_d_x_max_.second;
+
+						const double gap_x_plane = std::get<2>(local_x_direction_control_planes_) -
+												   std::get<1>(local_x_direction_control_planes_);
+
+						const double new_plane_d_x = std::get<2>(local_x_direction_control_planes_) + gap_x_plane;
+
+						const Vec3 shift_x = {-new_plane_d_y, 0.0, 0.0};
+
 						if (d_z > std::get<2>(local_z_direction_control_planes_))
 						{
-							
+							// fakeCubeDiag[3]
+							const Triangle z_triangle1 = control_cage_face_d_z_max_.first;
+							const Triangle z_triangle2 = control_cage_face_d_z_max_.second;
+
+							// find plane of "fake" cube
+							const double gap_z_plane = std::get<2>(local_z_direction_control_planes_) -
+													   std::get<1>(local_z_direction_control_planes_);
+
+							const double new_plane_d_z = std::get<2>(local_z_direction_control_planes_) + gap_z_plane;
+
+							const Vec3 shift_z = {0.0, 0.0, -new_plane_d_z};
+
+							// find intersection edge between y and z triangle
+							const std::vector<CMap2::Vertex> vertex_face_x;
+							vertex_face_x.push_back(y_triangle1.vertices[2]);
+							vertex_face_x.push_back(y_triangle1.vertices[0]);
+							vertex_face_x.push_back(y_triangle2.vertices[1]);
+							vertex_face_x.push_back(y_triangle1.vertices[1]);
+
+							const std::vector<CMap2::Vertex> vertex_face_z;
+							vertex_face_z.push_back(z_triangle1.vertices[2]);
+							vertex_face_z.push_back(z_triangle1.vertices[0]);
+							vertex_face_z.push_back(z_triangle2.vertices[1]);
+							vertex_face_z.push_back(z_triangle1.vertices[1]);
+
+							std::vector<CMap::Vertex> intersect_vertices;
+							// TODO: find alternative to double loops
+							for (std::size_t i = 0; i < 4; i++)
+							{
+								CMap2::Vertex target_x_vertex = vertex_face_x[i];
+								for (std::size_t j = 0; j < 4; j++)
+								{
+									CMap2::Vertex target_z_vertex = vertex_face_z[j];
+
+									if (target_x_vertex == target_z_vertex)
+									{
+										intersect_vertices.push_back(target_x_vertex);
+									}
+								}
+							}
+
+							// create new face composed of the intersecting edge and this edge shifted by y
+							const Vec3 face_position0 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[0]);
+							const Vec3 face_position1 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[1]);
+
+							const Vec3 face_position2 = face_position1 + shift_x;
+							const Vec3 face_position3 = face_position0 + shift_x;
+
+							const Triangle local_triangle1, triangle2;
+							local_triangle1.positions = {face_position1, face_position3, face_position0};
+							local_triangle2.positions = {face_position1, face_position2, face_position3};
+
+							std::vector<Triangle> virtual_cube_triangles =
+								get_virtual_cube_triangles(local_triangle1, local_triangle2, shift_z);
 						}
 						else
 						{
+							// fakeCubeDiag[1]
+							const Triangle z_triangle1 = control_cage_face_d_z_min_.first;
+							const Triangle z_triangle2 = control_cage_face_d_z_min_.second;
+
+							const double gap_z_plane = std::get<2>(local_z_direction_control_planes_) -
+													   std::get<1>(local_z_direction_control_planes_);
+
+							const double new_plane_d_z = std::get<1>(local_z_direction_control_planes_) - gap_z_plane;
+
+							const Vec3 shift_z = {0.0, 0.0, -new_plane_d_z};
+
+							// find intersection edge between y and z triangle
+							const std::vector<CMap2::Vertex> vertex_face_x;
+							vertex_face_x.push_back(y_triangle1.vertices[2]);
+							vertex_face_x.push_back(y_triangle1.vertices[0]);
+							vertex_face_x.push_back(y_triangle2.vertices[1]);
+							vertex_face_x.push_back(y_triangle1.vertices[1]);
+
+							const std::vector<CMap2::Vertex> vertex_face_z;
+							vertex_face_z.push_back(z_triangle1.vertices[2]);
+							vertex_face_z.push_back(z_triangle1.vertices[0]);
+							vertex_face_z.push_back(z_triangle2.vertices[1]);
+							vertex_face_z.push_back(z_triangle1.vertices[1]);
+
+							std::vector<CMap::Vertex> intersect_vertices;
+							// TODO: find alternative to double loops
+							for (std::size_t i = 0; i < 4; i++)
+							{
+								CMap2::Vertex target_x_vertex = vertex_face_y[i];
+								for (std::size_t j = 0; j < 4; j++)
+								{
+									CMap2::Vertex target_z_vertex = vertex_face_z[j];
+
+									if (target_x_vertex == target_z_vertex)
+									{
+										intersect_vertices.push_back(target_x_vertex);
+									}
+								}
+							}
+
+							// create new face composed of the intersecting edge and this edge shifted by y
+							const Vec3 face_position0 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[0]);
+							const Vec3 face_position1 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[1]);
+
+							const Vec3 face_position2 = face_position1 + shift_x;
+							const Vec3 face_position3 = face_position0 + shift_x;
+
+							const Triangle local_triangle1, triangle2;
+							local_triangle1.positions = {face_position1, face_position3, face_position0};
+							local_triangle2.positions = {face_position1, face_position2, face_position3};
+
+							std::vector<Triangle> virtual_cube_triangles =
+								get_virtual_cube_triangles(local_triangle1, local_triangle2, shift_z);
 						}
 					}
 					else
 					{
+						const Triangle x_triangle1 = control_cage_face_d_x_min_.first;
+						const Triangle x_triangle2 = control_cage_face_d_x_min_.second;
+
+						const double gap_x_plane = std::get<2>(local_x_direction_control_planes_) -
+												   std::get<1>(local_x_direction_control_planes_);
+
+						const double new_plane_d_x = std::get<1>(local_x_direction_control_planes_) - gap_x_plane;
+
+						const Vec3 shift_x = {-new_plane_d_y, 0.0, 0.0};
 						if (d_z > std::get<2>(local_z_direction_control_planes_))
 						{
+							// fakeCubeDiag[2]
+							const Triangle z_triangle1 = control_cage_face_d_z_max_.first;
+							const Triangle z_triangle2 = control_cage_face_d_z_max_.second;
+
+							// find plane of "fake" cube
+							const double gap_z_plane = std::get<2>(local_z_direction_control_planes_) -
+													   std::get<1>(local_z_direction_control_planes_);
+
+							const double new_plane_d_z = std::get<2>(local_z_direction_control_planes_) + gap_z_plane;
+
+							const Vec3 shift_z = {0.0, 0.0, -new_plane_d_z};
+
+							// find intersection edge between y and z triangle
+							const std::vector<CMap2::Vertex> vertex_face_x;
+							vertex_face_x.push_back(y_triangle1.vertices[2]);
+							vertex_face_x.push_back(y_triangle1.vertices[0]);
+							vertex_face_x.push_back(y_triangle2.vertices[1]);
+							vertex_face_x.push_back(y_triangle1.vertices[1]);
+
+							const std::vector<CMap2::Vertex> vertex_face_z;
+							vertex_face_z.push_back(z_triangle1.vertices[2]);
+							vertex_face_z.push_back(z_triangle1.vertices[0]);
+							vertex_face_z.push_back(z_triangle2.vertices[1]);
+							vertex_face_z.push_back(z_triangle1.vertices[1]);
+
+							std::vector<CMap::Vertex> intersect_vertices;
+							// TODO: find alternative to double loops
+							for (std::size_t i = 0; i < 4; i++)
+							{
+								CMap2::Vertex target_x_vertex = vertex_face_x[i];
+								for (std::size_t j = 0; j < 4; j++)
+								{
+									CMap2::Vertex target_z_vertex = vertex_face_z[j];
+
+									if (target_x_vertex == target_z_vertex)
+									{
+										intersect_vertices.push_back(target_x_vertex);
+									}
+								}
+							}
+
+							// create new face composed of the intersecting edge and this edge shifted by y
+							const Vec3 face_position0 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[0]);
+							const Vec3 face_position1 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[1]);
+
+							const Vec3 face_position2 = face_position1 + shift_x;
+							const Vec3 face_position3 = face_position0 + shift_x;
+
+							const Triangle local_triangle1, triangle2;
+							local_triangle1.positions = {face_position1, face_position3, face_position0};
+							local_triangle2.positions = {face_position1, face_position2, face_position3};
+
+							std::vector<Triangle> virtual_cube_triangles =
+								get_virtual_cube_triangles(local_triangle1, local_triangle2, shift_z);
 						}
 						else
 						{
+							// fakeCubeDiag[0]
+							const Triangle z_triangle1 = control_cage_face_d_z_min_.first;
+							const Triangle z_triangle2 = control_cage_face_d_z_min_.second;
+
+							const double gap_z_plane = std::get<2>(local_z_direction_control_planes_) -
+													   std::get<1>(local_z_direction_control_planes_);
+
+							const double new_plane_d_z = std::get<1>(local_z_direction_control_planes_) - gap_z_plane;
+
+							const Vec3 shift_z = {0.0, 0.0, -new_plane_d_z};
+
+							// find intersection edge between y and z triangle
+							const std::vector<CMap2::Vertex> vertex_face_x;
+							vertex_face_x.push_back(x_triangle1.vertices[2]);
+							vertex_face_x.push_back(x_triangle1.vertices[0]);
+							vertex_face_x.push_back(x_triangle2.vertices[1]);
+							vertex_face_x.push_back(x_triangle1.vertices[1]);
+
+							const std::vector<CMap2::Vertex> vertex_face_z;
+							vertex_face_z.push_back(z_triangle1.vertices[2]);
+							vertex_face_z.push_back(z_triangle1.vertices[0]);
+							vertex_face_z.push_back(z_triangle2.vertices[1]);
+							vertex_face_z.push_back(z_triangle1.vertices[1]);
+
+							std::vector<CMap::Vertex> intersect_vertices;
+							// TODO: find alternative to double loops
+							for (std::size_t i = 0; i < 4; i++)
+							{
+								CMap2::Vertex target_x_vertex = vertex_face_x[i];
+								for (std::size_t j = 0; j < 4; j++)
+								{
+									CMap2::Vertex target_z_vertex = vertex_face_z[j];
+
+									if (target_x_vertex == target_z_vertex)
+									{
+										intersect_vertices.push_back(target_x_vertex);
+									}
+								}
+							}
+
+							// create new face composed of the intersecting edge and this edge shifted by y
+							const Vec3 face_position0 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[0]);
+							const Vec3 face_position1 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[1]);
+
+							const Vec3 face_position2 = face_position1 + shift_x;
+							const Vec3 face_position3 = face_position0 + shift_x;
+
+							const Triangle local_triangle1, triangle2;
+							local_triangle1.positions = {face_position1, face_position3, face_position0};
+							local_triangle2.positions = {face_position1, face_position2, face_position3};
+
+							std::vector<Triangle> virtual_cube_triangles =
+								get_virtual_cube_triangles(local_triangle1, local_triangle2, shift_z);
 						}
 					}
 				}
@@ -314,20 +822,261 @@ public:
 			{
 				if (d_y > std::get<2>(local_y_direction_control_planes_))
 				{
+					const Triangle y_triangle1 = control_cage_face_d_y_max_.first;
+					const Triangle y_triangle2 = control_cage_face_d_y_max_.second;
+
+					const double gap_y_plane =
+						std::get<2>(local_y_direction_control_planes_) - std::get<1>(local_y_direction_control_planes_);
+
+					const double new_plane_d_y = std::get<2>(local_y_direction_control_planes_) + gap_y_plane;
+
+					const Vec3 shift_y = {0.0, -new_plane_d_y, 0.0};
 					if (d_x > std::get<2>(local_x_direction_control_planes_))
 					{
+						// fakeCubeDiag[7]
+						const Triangle x_triangle1 = control_cage_face_d_x_max_.first;
+						const Triangle x_triangle2 = control_cage_face_d_x_max_.second;
+
+						// find plane of "fake" cube
+						const double gap_x_plane = std::get<2>(local_x_direction_control_planes_) -
+												   std::get<1>(local_x_direction_control_planes_);
+
+						const double new_plane_d_x = std::get<2>(local_x_direction_control_planes_) + gap_x_plane;
+
+						const Vec3 shift_x = {-new_plane_d_x, 0.0, 0.0};
+
+						// find intersection edge between y and x triangle
+						const std::vector<CMap2::Vertex> vertex_face_y;
+						vertex_face_y.push_back(y_triangle1.vertices[2]);
+						vertex_face_y.push_back(y_triangle1.vertices[0]);
+						vertex_face_y.push_back(y_triangle2.vertices[1]);
+						vertex_face_y.push_back(y_triangle1.vertices[1]);
+
+						const std::vector<CMap2::Vertex> vertex_face_x;
+						vertex_face_x.push_back(x_triangle1.vertices[2]);
+						vertex_face_x.push_back(x_triangle1.vertices[0]);
+						vertex_face_x.push_back(x_triangle2.vertices[1]);
+						vertex_face_x.push_back(x_triangle1.vertices[1]);
+
+						std::vector<CMap::Vertex> intersect_vertices;
+						// TODO: find alternative to double loops
+						for (std::size_t i = 0; i < 4; i++)
+						{
+							CMap2::Vertex target_y_vertex = vertex_face_y[i];
+							for (std::size_t j = 0; j < 4; j++)
+							{
+								CMap2::Vertex target_y_vertex = vertex_face_y[j];
+
+								if (target_x_vertex == target_z_vertex)
+								{
+									intersect_vertices.push_back(target_x_vertex);
+								}
+							}
+						}
+
+						// create new face composed of the intersecting edge and this edge shifted by y
+						const Vec3 face_position0 =
+							value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[0]);
+						const Vec3 face_position1 =
+							value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[1]);
+
+						const Vec3 face_position2 = face_position1 + shift_y;
+						const Vec3 face_position3 = face_position0 + shift_y;
+
+						const Triangle local_triangle1, triangle2;
+						local_triangle1.positions = {face_position1, face_position3, face_position0};
+						local_triangle2.positions = {face_position1, face_position2, face_position3};
+
+						std::vector<Triangle> virtual_cube_triangles =
+							get_virtual_cube_triangles(local_triangle1, local_triangle2, shift_x);
 					}
 					else
 					{
+						// fakeCubeDiag[5]
+						const Triangle x_triangle1 = control_cage_face_d_x_min_.first;
+						const Triangle x_triangle2 = control_cage_face_d_x_min_.second;
+
+						const double gap_x_plane = std::get<2>(local_x_direction_control_planes_) -
+													   std::get<1>(local_x_direction_control_planes_);
+
+							const double new_plane_d_x = std::get<1>(local_x_direction_control_planes_) - gap_x_plane;
+
+							const Vec3 shift_x = {-new_plane_d_z, 0.0, 0.0};
+
+							// find intersection edge between y and z triangle
+							const std::vector<CMap2::Vertex> vertex_face_y;
+							vertex_face_y.push_back(y_triangle1.vertices[2]);
+							vertex_face_y.push_back(y_triangle1.vertices[0]);
+							vertex_face_y.push_back(y_triangle2.vertices[1]);
+							vertex_face_y.push_back(y_triangle1.vertices[1]);
+
+							const std::vector<CMap2::Vertex> vertex_face_x;
+							vertex_face_x.push_back(x_triangle1.vertices[2]);
+							vertex_face_x.push_back(x_triangle1.vertices[0]);
+							vertex_face_x.push_back(x_triangle2.vertices[1]);
+							vertex_face_x.push_back(x_triangle1.vertices[1]);
+
+							std::vector<CMap::Vertex> intersect_vertices;
+							// TODO: find alternative to double loops
+							for (std::size_t i = 0; i < 4; i++)
+							{
+								CMap2::Vertex target_y_vertex = vertex_face_y[i];
+								for (std::size_t j = 0; j < 4; j++)
+								{
+									CMap2::Vertex target_x_vertex = vertex_face_x[j];
+
+									if (target_y_vertex == target_x_vertex)
+									{
+										intersect_vertices.push_back(target_x_vertex);
+									}
+								}
+							}
+
+							// create new face composed of the intersecting edge and this edge shifted by y
+							const Vec3 face_position0 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[0]);
+							const Vec3 face_position1 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[1]);
+
+							const Vec3 face_position2 = face_position1 + shift_y;
+							const Vec3 face_position3 = face_position0 + shift_y;
+
+							const Triangle local_triangle1, triangle2;
+							local_triangle1.positions = {face_position1, face_position3, face_position0};
+							local_triangle2.positions = {face_position1, face_position2, face_position3};
+
+							std::vector<Triangle> virtual_cube_triangles =
+								get_virtual_cube_triangles(local_triangle1, local_triangle2, shift_x);
+
 					}
 				}
 				else
 				{
+					const Triangle y_triangle1 = control_cage_face_d_y_min_.first;
+						const Triangle y_triangle2 = control_cage_face_d_y_min_.second;
+
+						const double gap_y_plane = std::get<2>(local_y_direction_control_planes_) -
+												   std::get<1>(local_y_direction_control_planes_);
+
+						const double new_plane_d_y = std::get<1>(local_y_direction_control_planes_) - gap_y_plane;
+
+						const Vec3 shift_y = {0.0, -new_plane_d_y, 0.0};
 					if (d_x > std::get<2>(local_x_direction_control_planes_))
 					{
+						// fakeCubeDiag[6]
+						const Triangle x_triangle1 = control_cage_face_d_x_max_.first;
+							const Triangle x_triangle2 = control_cage_face_d_x_max_.second;
+
+							// find plane of "fake" cube
+							const double gap_x_plane = std::get<2>(local_x_direction_control_planes_) -
+													   std::get<1>(local_x_direction_control_planes_);
+
+							const double new_plane_d_x = std::get<2>(local_x_direction_control_planes_) + gap_x_plane;
+
+							const Vec3 shift_x = {-new_plane_d_x, 0.0, 0.0};
+
+							// find intersection edge between y and z triangle
+							const std::vector<CMap2::Vertex> vertex_face_y;
+							vertex_face_y.push_back(y_triangle1.vertices[2]);
+							vertex_face_y.push_back(y_triangle1.vertices[0]);
+							vertex_face_y.push_back(y_triangle2.vertices[1]);
+							vertex_face_y.push_back(y_triangle1.vertices[1]);
+
+							const std::vector<CMap2::Vertex> vertex_face_x;
+							vertex_face_x.push_back(z_triangle1.vertices[2]);
+							vertex_face_x.push_back(z_triangle1.vertices[0]);
+							vertex_face_x.push_back(z_triangle2.vertices[1]);
+							vertex_face_x.push_back(z_triangle1.vertices[1]);
+
+							std::vector<CMap::Vertex> intersect_vertices;
+							// TODO: find alternative to double loops
+							for (std::size_t i = 0; i < 4; i++)
+							{
+								CMap2::Vertex target_y_vertex = vertex_face_y[i];
+								for (std::size_t j = 0; j < 4; j++)
+								{
+									CMap2::Vertex target_x_vertex = vertex_face_x[j];
+
+									if (target_y_vertex == target_x_vertex)
+									{
+										intersect_vertices.push_back(target_y_vertex);
+									}
+								}
+							}
+
+							// create new face composed of the intersecting edge and this edge shifted by y
+							const Vec3 face_position0 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[0]);
+							const Vec3 face_position1 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[1]);
+
+							const Vec3 face_position2 = face_position1 + shift_y;
+							const Vec3 face_position3 = face_position0 + shift_y;
+
+							const Triangle local_triangle1, triangle2;
+							local_triangle1.positions = {face_position1, face_position3, face_position0};
+							local_triangle2.positions = {face_position1, face_position2, face_position3};
+
+							std::vector<Triangle> virtual_cube_triangles =
+								get_virtual_cube_triangles(local_triangle1, local_triangle2, shift_x);
 					}
 					else
 					{
+						// fakeCubeDiag[4]
+						const Triangle x_triangle1 = control_cage_face_d_x_min_.first;
+							const Triangle x_triangle2 = control_cage_face_d_x_min_.second;
+
+							const double gap_x_plane = std::get<2>(local_x_direction_control_planes_) -
+													   std::get<1>(local_x_direction_control_planes_);
+
+							const double new_plane_d_x = std::get<1>(local_x_direction_control_planes_) - gap_x_plane;
+
+							const Vec3 shift_x = {-new_plane_d_x, 0.0, 0.0};
+
+							// find intersection edge between y and z triangle
+							const std::vector<CMap2::Vertex> vertex_face_y;
+							vertex_face_y.push_back(y_triangle1.vertices[2]);
+							vertex_face_y.push_back(y_triangle1.vertices[0]);
+							vertex_face_y.push_back(y_triangle2.vertices[1]);
+							vertex_face_y.push_back(y_triangle1.vertices[1]);
+
+							const std::vector<CMap2::Vertex> vertex_face_x;
+							vertex_face_x.push_back(x_triangle1.vertices[2]);
+							vertex_face_x.push_back(x_triangle1.vertices[0]);
+							vertex_face_x.push_back(x_triangle2.vertices[1]);
+							vertex_face_x.push_back(x_triangle1.vertices[1]);
+
+							std::vector<CMap::Vertex> intersect_vertices;
+							// TODO: find alternative to double loops
+							for (std::size_t i = 0; i < 4; i++)
+							{
+								CMap2::Vertex target_y_vertex = vertex_face_y[i];
+								for (std::size_t j = 0; j < 4; j++)
+								{
+									CMap2::Vertex target_x_vertex = vertex_face_x[j];
+
+									if (target_y_vertex == target_x_vertex)
+									{
+										intersect_vertices.push_back(target_x_vertex);
+									}
+								}
+							}
+
+							// create new face composed of the intersecting edge and this edge shifted by y
+							const Vec3 face_position0 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[0]);
+							const Vec3 face_position1 =
+								value<Vec3>(*control_cage_, control_cage_vertex_position_, intersect_vertices[1]);
+
+							const Vec3 face_position2 = face_position1 + shift_y;
+							const Vec3 face_position3 = face_position0 + shift_y;
+
+							const Triangle local_triangle1, triangle2;
+							local_triangle1.positions = {face_position1, face_position3, face_position0};
+							local_triangle2.positions = {face_position1, face_position2, face_position3};
+
+							std::vector<Triangle> virtual_cube_triangles =
+								get_virtual_cube_triangles(local_triangle1, local_triangle2, shift_x);
 					}
 				}
 			}
@@ -339,18 +1088,22 @@ public:
 					{
 						if (d_z > std::get<2>(local_z_direction_control_planes_))
 						{
+							// fakeCubeOut[7]
 						}
 						else
 						{
+							// fakeCubeOut[5]
 						}
 					}
 					else
 					{
 						if (d_z > std::get<2>(local_z_direction_control_planes_))
 						{
+							// fakeCubeOut[3]
 						}
 						else
 						{
+							// fakeCubeOut[1]
 						}
 					}
 				}
@@ -360,18 +1113,22 @@ public:
 					{
 						if (d_z > std::get<2>(local_z_direction_control_planes_))
 						{
+							// fakeCubeOut[6]
 						}
 						else
 						{
+							// fakeCubeOut[4]
 						}
 					}
 					else
 					{
 						if (d_z > std::get<2>(local_z_direction_control_planes_))
 						{
+							// fakeCubeOut[2]
 						}
 						else
 						{
+							// fakeCubeOut[0]
 						}
 					}
 				}
@@ -398,7 +1155,8 @@ public:
 
 	void update_deformation_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
 	{
-		std::shared_ptr<Attribute<uint32>> object_vertex_indices = get_attribute<uint32, Vertex>(object, "vertex_index");
+		std::shared_ptr<Attribute<uint32>> object_vertex_indices =
+			get_attribute<uint32, Vertex>(object, "vertex_index");
 
 		this->influence_area_->foreach_cell([&](Vertex v) -> bool {
 			uint32 object_vertex_index = value<uint32>(object, object_vertex_indices, v);
@@ -461,7 +1219,6 @@ public:
 	}*/
 
 private:
-
 	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> global_matrix_;
 
 	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> global_matrix_comp_;
@@ -647,15 +1404,15 @@ private:
 			new_positions.push_back(shifted_position);
 		}
 
-		Triangle triangle3, triangle4, triangle5, triangle6, 
-		triangle7, triangle8, triangle9, triangle10, triangle11, triangle12;
+		Triangle triangle3, triangle4, triangle5, triangle6, triangle7, triangle8, triangle9, triangle10, triangle11,
+			triangle12;
 
 		triangle3.positions = {new_positions.begin(), new_positions.end() - 3};
-		//triangle3.normal = -1.0 * triangle1.normal;
+		// triangle3.normal = -1.0 * triangle1.normal;
 
 		triangle4.positions = {new_positions.begin() + 3, new_positions.end()};
-		//triangle4.normal = -1.0 * triangle2.normal;
-		
+		// triangle4.normal = -1.0 * triangle2.normal;
+
 		triangle5.positions = {triangle1.positions[0], triangle3.positions[2], triangle1.positions[2]};
 
 		triangle6.positions = {triangle1.positions[0], triangle3.positions[0], triangle3.positions[2]};
@@ -663,7 +1420,7 @@ private:
 		triangle7.positions = {triangle1.positions[2], triangle3.positions[1], triangle3.positions[2]};
 
 		triangle8.positions = {triangle1.positions[2], triangle1.positions[1], triangle3.positions[1]};
-		
+
 		triangle9.positions = {triangle1.positions[0], triangle4.positions[1], triangle3.positions[0]};
 
 		triangle10.positions = {triangle1.positions[0], triangle2.positions[1], triangle4.positions[1]};
@@ -825,10 +1582,10 @@ private:
 			if (!dm.is_marked(d) && !vc_marked)
 			{
 
-				const Vec3& cage_point =
-					value<Vec3>(*influence_cage_,influence_cage_vertex_position_, cage_vertex);
+				const Vec3& cage_point = value<Vec3>(*influence_cage_, influence_cage_vertex_position_, cage_vertex);
 
-				float mvc_value = compute_mvc(point, d, *influence_cage_, cage_point, influence_cage_vertex_position_.get());
+				float mvc_value =
+					compute_mvc(point, d, *influence_cage_, cage_point, influence_cage_vertex_position_.get());
 
 				dm.mark(d);
 
@@ -857,107 +1614,106 @@ private:
 
 #endif // CGOGN_MODELING_CAGE_DEFORMATION_TOOL_H_
 
+/*void compute_attenuation_cage(MESH& object)
+{
 
-		/*void compute_attenuation_cage(MESH& object)
+std::shared_ptr<Attribute<uint32>> cage_face_indices =
+	add_attribute<uint32, Face>(*(this->influence_cage_), "face_indices");
+
+cgogn::modeling::set_attribute_face_index(*(this->influence_cage_),
+											cage_face_indices.get());
+
+std::shared_ptr<Attribute<uint32>> object_vertex_index =
+	get_attribute<uint32, Vertex>(object, "vertex_index");
+
+std::shared_ptr<Attribute<uint32>> cage_vertex_index =
+	get_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
+
+std::shared_ptr<Attribute<uint32>> i_cage_vertex_index =
+	get_attribute<uint32, Vertex>(*(this->influence_cage_), "vertex_index");
+
+uint32 nbf_cage = 2 * nb_cells<Face>(*(this->influence_cage_));
+uint32 nbv_cage = nb_cells<Vertex>(*(this->influence_cage_));
+
+// first loop to find h
+//
+float h = 0.0f;
+float max_dist = 0.0f;
+std::vector<Vec2> attenuation_points;
+this->influence_area_->foreach_cell([&](Vertex v) {
+	uint32 surface_point_index = value<uint32>(object, object_vertex_index, v);
+
+	float i_dist = this->cage_influence_distance(surface_point_index, nbf_cage, nbv_cage);
+
+	this->attenuation_(surface_point_index) = (float)sin(0.5*M_PI * (i_dist ));
+	/*if (control_area_validity_(surface_point_index) == 1.0f)
 	{
 
-		std::shared_ptr<Attribute<uint32>> cage_face_indices =
-			add_attribute<uint32, Face>(*(this->influence_cage_), "face_indices");
-
-		cgogn::modeling::set_attribute_face_index(*(this->influence_cage_),
-													cage_face_indices.get());
-
-		std::shared_ptr<Attribute<uint32>> object_vertex_index =
-			get_attribute<uint32, Vertex>(object, "vertex_index");
-
-		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
-			get_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
-
-		std::shared_ptr<Attribute<uint32>> i_cage_vertex_index =
-			get_attribute<uint32, Vertex>(*(this->influence_cage_), "vertex_index");
-
-		uint32 nbf_cage = 2 * nb_cells<Face>(*(this->influence_cage_));
-		uint32 nbv_cage = nb_cells<Vertex>(*(this->influence_cage_));
-
-		// first loop to find h
-		//
-		float h = 0.0f;
-		float max_dist = 0.0f;
-		std::vector<Vec2> attenuation_points;
-		this->influence_area_->foreach_cell([&](Vertex v) {
-			uint32 surface_point_index = value<uint32>(object, object_vertex_index, v);
-
-			float i_dist = this->cage_influence_distance(surface_point_index, nbf_cage, nbv_cage);
-
-			this->attenuation_(surface_point_index) = (float)sin(0.5*M_PI * (i_dist ));
-			/*if (control_area_validity_(surface_point_index) == 1.0f)
-			{
-
-				if (i_dist > h)
-				{
-					h = i_dist;
-				}
-
-				this->attenuation_(surface_const double point_index) = 1.0f;
-			}
-			else
-			{
-
-				if (i_dist > max_dist){
-					max_dist = i_dist;
-				}
-				attenuation_points.push_back({surface_point_index, i_dist});
-			}*/
-	//});
-
-	/*for (unsigned int i = 0; i < attenuation_points.size(); i++)
-	{
-		//this->attenuation_(attenuation_points[i][0]) = 0.5f * ((float)sin(M_PI * ((attenuation_points[i][1] / h) -
-	0.5f))) + 0.5f; this->attenuation_(attenuation_points[i][0]) = (float)sin(0.5*M_PI * (attenuation_points[i][1] /
-	h));
-	}*/
-	//}
-
-	/*bool local_mvc_pt_control_area(Vec3 pt)
-	{
-		std::shared_ptr<Attribute<uint32>> i_vertex_index =
-			get_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
-
-		std::shared_ptr<Attribute<bool>> cage_vertex_marked =
-			get_attribute<bool, Vertex>(*control_cage_, "marked_vertices");
-
-		DartMarker dm(*control_cage_);
-
-		bool checked = true;
-		for (Dart d = control_cage_->begin(), end = control_cage_->end(); d != end; d = control_cage_->next(d))
+		if (i_dist > h)
 		{
-			Vertex cage_vertex = CMap2::Vertex(d);
-			bool vc_marked = value<bool>(*control_cage_, cage_vertex_marked, cage_vertex);
-
-			if (!dm.is_marked(d) && !vc_marked)
-			{
-
-				const Vec3& cage_point = value<Vec3>(*control_cage_, control_cage_vertex_position_, cage_vertex);
-
-				float mvc_value = cgogn::modeling::compute_mvc(pt, d, *control_cage_, cage_point,
-	control_cage_vertex_position_.get());
-
-				dm.mark(d);
-
-				value<bool>(*control_cage_, cage_vertex_marked, cage_vertex) = true;
-
-				if (mvc_value < 0)
-				{
-					checked = false;
-					break;
-				}
-			}
+			h = i_dist;
 		}
 
-		parallel_foreach_cell(*control_cage_, [&](Vertex vc) -> bool {
-			value<bool>(*control_cage_, cage_vertex_marked, vc) = false;
-			return true;
-		});
+		this->attenuation_(surface_const double point_index) = 1.0f;
+	}
+	else
+	{
 
-		return checked;
+		if (i_dist > max_dist){
+			max_dist = i_dist;
+		}
+		attenuation_points.push_back({surface_point_index, i_dist});
 	}*/
+//});
+
+/*for (unsigned int i = 0; i < attenuation_points.size(); i++)
+{
+	//this->attenuation_(attenuation_points[i][0]) = 0.5f * ((float)sin(M_PI * ((attenuation_points[i][1] / h) -
+0.5f))) + 0.5f; this->attenuation_(attenuation_points[i][0]) = (float)sin(0.5*M_PI * (attenuation_points[i][1] /
+h));
+}*/
+//}
+
+/*bool local_mvc_pt_control_area(Vec3 pt)
+{
+	std::shared_ptr<Attribute<uint32>> i_vertex_index =
+		get_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
+
+	std::shared_ptr<Attribute<bool>> cage_vertex_marked =
+		get_attribute<bool, Vertex>(*control_cage_, "marked_vertices");
+
+	DartMarker dm(*control_cage_);
+
+	bool checked = true;
+	for (Dart d = control_cage_->begin(), end = control_cage_->end(); d != end; d = control_cage_->next(d))
+	{
+		Vertex cage_vertex = CMap2::Vertex(d);
+		bool vc_marked = value<bool>(*control_cage_, cage_vertex_marked, cage_vertex);
+
+		if (!dm.is_marked(d) && !vc_marked)
+		{
+
+			const Vec3& cage_point = value<Vec3>(*control_cage_, control_cage_vertex_position_, cage_vertex);
+
+			float mvc_value = cgogn::modeling::compute_mvc(pt, d, *control_cage_, cage_point,
+control_cage_vertex_position_.get());
+
+			dm.mark(d);
+
+			value<bool>(*control_cage_, cage_vertex_marked, cage_vertex) = true;
+
+			if (mvc_value < 0)
+			{
+				checked = false;
+				break;
+			}
+		}
+	}
+
+	parallel_foreach_cell(*control_cage_, [&](Vertex vc) -> bool {
+		value<bool>(*control_cage_, cage_vertex_marked, vc) = false;
+		return true;
+	});
+
+	return checked;
+}*/
