@@ -406,7 +406,7 @@ public:
 					}
 				}
 
-				compute_mvc_on_point_outside_cage(surface_point, surface_point_index, virtual_cube_target, object, object_fixed_position, v);
+				//compute_mvc_on_point_outside_cage(surface_point, surface_point_index, virtual_cube_target, object, object_fixed_position, v);
 			}
 		});
 	}
@@ -665,11 +665,11 @@ private:
 	void init_virtual_cubes()
 	{
 
-		init_face_adjacent_virtual_cubes();
+		//init_face_adjacent_virtual_cubes();
 
-		init_edge_adjacent_virtual_cubes();
+		//init_edge_adjacent_virtual_cubes();
 
-		init_vertex_adjacent_virtual_cubes();
+		//init_vertex_adjacent_virtual_cubes();
 	}
 
 	void init_face_adjacent_virtual_cubes()
@@ -1069,6 +1069,8 @@ private:
 			std::vector<uint32> triangle_index = {cage_triangles_[t].points[0].control_cage_index,
 												  cage_triangles_[t].points[1].control_cage_index,
 												  cage_triangles_[t].points[2].control_cage_index};
+			std::cout << "triangle index" << triangle_index[0] << " " << triangle_index[1] << " " << triangle_index[2]
+					  << std::endl; 
 
 			for (std::size_t i = 0; i < 3; i++)
 			{
@@ -1260,11 +1262,12 @@ private:
 
 		for (std::size_t p = 0; p < 8; p++){
 			const Point target_point = virtual_cube_target.points[p]; 
-			if (target_point.inside_control_cage){
+			/*if (target_point.inside_control_cage){
 				control_cage_coords_(surface_point_index, target_point.control_cage_index) = virtual_cage_coords_[p]; 
 			} else {
 				value<Vec3>(object, object_fixed_position, surface_vertex) += virtual_cage_coords_[p]*target_point.position;
-			}
+			}*/
+			//value<Vec3>(object, object_fixed_position, surface_vertex) += virtual_cage_coords_[p]*target_point.position;
 		}
 
 		return false;
