@@ -61,6 +61,7 @@ void set_attribute_face_index(CMap2& cage, CMap2::Attribute<uint32>* face_indice
 
 void set_attribute_face_normal(CMap2& cage, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* face_normal); 
 
+void set_attribute_fixed_position(CMap2& object, CMap2::Attribute<Vec3>* object_fixed_position); 
 
 // GRAPH
 Graph::Vertex create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const Vec3& center); 

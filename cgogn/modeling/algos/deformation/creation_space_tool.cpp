@@ -396,6 +396,14 @@ void set_graph_attribute_position_indices(Graph& g, Graph::Attribute<uint32>* po
 	});
 }
 
+void set_attribute_fixed_position(CMap2& object, CMap2::Attribute<Vec3>* object_fixed_position)
+{
+	foreach_cell(object, [&](CMap2::Vertex v) -> bool {
+		value<Vec3>(object, object_fixed_position, v) = {0.0, 0.0, 0.0};
+		return true;
+	});
+}
+
 } // namespace modeling
 
 } // namespace cgogn
