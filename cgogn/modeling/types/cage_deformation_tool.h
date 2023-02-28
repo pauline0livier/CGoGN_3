@@ -220,13 +220,13 @@ public:
 						{
 							// faceCube[5]
 							// Beware, need to inverse the normal of the triangle1 and triangle2
-							std::cout << "fakeCube 5" << std::endl; 
+							std::cout << "fakeCube 5 " << std::endl; 
 							virtual_cube_target = face_adjacent_virtual_cube_[5];
 						}
 						else
 						{
 							// faceCube[4]
-							std::cout << "fakeCube 4" << std::endl; 
+							std::cout << "fakeCube 4 " << std::endl; 
 							virtual_cube_target = face_adjacent_virtual_cube_[4];
 						}
 					}
@@ -235,13 +235,13 @@ public:
 						if (d_y > local_y_direction_control_planes_.d_max)
 						{
 							// faceCube[3]
-							std::cout << "fakeCube 3" << std::endl; 
+							std::cout << "fakeCube 3 " << std::endl; 
 							virtual_cube_target = face_adjacent_virtual_cube_[3];
 						}
 						else
 						{
 							// faceCube[2]
-							std::cout << "fakeCube 2" << std::endl; 
+							std::cout << "fakeCube 2 " << std::endl; 
 							virtual_cube_target = face_adjacent_virtual_cube_[2];
 						}
 					}
@@ -286,13 +286,13 @@ public:
 						if (d_x > local_x_direction_control_planes_.d_max)
 						{
 							// faceCube[1]
-							std::cout << "fakeCube 1" << std::endl; 
+							std::cout << "fakeCube 1 " << std::endl; 
 							virtual_cube_target = face_adjacent_virtual_cube_[1];
 						}
 						else
 						{
 							// faceCube[0]
-							std::cout << "fakeCube 0" << std::endl; 
+							std::cout << "fakeCube 0 " << std::endl; 
 							virtual_cube_target = face_adjacent_virtual_cube_[0];
 						}
 					}
@@ -685,7 +685,6 @@ private:
 		local_z_direction_control_planes_.direction = z_dir;
 		local_z_direction_control_planes_.triangles_d_min = face_z_min;
 		local_z_direction_control_planes_.triangles_d_max = face_z_max;
-		
 	}
 
 	void init_virtual_cubes()
@@ -962,9 +961,9 @@ private:
 		std::vector<Triangle> virtual_cube_triangles;
 
 		Triangle triangle1 = face.first;
-		triangle1.virtual_cage_indices = {1, 3, 0};
+		triangle1.virtual_cage_indices = {3, 1, 0};
 		Triangle triangle2 = face.second;
-		triangle2.virtual_cage_indices = {1, 2, 3};
+		triangle2.virtual_cage_indices = {3, 2, 1};
 		virtual_cube_triangles.push_back(triangle1);
 		virtual_cube_triangles.push_back(triangle2);
 
@@ -973,71 +972,63 @@ private:
 		point4.inside_control_cage = false; 
 
 		Point point5; 
-		point5.position = triangle1.points[0].position + shift_vector; 
+		point5.position = triangle1.points[1].position + shift_vector; 
 		point5.inside_control_cage = false; 
 
 		Point point6; 
-		point6.position = triangle2.points[1].position + shift_vector; 
+		point6.position = triangle1.points[0].position + shift_vector; 
 		point6.inside_control_cage = false;
 
 		Point point7; 
-		point7.position = triangle1.points[1].position + shift_vector; 
+		point7.position = triangle2.points[1].position + shift_vector; 
 		point7.inside_control_cage = false;
 
 		Triangle triangle3, triangle4; 
-		triangle3.points = {point5, point7, point4};
-		triangle3.virtual_cage_indices = {5, 7, 4};
+		triangle3.points = {point4, point5, point7};
+		triangle3.virtual_cage_indices = {4, 5, 7};
 
-		triangle4.points = {point5, point6, point7};
-		triangle4.virtual_cage_indices = {5, 6, 7};
+		triangle4.points = {point4, point7, point6};
+		triangle4.virtual_cage_indices = {4, 7, 6};
 
 		std::vector<Point> virtual_cube_points(8);
 		virtual_cube_points[0] = triangle1.points[2]; 
-		virtual_cube_points[1] = triangle1.points[0]; 
+		virtual_cube_points[1] = triangle1.points[1]; 
 		virtual_cube_points[2] = triangle2.points[1];
-		virtual_cube_points[3] = triangle1.points[1];
+		virtual_cube_points[3] = triangle1.points[0];
 
-		virtual_cube_points[4] = triangle3.points[2]; 
-		virtual_cube_points[5] = triangle3.points[0];
-		virtual_cube_points[6] = triangle4.points[1];
-		virtual_cube_points[7] = triangle3.points[1];
+		virtual_cube_points[4] = triangle3.points[0]; 
+		virtual_cube_points[5] = triangle3.points[1];
+		virtual_cube_points[6] = triangle4.points[2];
+		virtual_cube_points[7] = triangle3.points[2];
 
 		new_virtual_cube.points = virtual_cube_points;
 
 		Triangle triangle5, triangle6, triangle7, triangle8, triangle9, triangle10, triangle11,
 			triangle12;
 
-		triangle5.points = {triangle1.points[0], triangle3.points[2], triangle1.points[2]};
-		triangle5.virtual_cage_indices = {triangle1.virtual_cage_indices[0], triangle3.virtual_cage_indices[2],
-										  triangle1.virtual_cage_indices[2]};
+		triangle5.points = {triangle1.points[2], triangle3.points[1], triangle3.points[0]};
+		triangle5.virtual_cage_indices = {0, 5, 4};
 
-		triangle6.points = {triangle1.points[0], triangle3.points[0], triangle3.points[2]};
-		triangle6.virtual_cage_indices = {triangle1.virtual_cage_indices[0], triangle3.virtual_cage_indices[0],
-										  triangle3.virtual_cage_indices[2]};
+		triangle6.points = {triangle1.points[2], triangle1.points[1], triangle3.points[1]};
+		triangle6.virtual_cage_indices = {0, 1, 5};
 
-		triangle7.points = {triangle1.points[2], triangle3.points[1], triangle3.points[2]};
-		triangle7.virtual_cage_indices = {triangle1.virtual_cage_indices[2], triangle3.virtual_cage_indices[1],
-										  triangle3.virtual_cage_indices[2]};
+		triangle7.points = {triangle4.points[2], triangle2.points[1], triangle1.points[0]};
+		triangle7.virtual_cage_indices = {6, 2, 3};
 
-		triangle8.points = {triangle1.points[2], triangle1.points[1], triangle3.points[1]};
-		triangle8.virtual_cage_indices = {triangle1.virtual_cage_indices[2], triangle1.virtual_cage_indices[1],
-										  triangle3.virtual_cage_indices[1]};
+		triangle8.points = {triangle4.points[2], triangle3.points[2], triangle2.points[1]};
+		triangle8.virtual_cage_indices = {6, 7, 2};
 
-		triangle9.points = {triangle1.points[0], triangle4.points[1], triangle3.points[0]};
-		triangle9.virtual_cage_indices = {triangle1.virtual_cage_indices[0], triangle4.virtual_cage_indices[1],
-										  triangle3.virtual_cage_indices[0]};
+		triangle9.points = {triangle1.points[2], triangle4.points[2], triangle1.points[0]};
+		triangle9.virtual_cage_indices = {0, 6, 3};
 
-		triangle10.points = {triangle1.points[0], triangle2.points[1], triangle4.points[1]};
-		triangle10.virtual_cage_indices = {triangle1.virtual_cage_indices[0], triangle2.virtual_cage_indices[1],
-										   triangle4.virtual_cage_indices[1]};
+		triangle10.points = {triangle1.points[2], triangle3.points[0], triangle4.points[2]};
+		triangle10.virtual_cage_indices = {0, 4, 6};
 
-		triangle11.points = {triangle4.points[1], triangle1.points[1], triangle3.points[1]};
-		triangle11.virtual_cage_indices = {triangle4.virtual_cage_indices[1], triangle1.virtual_cage_indices[1],
-										   triangle3.virtual_cage_indices[1]};
+		triangle11.points = {triangle2.points[1], triangle3.points[1], triangle1.points[1]};
+		triangle11.virtual_cage_indices = {2, 5, 1};
 
-		triangle12.points = {triangle4.points[1], triangle2.points[1], triangle1.points[1]};
-		triangle12.virtual_cage_indices = {triangle4.virtual_cage_indices[1], triangle2.virtual_cage_indices[1],
-										   triangle1.virtual_cage_indices[1]};
+		triangle12.points = {triangle2.points[1], triangle3.points[2], triangle3.points[1]};
+		triangle12.virtual_cage_indices = {2, 7, 5};
 
 		virtual_cube_triangles.push_back(triangle3);
 		virtual_cube_triangles.push_back(triangle4);
@@ -1206,7 +1197,6 @@ private:
 		std::vector<double> d(nbv_cage);
 		std::vector<Vec3> u(nbv_cage);
 
-
 		for (std::size_t p = 0; p < virtual_cube_target.points.size(); p++)
 		{
 			const Point& cage_point = virtual_cube_target.points[p];
@@ -1275,7 +1265,7 @@ private:
 			Vec3 crossVec = u[triangle_index[0]].cross(u[triangle_index[1]]);
 			if (crossVec.dot(u[triangle_index[2]]) < 0.0)
 			{
-				sign_Basis_u0u1u2 = -1;
+				sign_Basis_u0u1u2 = -1; 
 			}
 
 			for (std::size_t i = 0; i < 3; i++)
@@ -1299,8 +1289,7 @@ private:
 			w_control_cage_coords_[triangle_index[1]] += w[1];
 			w_control_cage_coords_[triangle_index[2]] += w[2];
 		}
-
-		double checkSum1 = 0.0; 
+ 
 		for (std::size_t p = 0; p < 8; p++)
 		{
 			uint32 cage_point_index = p;
@@ -1309,11 +1298,8 @@ private:
 				w_control_cage_coords_[cage_point_index] / sumWeights;
 
 			std::cout << "weight " << virtual_cage_coords_[cage_point_index] << std::endl; 
-			
-			checkSum1 += virtual_cage_coords_[cage_point_index]; 
+		
 		}
-
-		std::cout << "checkSum " << checkSum1 << std::endl; 
 
 		for (std::size_t p = 0; p < 8; p++){
 			const Point target_point = virtual_cube_target.points[p]; 
