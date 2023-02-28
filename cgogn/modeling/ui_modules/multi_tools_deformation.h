@@ -986,6 +986,8 @@ private:
 		{
 			cdt->bind_mvc(object, object_vertex_position);
 			// cdt->set_up_attenuation(object, object_vertex_position);
+			std::shared_ptr<MeshAttribute<Vec3>> object_fixed_position = cgogn::get_attribute<Vec3, MeshVertex>(object, "fixed_position");
+			mesh_provider_->emit_attribute_changed(object, object_fixed_position.get());
 
 			cdt->cage_attribute_update_connection_ =
 				boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
