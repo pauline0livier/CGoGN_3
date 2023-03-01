@@ -219,14 +219,12 @@ public:
 						if (d_z > local_z_direction_control_planes_.d_max)
 						{
 							// faceCube[5]
-							// Beware, need to inverse the normal of the triangle1 and triangle2
-							std::cout << "fakeCube 5 " << std::endl; 
+							// Beware, need to inverse the normal of the triangle1 and triangle2 
 							virtual_cube_target = face_adjacent_virtual_cube_[5];
 						}
 						else
 						{
-							// faceCube[4]
-							std::cout << "fakeCube 4 " << std::endl; 
+							// faceCube[4] 
 							virtual_cube_target = face_adjacent_virtual_cube_[4];
 						}
 					}
@@ -235,13 +233,11 @@ public:
 						if (d_y > local_y_direction_control_planes_.d_max)
 						{
 							// faceCube[3]
-							std::cout << "fakeCube 3 " << std::endl; 
 							virtual_cube_target = face_adjacent_virtual_cube_[3];
 						}
 						else
 						{
 							// faceCube[2]
-							std::cout << "fakeCube 2 " << std::endl; 
 							virtual_cube_target = face_adjacent_virtual_cube_[2];
 						}
 					}
@@ -252,13 +248,11 @@ public:
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
 								// edgeCube[11]
-								std::cout << "edgeCube 11" << std::endl; 
 								virtual_cube_target = edge_adjacent_virtual_cube_[11];
 							}
 							else
 							{
 								// edgeCube[9]
-								std::cout << "edgeCube 9" << std::endl; 
 								virtual_cube_target = edge_adjacent_virtual_cube_[9];
 							}
 						}
@@ -267,13 +261,11 @@ public:
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
 								// edgeCube[10]
-								std::cout << "edgeCube 10" << std::endl; 
 								virtual_cube_target = edge_adjacent_virtual_cube_[10];
 							}
 							else
 							{
-								// edgeCube[8]
-								std::cout << "edgeCube 8" << std::endl; 
+								// edgeCube[8] 
 								virtual_cube_target = edge_adjacent_virtual_cube_[8];
 							}
 						}
@@ -285,14 +277,12 @@ public:
 					{
 						if (d_x > local_x_direction_control_planes_.d_max)
 						{
-							// faceCube[1]
-							std::cout << "fakeCube 1 " << std::endl; 
+							// faceCube[1] 
 							virtual_cube_target = face_adjacent_virtual_cube_[1];
 						}
 						else
 						{
 							// faceCube[0]
-							std::cout << "fakeCube 0 " << std::endl; 
 							virtual_cube_target = face_adjacent_virtual_cube_[0];
 						}
 					}
@@ -303,13 +293,11 @@ public:
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
 								// edgeCube[3]
-								std::cout << "edgeCube 3" << std::endl; 
 								virtual_cube_target = edge_adjacent_virtual_cube_[3];
 							}
 							else
 							{
 								// edgeCube[1]
-								std::cout << "edgeCube 1" << std::endl; 
 								virtual_cube_target = edge_adjacent_virtual_cube_[1];
 							}
 						}
@@ -318,13 +306,11 @@ public:
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
 								// edgeCube[2]
-								std::cout << "edgeCube 2" << std::endl; 
 								virtual_cube_target = edge_adjacent_virtual_cube_[2];
 							}
 							else
 							{
-								// edgeCube[0]
-								std::cout << "edgeCube 0" << std::endl; 
+								// edgeCube[0] 
 								virtual_cube_target = edge_adjacent_virtual_cube_[0];
 							}
 						}
@@ -337,13 +323,11 @@ public:
 						if (d_x > local_x_direction_control_planes_.d_max)
 						{
 							// edgeCube[7]
-							std::cout << "edgeCube 7" << std::endl; 
 							virtual_cube_target = edge_adjacent_virtual_cube_[7];
 						}
 						else
 						{
 							// edgeCube[5]
-							std::cout << "edgeCube 5" << std::endl; 
 							virtual_cube_target = edge_adjacent_virtual_cube_[5];
 						}
 					}
@@ -352,13 +336,11 @@ public:
 						if (d_x > local_x_direction_control_planes_.d_max)
 						{
 							// edgeCube[6]
-							std::cout << "edgeCube 6" << std::endl; 
 							virtual_cube_target = edge_adjacent_virtual_cube_[6];
 						}
 						else
 						{
 							// edgeCube[4]
-							std::cout << "edgeCube 4" << std::endl; 
 							virtual_cube_target = edge_adjacent_virtual_cube_[4];
 						}
 					}
@@ -371,14 +353,12 @@ public:
 						{
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
-								// vertexCube[7]
-								std::cout << "vertexCube 7" << std::endl; 
+								// vertexCube[7] 
 								virtual_cube_target = vertex_adjacent_virtual_cube_[7];
 							}
 							else
 							{
 								// vertexCube[5]
-								std::cout << "vertexCube 5" << std::endl; 
 								virtual_cube_target = vertex_adjacent_virtual_cube_[5];
 							}
 						}
@@ -386,14 +366,12 @@ public:
 						{
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
-								// vertexCube[3]
-								std::cout << "vertexCube 3" << std::endl; 
+								// vertexCube[3] 
 								virtual_cube_target = vertex_adjacent_virtual_cube_[3];
 							}
 							else
 							{
 								// vertexCube[1]
-								std::cout << "vertexCube 1" << std::endl; 
 								virtual_cube_target = vertex_adjacent_virtual_cube_[1];
 							}
 						}
@@ -404,14 +382,12 @@ public:
 						{
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
-								// vertexCube[6]
-								std::cout << "vertexCube 6" << std::endl; 
+								// vertexCube[6] 
 								virtual_cube_target = vertex_adjacent_virtual_cube_[6];
 							}
 							else
 							{
-								// vertexCube[4]
-								std::cout << "vertexCube 4" << std::endl; 
+								// vertexCube[4] 
 								virtual_cube_target = vertex_adjacent_virtual_cube_[4];
 							}
 						}
@@ -419,14 +395,12 @@ public:
 						{
 							if (d_z > local_z_direction_control_planes_.d_max)
 							{
-								// vertexCube[2]
-								std::cout << "vertexCube 2" << std::endl; 
+								// vertexCube[2] 
 								virtual_cube_target = vertex_adjacent_virtual_cube_[2];
 							}
 							else
 							{
 								// vertexCube[0]
-								std::cout << "vertexCube 0" << std::endl; 
 								virtual_cube_target = vertex_adjacent_virtual_cube_[0];
 							}
 						}
@@ -469,9 +443,6 @@ public:
 
 			Vec3 new_pos_ = value<Vec3>(object, object_fixed_position, v);
 
-			std::cout << "old pos" << value<Vec3>(object, object_vertex_position, v) << std::endl; 
-			std::cout << "fixed pos "<< value<Vec3>(object, object_fixed_position, v) << std::endl; 
-
 			foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
 				const Vec3& cage_point = value<Vec3>(*control_cage_, control_cage_vertex_position_, cv);
 
@@ -479,19 +450,10 @@ public:
 
 				new_pos_ += control_cage_coords_(object_vertex_index, cage_point_index) * cage_point;
 
-				std::cout << "weight " << control_cage_coords_(object_vertex_index, cage_point_index) << std::endl; 
-				std::cout << "cage_point " << cage_point << std::endl;
-
 				return true;
 			});
 
-
-			if ((new_pos_[0] == 0.0) && (new_pos_[1] == 0.0) && (new_pos_[2] == 0.0)){
-				std::cout << "empty" << new_pos_ << std::endl; 
-			} else {
-				std::cout << "valid " << new_pos_ << std::endl; 
-				value<Vec3>(object, object_vertex_position, v) = new_pos_;
-			}
+			value<Vec3>(object, object_vertex_position, v) = new_pos_;
 
 			return true;
 		});
@@ -1296,8 +1258,6 @@ private:
 
 			virtual_cage_coords_[cage_point_index] =
 				w_control_cage_coords_[cage_point_index] / sumWeights;
-
-			std::cout << "weight " << virtual_cage_coords_[cage_point_index] << std::endl; 
 		
 		}
 
@@ -1308,7 +1268,7 @@ private:
 			} else {
 				value<Vec3>(object, object_fixed_position, surface_vertex) += virtual_cage_coords_[p]*target_point.position;
 			}
-			//value<Vec3>(object, object_fixed_position, surface_vertex) += virtual_cage_coords_[p]*target_point.position;
+			
 		}
 
 		return false;
@@ -1395,11 +1355,6 @@ private:
 					continue;
 				}
 			}
-		}
-
-		if (!intersect_points.size() == 2)
-		{
-			std::cout << "Warning, size not 2: " << intersect_points.size() << std::endl;
 		}
 
 		return intersect_points;
