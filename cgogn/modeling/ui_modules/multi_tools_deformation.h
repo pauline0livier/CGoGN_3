@@ -27,7 +27,6 @@
 #include <cgogn/core/ui_modules/graph_provider.h>
 #include <cgogn/core/ui_modules/mesh_provider.h>
 
-#include <cgogn/geometry/ui_modules/surface_differential_properties.h>
 #include <cgogn/rendering/ui_modules/surface_render.h>
 
 #include <cgogn/ui/app.h>
@@ -37,6 +36,11 @@
 
 #include <cgogn/geometry/algos/normal.h>
 #include <cgogn/geometry/functions/angle.h>
+#include <cgogn/geometry/algos/picking.h>
+#include <cgogn/geometry/algos/selection.h>
+#include <cgogn/geometry/algos/laplacian.h>
+
+#include <GLFW/glfw3.h>
 
 #include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 #include <cgogn/modeling/algos/deformation/deformation_utils.h>
@@ -244,10 +248,10 @@ class MultiToolsDeformation : public ViewModule
 	};
 
 public:
-	std::unordered_map<std::string, std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>>> axis_container_;
-	std::unordered_map<std::string, std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>>> handle_container_;
-	std::unordered_map<std::string, std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>>> cage_container_;
-	std::unordered_map<std::string, std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>>>
+	std::unordered_map<std::string, std::shared_ptr<modeling::AxisDeformationTool<MESH>>> axis_container_;
+	std::unordered_map<std::string, std::shared_ptr<modeling::HandleDeformationTool<MESH>>> handle_container_;
+	std::unordered_map<std::string, std::shared_ptr<modeling::CageDeformationTool<MESH>>> cage_container_;
+	std::unordered_map<std::string, std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>>>
 		global_cage_container_;
 
 	MultiToolsDeformation(const App& app)
@@ -348,52 +352,17 @@ public:
 				});
 	}
 
-	void set_model(MESH& m)
+	void set_model(MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_normal)
 	{
 		model_ = &m;
+
+		geometry::compute_normal<MeshVertex>(m, vertex_position.get(), vertex_normal.get());
+		mesh_provider_->emit_attribute_changed(m, vertex_normal.get());
+
+		set_vertex_position(m, vertex_position); 
 	}
 
-	void set_vertex_position(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position)
-	{
-		Parameters& p = parameters_[&m];
-		p.vertex_position_ = vertex_position;
-		if (p.vertex_position_)
-		{
-			p.vertex_base_size_ = float32(geometry::mean_edge_length(m, p.vertex_position_.get()) / 6); // 6 ???
-			p.update_selected_vertices_vbo();
-		}
-
-		uint32 nbv_m = nb_cells<MeshVertex>(m);
-		p.init_position_.resize(nbv_m);
-
-		std::shared_ptr<MeshAttribute<uint32>> vertex_index = get_attribute<uint32, MeshVertex>(m, "vertex_index");
-
-		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
-			const Vec3& surface_point = value<Vec3>(m, vertex_position, v);
-			uint32 surface_point_idx = value<uint32>(m, vertex_index, v);
-
-			p.init_position_[surface_point_idx] = surface_point;
-			return true;
-		});
-
-		for (View* v : linked_views_)
-			v->request_update();
-	}
-
-	void set_graph_vertex_position(const GRAPH& g, const std::shared_ptr<GraphAttribute<Vec3>>& vertex_position)
-	{
-		GraphParameters& p = graph_parameters_[&g];
-		p.vertex_position_ = vertex_position;
-		if (p.vertex_position_)
-		{
-			p.vertex_base_size_ = 5.0; // float32(geometry::mean_edge_length(g, p.vertex_position_.get()) / 6); // 6 ???
-			p.update_selected_vertices_vbo();
-		}
-
-		for (View* v : linked_views_)
-			v->request_update();
-	}
-
+	
 	template <typename FUNC>
 	void foreach_cage(const FUNC& f)
 	{
@@ -433,32 +402,74 @@ public:
 	/////////////
 	// SIGNALS //
 	/////////////
-	using cage_added = struct cage_added_ (*)(cgogn::modeling::CageDeformationTool<MESH>* c);
-	using global_cage_added = struct global_cage_added_ (*)(cgogn::modeling::GlobalCageDeformationTool<MESH>* c);
-	using handle_added = struct handle_added_ (*)(cgogn::modeling::HandleDeformationTool<MESH>* h);
-	using axis_added = struct axis_added_ (*)(cgogn::modeling::AxisDeformationTool<MESH>* a);
+	using cage_added = struct cage_added_ (*)(modeling::CageDeformationTool<MESH>* c);
+	using global_cage_added = struct global_cage_added_ (*)(modeling::GlobalCageDeformationTool<MESH>* c);
+	using handle_added = struct handle_added_ (*)(modeling::HandleDeformationTool<MESH>* h);
+	using axis_added = struct axis_added_ (*)(modeling::AxisDeformationTool<MESH>* a);
 
 private:
+
+void set_vertex_position(MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position)
+	{
+		Parameters& p = parameters_[&m];
+		p.vertex_position_ = vertex_position;
+		if (p.vertex_position_)
+		{
+			p.vertex_base_size_ = float32(geometry::mean_edge_length(m, p.vertex_position_.get()) / 6); // 6 ???
+			p.update_selected_vertices_vbo();
+		}
+
+		uint32 nbv_m = nb_cells<MeshVertex>(m);
+		p.init_position_.resize(nbv_m);
+
+		std::shared_ptr<MeshAttribute<uint32>> vertex_index = get_attribute<uint32, MeshVertex>(m, "vertex_index");
+
+		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
+			const Vec3& surface_point = value<Vec3>(m, vertex_position, v);
+			uint32 surface_point_idx = value<uint32>(m, vertex_index, v);
+
+			p.init_position_[surface_point_idx] = surface_point;
+			return true;
+		});
+
+		for (View* v : linked_views_)
+			v->request_update();
+	}
+
+void set_graph_vertex_position(const GRAPH& g, const std::shared_ptr<GraphAttribute<Vec3>>& vertex_position)
+	{
+		GraphParameters& p = graph_parameters_[&g];
+		p.vertex_position_ = vertex_position;
+		if (p.vertex_position_)
+		{
+			p.vertex_base_size_ = 5.0; // float32(geometry::mean_edge_length(g, p.vertex_position_.get()) / 6); // 6 ???
+			p.update_selected_vertices_vbo();
+		}
+
+		for (View* v : linked_views_)
+			v->request_update();
+	}
+
 	// creation deformation tools
 	MESH* generate_global_cage(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position)
 	{
 		std::string cage_name = "global_cage";
 		MESH* cage = mesh_provider_->add_mesh(cage_name);
 		std::shared_ptr<MeshAttribute<Vec3>> cage_vertex_position =
-			cgogn::add_attribute<Vec3, MeshVertex>(*cage, "position");
+			add_attribute<Vec3, MeshVertex>(*cage, "position");
 		mesh_provider_->set_mesh_bb_vertex_position(*cage, cage_vertex_position);
 
 		set_vertex_position(*cage, cage_vertex_position);
 
 		const auto [it, inserted] = global_cage_container_.emplace(
-			cage_name, std::make_shared<cgogn::modeling::GlobalCageDeformationTool<MESH>>());
-		cgogn::modeling::GlobalCageDeformationTool<MESH>* gcdt = it->second.get();
+			cage_name, std::make_shared<modeling::GlobalCageDeformationTool<MESH>>());
+		modeling::GlobalCageDeformationTool<MESH>* gcdt = it->second.get();
 
 		if (inserted)
 		{
 			MeshData<MESH>& md = mesh_provider_->mesh_data(m);
 			std::tuple<Vec3, Vec3, Vec3> extended_bounding_box =
-				cgogn::modeling::get_extended_bounding_box(md.bb_min_, md.bb_max_, 1.2);
+				modeling::get_extended_bounding_box(md.bb_min_, md.bb_max_, 1.2);
 
 			gcdt->create_global_cage(cage, cage_vertex_position.get(), std::get<0>(extended_bounding_box),
 									 std::get<1>(extended_bounding_box));
@@ -485,32 +496,32 @@ private:
 		MESH* l_cage = mesh_provider_->add_mesh(cage_name);
 
 		std::shared_ptr<MeshAttribute<Vec3>> l_cage_vertex_position =
-			cgogn::add_attribute<Vec3, MeshVertex>(*l_cage, "position");
+			add_attribute<Vec3, MeshVertex>(*l_cage, "position");
 		mesh_provider_->set_mesh_bb_vertex_position(*l_cage, l_cage_vertex_position);
 
 		set_vertex_position(*l_cage, l_cage_vertex_position);
 
 		std::shared_ptr<MeshAttribute<Vec3>> mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
-		Vec3 center = cgogn::modeling::get_mean_value_attribute_from_set(m, vertex_position.get(), control_set);
+		Vec3 center = modeling::get_mean_value_attribute_from_set(m, vertex_position.get(), control_set);
 
 		Vec3 normal = {0.0, 1.0, 0.0};
-		/*Vec3 normal = cgogn::modeling::get_mean_value_attribute_from_set(m, mesh_vertex_normal.get(), front_set);
+		/*Vec3 normal = modeling::get_mean_value_attribute_from_set(m, mesh_vertex_normal.get(), front_set);
 		normal.normalize();
 
 		std::cout << "normal " << normal << std::endl; */
 
 		std::pair<Vec3, Vec3> local_boundaries =
-			cgogn::modeling::get_border_values_in_set(m, vertex_position.get(), control_set);
+			modeling::get_border_values_in_set(m, vertex_position.get(), control_set);
 
 		std::tuple<Vec3, Vec3, Vec3> extended_boundaries =
-			cgogn::modeling::get_extended_bounding_box(local_boundaries.first, local_boundaries.second, 1.2f);
+			modeling::get_extended_bounding_box(local_boundaries.first, local_boundaries.second, 1.2f);
 		// Vec3 local_min = local_boundaries.first;
 		// Vec3 local_max = local_boundaries.second;
 
 		const auto [it, inserted] =
-			cage_container_.emplace(cage_name, std::make_shared<cgogn::modeling::CageDeformationTool<MESH>>());
-		cgogn::modeling::CageDeformationTool<MESH>* cdt = it->second.get();
+			cage_container_.emplace(cage_name, std::make_shared<modeling::CageDeformationTool<MESH>>());
+		modeling::CageDeformationTool<MESH>* cdt = it->second.get();
 
 		if (inserted)
 		{
@@ -526,9 +537,9 @@ private:
 			surface_render_->set_render_faces(*v1, *l_cage, false);
 
 			std::shared_ptr<MeshAttribute<Vec3>> l_cage_vertex_normal =
-				cgogn::add_attribute<Vec3, MeshVertex>(*l_cage, "normal");
+				add_attribute<Vec3, MeshVertex>(*l_cage, "normal");
 
-			surface_diff_pptes_->compute_normal(*l_cage, l_cage_vertex_position.get(), l_cage_vertex_normal.get());
+			geometry::compute_normal<MeshVertex>(*l_cage, l_cage_vertex_position.get(), l_cage_vertex_normal.get());
 
 			cdt->set_center_control_cage(std::get<2>(extended_boundaries));
 
@@ -548,7 +559,7 @@ private:
 
 	//
 	// const std::string
-	std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> generate_handle_tool(
+	std::shared_ptr<modeling::HandleDeformationTool<MESH>> generate_handle_tool(
 		MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position, CellsSet<MESH, MeshVertex>* handle_set)
 	{
 		int handle_number = handle_container_.size();
@@ -563,17 +574,17 @@ private:
 		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
 		const Vec3 handle_position =
-			cgogn::modeling::get_mean_value_attribute_from_set(m, vertex_position.get(), handle_set);
+			modeling::get_mean_value_attribute_from_set(m, vertex_position.get(), handle_set);
 
-		Vec3 normal = cgogn::modeling::get_mean_value_attribute_from_set(m, mesh_vertex_normal.get(), handle_set);
+		Vec3 normal = modeling::get_mean_value_attribute_from_set(m, mesh_vertex_normal.get(), handle_set);
 		normal.normalize();
 
 		CMap2::Vertex closest_vertex =
-			cgogn::modeling::closest_vertex_in_set_from_value(m, vertex_position.get(), handle_set, handle_position);
+			modeling::closest_vertex_in_set_from_value(m, vertex_position.get(), handle_set, handle_position);
 
 		const auto [it, inserted] =
-			handle_container_.emplace(handle_name, std::make_shared<cgogn::modeling::HandleDeformationTool<MESH>>());
-		cgogn::modeling::HandleDeformationTool<MESH>* hdt = it->second.get();
+			handle_container_.emplace(handle_name, std::make_shared<modeling::HandleDeformationTool<MESH>>());
+		modeling::HandleDeformationTool<MESH>* hdt = it->second.get();
 
 		if (inserted)
 		{
@@ -640,8 +651,8 @@ private:
 		  [p](const Vec3& p1, const Vec3& p2){ return dist(p, p1) < dist(p, p2); });*/
 
 		const auto [it, inserted] =
-			axis_container_.emplace(axis_name, std::make_shared<cgogn::modeling::AxisDeformationTool<MESH>>());
-		cgogn::modeling::AxisDeformationTool<MESH>* adt = it->second.get();
+			axis_container_.emplace(axis_name, std::make_shared<modeling::AxisDeformationTool<MESH>>());
+		modeling::AxisDeformationTool<MESH>* adt = it->second.get();
 		if (inserted)
 		{
 
@@ -675,7 +686,7 @@ private:
 						  std::string binding_type)
 	{
 
-		std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> gcdt = global_cage_container_["global_cage"];
+		std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> gcdt = global_cage_container_["global_cage"];
 
 		gcdt->deformation_type_ = binding_type;
 
@@ -706,7 +717,7 @@ private:
 
 							if (deformed_tool_ == Cage)
 							{
-								std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> current_gcdt =
+								std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> current_gcdt =
 									global_cage_container_["global_cage"];
 
 								std::shared_ptr<MeshAttribute<uint32>> cage_vertex_index =
@@ -803,7 +814,7 @@ private:
 					&global_cage, [&](MeshAttribute<Vec3>* attribute) {
 						if (cage_vertex_position.get() == attribute)
 						{
-							std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> current_gcdt =
+							std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> current_gcdt =
 								global_cage_container_["global_cage"];
 
 							std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
@@ -813,7 +824,7 @@ private:
 								get_attribute<uint32, MeshVertex>(*(current_gcdt->global_cage_), "vertex_index");
 
 							std::shared_ptr<MeshAttribute<uint32>> cage_face_index =
-								cgogn::get_attribute<uint32, MeshFace>(*(current_gcdt->global_cage_), "face_index");
+								get_attribute<uint32, MeshFace>(*(current_gcdt->global_cage_), "face_index");
 
 							parallel_foreach_cell(object, [&](MeshVertex v) -> bool {
 								uint32 vidx = value<uint32>(object, object_vertex_index, v);
@@ -951,7 +962,7 @@ private:
 		Parameters& p = parameters_[&object];
 		Parameters& p_cage = parameters_[&local_cage];
 
-		std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> cdt = cage_container_[p_cage.name_];
+		std::shared_ptr<modeling::CageDeformationTool<MESH>> cdt = cage_container_[p_cage.name_];
 
 		cdt->set_deformation_type(binding_type);
 
@@ -967,7 +978,7 @@ private:
 		MESH* i_cage = mesh_provider_->add_mesh(cage_name);
 
 		std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
-			cgogn::add_attribute<Vec3, MeshVertex>(*i_cage, "position");
+			add_attribute<Vec3, MeshVertex>(*i_cage, "position");
 		mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
 
 		set_vertex_position(*i_cage, i_cage_vertex_position);
@@ -986,7 +997,7 @@ private:
 		{
 			cdt->bind_mvc(object, object_vertex_position);
 			// cdt->set_up_attenuation(object, object_vertex_position);
-			std::shared_ptr<MeshAttribute<Vec3>> object_fixed_position = cgogn::get_attribute<Vec3, MeshVertex>(object, "fixed_position");
+			std::shared_ptr<MeshAttribute<Vec3>> object_fixed_position = get_attribute<Vec3, MeshVertex>(object, "fixed_position");
 			mesh_provider_->emit_attribute_changed(object, object_fixed_position.get());
 
 			cdt->cage_attribute_update_connection_ =
@@ -995,7 +1006,7 @@ private:
 						if (cage_vertex_position.get() == attribute)
 						{
 
-							std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> current_cdt =
+							std::shared_ptr<modeling::CageDeformationTool<MESH>> current_cdt =
 								cage_container_[p_cage.name_];
 
 							current_cdt->update_deformation_object(object, object_vertex_position);
@@ -1014,7 +1025,7 @@ private:
 					&local_cage, [&](MeshAttribute<Vec3>* attribute) {
 						if (cage_vertex_position.get() == attribute)
 						{
-							std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> current_cdt =
+							std::shared_ptr<modeling::CageDeformationTool<MESH>> current_cdt =
 			cage_container_[cage_name];
 
 							current_cdt->update_green(object, object_vertex_position.get());
@@ -1033,7 +1044,7 @@ private:
 		Parameters& p = parameters_[&object];
 		GraphParameters& p_handle = graph_parameters_[&control_handle];
 
-		std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> hdt = handle_container_[p_handle.name_];
+		std::shared_ptr<modeling::HandleDeformationTool<MESH>> hdt = handle_container_[p_handle.name_];
 
 		hdt->set_deformation_type(binding_type);
 
@@ -1076,12 +1087,12 @@ private:
 					{
 						if (deformed_tool_ == Handle)
 						{
-							std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> current_hdt =
+							std::shared_ptr<modeling::HandleDeformationTool<MESH>> current_hdt =
 								handle_container_[p_handle.name_];
 
 							// current_hdt-> update_deformation_object(object, object_vertex_position);
 							std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
-								cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
+								get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
 							const Vec3 new_deformation = current_hdt->get_handle_deformation();
 
@@ -1116,7 +1127,7 @@ private:
 									md.update_bb();
 
 									std::tuple<Vec3, Vec3, Vec3> extended_bounding_box =
-										cgogn::modeling::get_extended_bounding_box(md.bb_min_, md.bb_max_, 1.2);
+										modeling::get_extended_bounding_box(md.bb_min_, md.bb_max_, 1.2);
 
 									Vec3 e_bb_min = std::get<0>(extended_bounding_box);
 
@@ -1157,7 +1168,7 @@ private:
 												value<uint32>(*global_cage, cage_vertex_index, cage_vertex);
 
 											float mvc_value =
-												cgogn::modeling::compute_mvc(graph_point, d, *global_cage, cage_point,
+												modeling::compute_mvc(graph_point, d, *global_cage, cage_point,
 																			 gcdt->global_cage_vertex_position_.get());
 
 											current_hdt->global_cage_weights_[cage_point_idx] = mvc_value;
@@ -1203,7 +1214,7 @@ private:
 												uint32 cage_point_idx =
 													value<uint32>(*global_cage, cage_vertex_index, cage_vertex);
 
-												float mvc_value = cgogn::modeling::compute_mvc(
+												float mvc_value = modeling::compute_mvc(
 													surface_point, d, *global_cage, cage_point,
 													gcdt->global_cage_vertex_position_.get());
 
@@ -1245,7 +1256,7 @@ private:
 		Parameters& p = parameters_[&object];
 		GraphParameters& p_axis = graph_parameters_[&control_axis];
 
-		std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> adt = axis_container_[p_axis.name_];
+		std::shared_ptr<modeling::AxisDeformationTool<MESH>> adt = axis_container_[p_axis.name_];
 
 		adt->set_deformation_type(binding_type);
 
@@ -1275,11 +1286,11 @@ private:
 					{
 						if (deformed_tool_ == Axis)
 						{
-							std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> current_adt =
+							std::shared_ptr<modeling::AxisDeformationTool<MESH>> current_adt =
 								axis_container_[p_axis.name_];
 
 							std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
-								cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
+								get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
 							current_adt->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
 								uint32 vidx = value<uint32>(object, object_vertex_index, v);
@@ -1321,7 +1332,7 @@ private:
 	{
 
 		std::shared_ptr<MeshAttribute<Vec3>> gamma_color =
-			cgogn::get_or_add_attribute<Vec3, MeshVertex>(object, "color_gamma");
+			get_or_add_attribute<Vec3, MeshVertex>(object, "color_gamma");
 		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
 			get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
@@ -1388,9 +1399,6 @@ protected:
 
 		graph_render_ = static_cast<ui::GraphRender<GRAPH>*>(
 			app_.module("GraphRender (" + std::string{mesh_traits<GRAPH>::name} + ")"));
-
-		surface_diff_pptes_ = static_cast<ui::SurfaceDifferentialProperties<MESH>*>(
-			app_.module("SurfaceDifferentialProperties (" + std::string{mesh_traits<MESH>::name} + ")"));
 	}
 
 	void mouse_press_event(View* view, int32 button, int32 x, int32 y) override
@@ -1417,7 +1425,7 @@ protected:
 						if (p.selected_vertices_set_)
 						{
 							std::vector<MeshVertex> picked;
-							cgogn::geometry::picking(*selected_mesh_, p.vertex_position_.get(), A, B, picked);
+							geometry::picking(*selected_mesh_, p.vertex_position_.get(), A, B, picked);
 							if (!picked.empty())
 							{
 								switch (button)
@@ -1438,7 +1446,7 @@ protected:
 				}
 				case WithinSphere: {
 					std::vector<MeshVertex> picked;
-					cgogn::geometry::picking(*selected_mesh_, p.vertex_position_.get(), A, B, picked);
+					geometry::picking(*selected_mesh_, p.vertex_position_.get(), A, B, picked);
 					if (!picked.empty())
 					{
 
@@ -1533,7 +1541,7 @@ protected:
 				{
 
 					std::vector<GraphVertex> picked;
-					cgogn::geometry::picking_sphere(*selected_graph_, p.vertex_position_.get(), p.vertex_base_size_, A,
+					geometry::picking_sphere(*selected_graph_, p.vertex_position_.get(), p.vertex_base_size_, A,
 													B, picked);
 					if (!picked.empty())
 					{
@@ -1625,7 +1633,7 @@ protected:
 							p.rotation_center_ = value<Vec3>(*selected_graph_, p.vertex_position_, v1);
 						}
 
-						std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> adt = axis_container_[p.name_];
+						std::shared_ptr<modeling::AxisDeformationTool<MESH>> adt = axis_container_[p.name_];
 
 						std::vector<Graph::Vertex> axis_skeleton = adt->get_axis_skeleton();
 						if (v == axis_skeleton[0])
@@ -1896,7 +1904,7 @@ protected:
 
 					if (ImGui::Button("Bind global cage"))
 					{
-						std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> gcdt =
+						std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> gcdt =
 							global_cage_container_["global_cage"];
 
 						bind_global_cage(*model_, model_p.vertex_position_, *(gcdt->global_cage_),
@@ -2024,7 +2032,7 @@ protected:
 
 								if (ImGui::Button("Bind local cage"))
 								{
-									std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> cdt =
+									std::shared_ptr<modeling::CageDeformationTool<MESH>> cdt =
 										cage_container_[cage_name];
 
 									Parameters& local_p = parameters_[selected_cage_];
@@ -2161,7 +2169,7 @@ protected:
 								if (ImGui::Button("Bind object"))
 								{
 
-									std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> hdt =
+									std::shared_ptr<modeling::HandleDeformationTool<MESH>> hdt =
 										handle_container_[handle_name];
 
 									GraphParameters& local_p = graph_parameters_[selected_handle_];
@@ -2305,7 +2313,7 @@ protected:
 								if (ImGui::Button("Bind object"))
 								{
 
-									std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> adt =
+									std::shared_ptr<modeling::AxisDeformationTool<MESH>> adt =
 										axis_container_[axis_name];
 
 									GraphParameters& local_p = graph_parameters_[selected_axis_];
@@ -2482,7 +2490,7 @@ protected:
 									for (View* v : linked_views_)
 										v->request_update();
 
-									std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> current_hdt =
+									std::shared_ptr<modeling::HandleDeformationTool<MESH>> current_hdt =
 										handle_container_[handle_p.name_];
 
 									graph_provider_->emit_attribute_changed(
@@ -2562,7 +2570,7 @@ protected:
 									for (View* v : linked_views_)
 										v->request_update();
 
-									std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> current_adt =
+									std::shared_ptr<modeling::AxisDeformationTool<MESH>> current_adt =
 										axis_container_[axis_p.name_];
 
 									graph_provider_->emit_attribute_changed(
@@ -2588,10 +2596,10 @@ private:
 	GRAPH* selected_axis_;
 	GRAPH* selected_graph_;
 
-	std::shared_ptr<cgogn::modeling::CageDeformationTool<MESH>> selected_cdt_;
-	std::shared_ptr<cgogn::modeling::GlobalCageDeformationTool<MESH>> selected_gcdt_;
-	std::shared_ptr<cgogn::modeling::HandleDeformationTool<MESH>> selected_hdt_;
-	std::shared_ptr<cgogn::modeling::AxisDeformationTool<MESH>> selected_adt_;
+	std::shared_ptr<modeling::CageDeformationTool<MESH>> selected_cdt_;
+	std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> selected_gcdt_;
+	std::shared_ptr<modeling::HandleDeformationTool<MESH>> selected_hdt_;
+	std::shared_ptr<modeling::AxisDeformationTool<MESH>> selected_adt_;
 	std::unordered_map<const MESH*, Parameters> parameters_;
 	std::unordered_map<const GRAPH*, GraphParameters> graph_parameters_;
 
@@ -2605,8 +2613,6 @@ private:
 
 	SurfaceRender<MESH>* surface_render_;
 	GraphRender<GRAPH>* graph_render_;
-
-	SurfaceDifferentialProperties<MESH>* surface_diff_pptes_;
 
 	SelectionTool selected_tool_;
 	SelectionTool deformed_tool_;

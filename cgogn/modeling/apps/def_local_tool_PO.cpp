@@ -28,11 +28,6 @@
 
 #include <cgogn/core/ui_modules/mesh_provider.h>
 #include <cgogn/core/ui_modules/graph_provider.h>
-#include <cgogn/geometry/ui_modules/surface_differential_properties.h>
-#include <cgogn/geometry/ui_modules/surface_selectionPO.h>
-#include <cgogn/geometry/ui_modules/graph_selection.h>
-#include <cgogn/modeling/ui_modules/surface_deformation.h>
-#include <cgogn/modeling/ui_modules/graph_deformation.h>
 
 #include <cgogn/rendering/ui_modules/surface_render.h>
 #include <cgogn/rendering/ui_modules/graph_render.h>
@@ -82,8 +77,6 @@ int main(int argc, char** argv)
 	cgogn::ui::SurfaceRender<Mesh> sr(app);
 	cgogn::ui::GraphRender<Graph> gr(app);
 
-	cgogn::ui::SurfaceDifferentialProperties<Mesh> sdp(app);
-
 	cgogn::ui::MultiToolsDeformation<Mesh, Graph> sd2(app); 
 
 	app.init_modules();
@@ -107,20 +100,18 @@ int main(int argc, char** argv)
 	}
 
 	auto vertex_position = cgogn::get_attribute<Vec3, cgogn::mesh_traits<Mesh>::Vertex>(*m, "position");
+
 	auto vertex_normal = cgogn::add_attribute<Vec3, cgogn::mesh_traits<Mesh>::Vertex>(*m, "normal");
 
-	sdp.compute_normal(*m, vertex_position.get(), vertex_normal.get());
+	auto object_position_indices = cgogn::add_attribute<uint32, cgogn::mesh_traits<Mesh>::Vertex>(*m, "vertex_index");
+	cgogn::modeling::set_attribute_vertex_index(*m, object_position_indices.get()); 
+
+	sd2.set_model(*m, vertex_position, vertex_normal);
 
 	sr.set_vertex_position(*v1, *m, vertex_position);
 	sr.set_vertex_normal(*v1, *m, vertex_normal);
 	sr.set_render_vertices(*v1, *m, false);
 	sr.set_render_edges(*v1, *m, false);
-
-	auto object_position_indices = cgogn::add_attribute<uint32, cgogn::mesh_traits<Mesh>::Vertex>(*m, "vertex_index");
-	cgogn::modeling::set_attribute_vertex_index(*m, object_position_indices.get()); 
-
-	sd2.set_model(*m);
-	sd2.set_vertex_position(*m, vertex_position);
 
 	return app.launch();
 }
