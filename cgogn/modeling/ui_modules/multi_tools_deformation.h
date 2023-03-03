@@ -239,6 +239,8 @@ class MultiToolsDeformation : public ViewModule
 
 		rendering::VBO selected_vertices_vbo_;
 
+		std::vector<std::pair<MeshVertex, MeshVertex>> selected_depth_vertices_; 
+
 		CellsSet<MESH, MeshVertex>* selected_vertices_set_;
 
 		SelectingCell selecting_cell_;
@@ -321,7 +323,7 @@ public:
 					GraphParameters& p = graph_parameters_[g];
 					if (p.vertex_position_.get() == attribute)
 					{
-						p.vertex_base_size_ = 1;
+						p.vertex_base_size_ = 0.1;
 						// 7; // float32(geometry::mean_edge_length(*g, p.vertex_position_.get()) /
 						//  6); 1; // ;
 						p.update_selected_vertices_vbo();
@@ -634,21 +636,22 @@ void set_graph_vertex_position(const GRAPH& g, const std::shared_ptr<GraphAttrib
 
 		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
-		std::vector<Vec3> axis_vertices;
-		std::vector<Vec3> axis_normals;
+		
 
-		control_set->foreach_cell([&](MeshVertex v) {
+		/*control_set->foreach_cell([&](MeshVertex v) {
 			const Vec3& position = value<Vec3>(m, vertex_position, v);
 			axis_vertices.push_back(position);
 
 			const Vec3& normal = value<Vec3>(m, mesh_vertex_normal, v);
 			axis_normals.push_back(normal);
-		});
+		});*/
 
 		// TODO check if array rightfully sorted
 		/*std::sort(begin(axis_vertices),
 		  end(axis_vertices),
 		  [p](const Vec3& p1, const Vec3& p2){ return dist(p, p1) < dist(p, p2); });*/
+
+		 
 
 		const auto [it, inserted] =
 			axis_container_.emplace(axis_name, std::make_shared<modeling::AxisDeformationTool<MESH>>());
@@ -656,8 +659,29 @@ void set_graph_vertex_position(const GRAPH& g, const std::shared_ptr<GraphAttrib
 		if (inserted)
 		{
 
+			Parameters& model_p = parameters_[model_];
+
+			std::vector<Vec3> inside_axis_position;
+			std::vector<Vec3> axis_vertices;
+			std::vector<Vec3> axis_normals;
+
+			for (std::size_t i = 0; i < model_p.selected_depth_vertices_.size(); i++){
+				std::pair<MeshVertex, MeshVertex> vertices_set = model_p.selected_depth_vertices_[i]; 
+
+				const Vec3 front_position = value<Vec3>(m, vertex_position, vertices_set.first);
+				axis_vertices.push_back(front_position); 
+
+				const Vec3 back_position = value<Vec3>(m, vertex_position, vertices_set.second);
+
+				inside_axis_position.push_back((front_position + back_position) / 2.0); 
+
+				const Vec3& normal = value<Vec3>(m, mesh_vertex_normal, vertices_set.first);
+				axis_normals.push_back(normal);	
+			
+			}
+
 			adt->create_space_tool(axis, axis_vertex_position.get(), axis_vertex_radius.get(), axis_vertices,
-								   axis_normals);
+								   axis_normals, inside_axis_position);
 
 			GraphParameters& axis_p = graph_parameters_[axis];
 			axis_p.normal_ = {0.0, 0.0, 1.0}; // axis_normals[0]; // TODO, update to retrieved normal
@@ -1293,31 +1317,36 @@ void set_graph_vertex_position(const GRAPH& g, const std::shared_ptr<GraphAttrib
 								get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
 							current_adt->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
-								uint32 vidx = value<uint32>(object, object_vertex_index, v);
-								Vec3& pos = value<Vec3>(object, object_vertex_position, v);
+								uint32 object_index = value<uint32>(object, object_vertex_index, v);
 
-								Vec3 contrib0;
-								Vec3 contrib1;
+								Vec3& object_position = value<Vec3>(object, object_vertex_position, v);
+
+								Vec3 left_influence;
+								Vec3 right_influence;
 								if (p_axis.weight_number == 0)
 								{
-									contrib0 = p_axis.transformation_ * pos;
-									contrib1 = pos;
+									left_influence = p_axis.transformation_ * object_position;
+									right_influence = object_position;
 								}
 								else
 								{
-									contrib1 = p_axis.transformation_ * pos;
-									contrib0 = pos;
+									right_influence = p_axis.transformation_ * object_position;
+									left_influence = object_position;
 								}
 
-								float weight0 = current_adt->axis_weights_(vidx, 0);
+								if (current_adt->axis_fixed_point_(object_index,0)){
+									left_influence = object_position; 
+								}
 
-								float weight1 = current_adt->axis_weights_(vidx, 1);
+								if (current_adt->axis_fixed_point_(object_index,1)){
+									right_influence = object_position; 
+								}
 
-								/*Vec3 contrib0 = pos;
-								Vec3 contrib1 = p_axis.transformation_ * pos; */
-								pos = weight0 * contrib0 + weight1 * contrib1;
+								float weight0 = current_adt->axis_weights_(object_index, 0);
 
-								// pos = p_axis.transformation_ * pos;
+								float weight1 = current_adt->axis_weights_(object_index, 1);
+
+								object_position = weight0 * left_influence + weight1 * right_influence;
 
 								return true;
 							});
@@ -1437,9 +1466,19 @@ protected:
 									p.selected_vertices_set_->unselect(picked[0]);
 									break;
 								}
+
 								mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_vertices_set_);
 							}
+
+							if (p.back_selection_){
+								CellCache<MESH> cache_back_ = geometry::within_sphere(
+									*selected_mesh_, picked[1], p.vertex_base_size_ * p.sphere_scale_factor_,
+									p.vertex_position_.get());
+
+								p.selected_depth_vertices_.push_back(std::make_pair(picked[0],picked[1])); 
+							}
 						}
+
 						break;
 					}
 					break;
@@ -1527,7 +1566,6 @@ protected:
 
 		if (selected_graph_ && view->control_pressed())
 		{
-
 			GraphParameters& p = graph_parameters_[selected_graph_];
 
 			if (p.vertex_position_)
@@ -1539,10 +1577,11 @@ protected:
 
 				if (p.selected_vertices_set_)
 				{
+					std::vector<GraphVertex> picked; 
 
-					std::vector<GraphVertex> picked;
 					geometry::picking_sphere(*selected_graph_, p.vertex_position_.get(), p.vertex_base_size_, A,
 													B, picked);
+
 					if (!picked.empty())
 					{
 						switch (button)
@@ -1554,6 +1593,7 @@ protected:
 							p.selected_vertices_set_->unselect(picked[0]);
 							break;
 						}
+				
 						graph_provider_->emit_cells_set_changed(*selected_graph_, p.selected_vertices_set_);
 					}
 				}
@@ -2192,6 +2232,8 @@ protected:
 					selected_mesh_ = model_;
 					ImGui::Separator();
 
+					model_p.back_selection_ = true;
+
 					imgui_combo_cells_set(model_md, model_p.selected_vertices_set_, "Set_for_axis",
 										  [&](CellsSet<MESH, MeshVertex>* cs) {
 											  model_p.selected_vertices_set_ = cs;
@@ -2233,7 +2275,7 @@ protected:
 
 					if (model_p.selection_method_ == WithinSphere)
 					{
-						model_p.back_selection_ = true;
+						//model_p.back_selection_ = true;
 						ImGui::SliderFloat("Sphere_radius", &(model_p.sphere_scale_factor_), 10.0f, 100.0f);
 
 						if (model_p.selected_vertices_set_)
@@ -2511,7 +2553,7 @@ protected:
 							static_cast<MultiToolsDeformation<MESH, GRAPH>*>(
 								app_.module("MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
 
-						imgui_axis_selector(multi_tools_deformation, selected_axis_, "Handle", [&](GRAPH& g) {
+						imgui_axis_selector(multi_tools_deformation, selected_axis_, "Axis", [&](GRAPH& g) {
 							if (selected_axis_)
 							{
 								GraphParameters& old_p = graph_parameters_[selected_axis_];
@@ -2553,7 +2595,7 @@ protected:
 								if (axis_p.selected_vertices_set_)
 								{
 									ImGui::Text("(nb elements: %d)", axis_p.selected_vertices_set_->size());
-									if (ImGui::Button("Clear handle selection##vertices_set"))
+									if (ImGui::Button("Clear axis selection##vertices_set"))
 									{
 										axis_p.selected_vertices_set_->clear();
 										graph_provider_->emit_cells_set_changed(*selected_axis_,

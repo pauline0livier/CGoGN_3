@@ -157,7 +157,7 @@ void imgui_combo_cells_set_graph(GraphData<GRAPH>& gd, const CellsSet<GRAPH, CEL
 {
 	static_assert(is_func_parameter_same<FUNC, CellsSet<GRAPH, CELL>*>::value, "Wrong function CellsSet parameter type");
 
-	if (ImGui::BeginCombo(label.c_str(), selected_set_graph ? selected_set_graph->name().c_str() : "-- select_handle --"))
+	if (ImGui::BeginCombo(label.c_str(), selected_set_graph ? selected_set_graph->name().c_str() : "-- select_graph --"))
 	{
 		gd.template foreach_cells_set<CELL>([&](CellsSet<GRAPH, CELL>& cs) {
 			bool is_selected = &cs == selected_set_graph;

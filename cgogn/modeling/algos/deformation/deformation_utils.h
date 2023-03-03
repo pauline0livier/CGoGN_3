@@ -51,7 +51,7 @@ Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>
 
 Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::Attribute<Vec3>* face_gradient, const CMap2::Attribute<Vec3>* vertex_position); 
 
-Eigen::Vector2f weight_two_bones(const Vec3& A, const Vec3& B, const Vec3& C, const Vec3& object_point); 
+std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, const Vec3& B, const Vec3& C, const Vec3& object_point); 
 
 } // namespace modeling
 

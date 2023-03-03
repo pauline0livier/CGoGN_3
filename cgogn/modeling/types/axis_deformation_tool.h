@@ -51,6 +51,7 @@ public:
 	Graph* control_axis_;
 
 	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> axis_weights_; 
+	Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> axis_fixed_point_; 
 
 	std::shared_ptr<Graph::Attribute<Vec3>> control_axis_vertex_position_;
 	std::shared_ptr<boost::synapse::connection> axis_attribute_update_connection_;
@@ -66,12 +67,14 @@ public:
 	}
 
 	void create_space_tool(Graph* g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
-						   const std::vector<Vec3>& vertex_coords, const std::vector<Vec3>& vertex_normals)
+						   const std::vector<Vec3>& vertex_coords, const std::vector<Vec3>& vertex_normals, const std::vector<Vec3>& inside_axis_position)
 	{
 		control_axis_ = g;
 		axis_skeleton_ = cgogn::modeling::create_axis(*g, vertex_position, vertex_radius, vertex_coords);
 
 		control_axis_vertex_position_ = cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
+
+		inside_axis_position_ = inside_axis_position; 
 
 		std::shared_ptr<Graph::Attribute<uint32>> vertex_index =
 			cgogn::add_attribute<uint32, Graph::Vertex>(*control_axis_, "vertex_index");
@@ -87,6 +90,9 @@ public:
 		axis_weights_.resize(nbv_object, nb_bones);
 		axis_weights_.setZero();
 
+		axis_fixed_point_.resize(nbv_object, nb_bones);
+		axis_fixed_point_.setZero();
+
 		compute_weights(object, vertex_position);
 	}
 
@@ -98,6 +104,9 @@ public:
 
 		axis_weights_.resize(nbv_object, nb_bones);
 		axis_weights_.setZero();
+
+		axis_fixed_point_.resize(nbv_object, nb_bones);
+		axis_fixed_point_.setZero();
 
 		compute_weights(object, vertex_position);
 	}
@@ -131,6 +140,8 @@ private:
 	Eigen::Matrix3d local_frame_;
 	Eigen::Matrix3d local_frame_inverse_;
 
+	std::vector<Vec3> inside_axis_position_; 
+
 	void compute_weights(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
@@ -142,17 +153,18 @@ private:
 
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
-			const Vec3 A = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[0]); 
+			/*const Vec3 A = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[0]); 
 			const Vec3 B = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[1]); 
-			const Vec3 C = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[2]); 
+			const Vec3 C = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[2]); */
 
-			const Eigen::Vector2f local_weight = cgogn::modeling::weight_two_bones(A, B, C, surface_point); 
+			std::pair<Eigen::Vector2d, std::vector<bool>> result_weights = cgogn::modeling::weight_two_bones(inside_axis_position_[0], inside_axis_position_[1], inside_axis_position_[2], surface_point); 
 
 			//axis_weights_.row(surface_point_idx) = local_weight; 
-			axis_weights_(surface_point_idx, 0) = local_weight[0]; 
-			axis_weights_(surface_point_idx, 1) = local_weight[1];
+			axis_weights_(surface_point_idx, 0) = result_weights.first[0]; 
+			axis_weights_(surface_point_idx, 1) = result_weights.first[1];
 
-			//axis_weights_(surface_point_idx, 0) = 1; 
+			axis_fixed_point_(surface_point_idx, 0) = result_weights.second[0]; 
+			axis_fixed_point_(surface_point_idx, 1) = result_weights.second[1];
 
 		}); 
 

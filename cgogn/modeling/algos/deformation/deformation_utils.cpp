@@ -215,35 +215,73 @@ Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::
 	return div / 2.0;
 }
 
-Eigen::Vector2f weight_two_bones(const Vec3& A, const Vec3& B, const Vec3& C, const Vec3& object_point) {
-	Eigen::Vector2f res; 
-	res.setZero(); 
+std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, const Vec3& B, const Vec3& C, const Vec3& object_point) {
+
+	Eigen::Vector2d weights;  
+
+	std::vector<bool> fixed_point(2); 
+	fixed_point[0] = false; 
+	fixed_point[1] = false; 
 	
-	const float resAB = projection_on_segment(A, B, object_point); 
+	const double resAB = projection_on_segment(A, B, object_point); 
 	if (resAB > 0.0 && resAB < 1.0){
-		const float w1 = 1.0 - (resAB/2.0); 
-		res[0] = w1; 
-		res[1] = 1.0 - w1; 
+		if (resAB >= 0.8 || resAB <= 0.2){
+			const double delta = std::min(resAB, 1.0 - resAB); 
+			const double local_value = (delta*0.5)/0.2; 
+			weights[0] = 1.0 - local_value; 
+			weights[1] = local_value; 
+		} else {
+			weights[0] = 1.0; 
+			weights[1] = 0.0; 
+		}
+		
 	} else if (resAB <= 0.0){
-		res[0] = 1.0; 
-		res[1] = 0.0; 
+		const double delta = std::abs(resAB); 
+		if (delta > 0.2){
+			weights[0] = 0.5; 
+			weights[1] = 0.5; 
+			fixed_point[0] = true; 
+			fixed_point[1] = true; 
+		} else {
+			const double local_value = (delta*0.5)/0.2; 
+			weights[0] = local_value;
+			weights[1] = 1 - local_value;
+			fixed_point[1] = true; 
+		}
+		
 	} else if (resAB >= 1.0){
 		if (resAB == 1.0){
-			res[0] = 0.5; 
-			res[1] = 0.5; 
+			weights[0] = 0.5; 
+			weights[1] = 0.5; 
 		} else {
-			const float resBC = projection_on_segment(B, C, object_point); 
+			const double resBC = projection_on_segment(B, C, object_point); 
 			if (resBC > 0.0 && resBC < 1.0){
-				const float w2 = 1 - (resBC/2.0); 
-				res[0] = w2; 
-				res[1] = 1.0 - w2; 
+				if (resBC >= 0.8 || resBC <= 0.2){
+					const double delta = std::min(resBC, 1.0 - resBC);
+					const double local_value = (delta*0.5)/0.2; 
+					weights[0] = local_value; 
+					weights[1] = 1.0 - local_value; 
+				} else {
+					weights[0] = 0.0; 
+					weights[1] = 1.0; 
+				}
 			} else if (resBC >= 1.0){
-				res[0] = 0.0; 
-				res[1] = 1.0; 
+				const double delta = 1.0 - resBC; 
+				if (delta > 0.2){
+					weights[0] = 0.5; 
+					weights[1] = 0.5; 
+					fixed_point[0] = true; 
+					fixed_point[1] = true; 
+				} else {
+					const double local_value = (delta*0.5)/0.2; 
+					weights[0] = 1.0 - local_value; 
+					weights[1] = local_value; 
+					fixed_point[0] = true; 
+				}
 			} 
 		}
 	}
-	return res; 
+	return std::make_pair(weights, fixed_point); 
 }
 
 } // namespace modeling
