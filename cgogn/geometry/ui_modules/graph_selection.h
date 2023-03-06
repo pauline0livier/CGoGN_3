@@ -28,7 +28,7 @@
 #include <cgogn/ui/module.h>
 #include <cgogn/ui/view.h>
 
-#include <cgogn/core/ui_modules/mesh_provider.h>
+#include <cgogn/core/ui_modules/graph_provider.h>
 
 #include <cgogn/geometry/algos/length.h>
 #include <cgogn/geometry/algos/picking.h>
@@ -53,16 +53,16 @@ namespace cgogn
 namespace ui
 {
 
-template <typename MESH>
+template <typename GRAPH>
 class GraphSelection : public ViewModule
 {
-	static_assert(mesh_traits<MESH>::dimension >= 2, "SurfaceSelectionPO can only be used with meshes of dimension >= 2");
+	//static_assert(mesh_traits<MESH>::dimension >= 2, "SurfaceSelectionPO can only be used with meshes of dimension >= 2");
 
 	template <typename T>
-	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
+	using Attribute = typename mesh_traits<GRAPH>::template Attribute<T>;
 
-	using Vertex = typename mesh_traits<MESH>::Vertex;
-	using Edge = typename mesh_traits<MESH>::Edge;
+	using Vertex = typename mesh_traits<GRAPH>::Vertex;
+	using Edge = typename mesh_traits<GRAPH>::Edge;
 
 	enum SelectingCell
 	{
@@ -99,12 +99,12 @@ class GraphSelection : public ViewModule
 				std::vector<Vec3> selected_vertices_position;
 				selected_vertices_position.reserve(selected_vertices_set_->size());
 				selected_vertices_set_->foreach_cell(
-					[&](Vertex v) { selected_vertices_position.push_back(value<Vec3>(*mesh_, vertex_position_, v)); });
+					[&](Vertex v) { selected_vertices_position.push_back(value<Vec3>(*graph_, vertex_position_, v)); });
 				rendering::update_vbo(selected_vertices_position, &selected_vertices_vbo_);
 			}
 		}
 
-		MESH* mesh_;
+		GRAPH* graph_;
 		std::shared_ptr<Attribute<Vec3>> vertex_position_;
 
 		std::unique_ptr<rendering::ShaderPointSprite::Param> param_point_sprite_;
@@ -116,7 +116,7 @@ class GraphSelection : public ViewModule
 
 		rendering::VBO selected_vertices_vbo_;
 
-		CellsSet<MESH, Vertex>* selected_vertices_set_;
+		CellsSet<GRAPH, Vertex>* selected_vertices_set_;
 		
 		SelectingCell selecting_cell_;
 		SelectionMethod selection_method_;
@@ -124,7 +124,7 @@ class GraphSelection : public ViewModule
 
 public:
 	GraphSelection(const App& app)
-		: ViewModule(app, "GraphSelection (" + std::string{mesh_traits<MESH>::name} + ")"), selected_mesh_(nullptr)
+		: ViewModule(app, "GraphSelection (" + std::string{mesh_traits<GRAPH>::name} + ")"), selected_graph_(nullptr)
 	{
 	}
 
@@ -133,27 +133,27 @@ public:
 	}
 
 private:
-	void init_mesh(MESH* m)
+	void init_graph(GRAPH* g)
 	{
-		Parameters& p = parameters_[m];
-		p.mesh_ = m;
-		mesh_connections_[m].push_back(
-			boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
-				m, [this, m](Attribute<Vec3>* attribute) {
-					Parameters& p = parameters_[m];
+		Parameters& p = parameters_[g];
+		p.graph_ = g;
+		graph_connections_[g].push_back(
+			boost::synapse::connect<typename GraphProvider<GRAPH>::template attribute_changed_t<Vec3>>(
+				g, [this, g](Attribute<Vec3>* attribute) {
+					Parameters& p = parameters_[g];
 					if (p.vertex_position_.get() == attribute)
 					{
-						p.vertex_base_size_ = 0.3; //float32(geometry::mean_edge_length(*m, p.vertex_position_.get()) / 6);
+						p.vertex_base_size_ = 5.0; //0.3; //float32(geometry::mean_edge_length(*m, p.vertex_position_.get()) / 6);
 						p.update_selected_vertices_vbo();
 					}
 
 					for (View* v : linked_views_)
 						v->request_update();
 				}));
-		mesh_connections_[m].push_back(
-			boost::synapse::connect<typename MeshProvider<MESH>::template cells_set_changed<Vertex>>(
-				m, [this, m](CellsSet<MESH, Vertex>* set) {
-					Parameters& p = parameters_[m];
+		graph_connections_[g].push_back(
+			boost::synapse::connect<typename GraphProvider<GRAPH>::template cells_set_changed<Vertex>>(
+				g, [this, g](CellsSet<GRAPH, Vertex>* set) {
+					Parameters& p = parameters_[g];
 					if (p.selected_vertices_set_ == set && p.vertex_position_)
 					{
 						p.update_selected_vertices_vbo();
@@ -164,14 +164,14 @@ private:
 	}
 
 public:
-	void set_vertex_position(const MESH& m, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
+	void set_vertex_position(const GRAPH& m, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
 		Parameters& p = parameters_[&m];
 
 		p.vertex_position_ = vertex_position;
 		if (p.vertex_position_)
 		{
-			p.vertex_base_size_ = 0.3; //float32(geometry::mean_edge_length(m, p.vertex_position_.get()) / 6); // 6 ???
+			p.vertex_base_size_ = 5.0; //0.3; //float32(geometry::mean_edge_length(m, p.vertex_position_.get()) / 6); // 6 ???
 			p.update_selected_vertices_vbo(); 
 		}
 
@@ -179,13 +179,13 @@ public:
 			v->request_update();
 	}
 
-	void set_selected_mesh(MESH& m)
+	void set_selected_graph(GRAPH& m)
 	{
-		selected_mesh_ = &m;
+		selected_graph_ = &m;
 	}
 
 	template <typename CELL>
-	void set_selected_cells_set(const MESH& m, CellsSet<MESH, CELL>* cs)
+	void set_selected_cells_set(const GRAPH& m, CellsSet<GRAPH, CELL>* cs)
 	{
 		Parameters& p = parameters_[&m];
 		if constexpr (std::is_same_v<CELL, Vertex>)
@@ -199,19 +199,18 @@ public:
 protected:
 	void init() override
 	{
-		mesh_provider_ = static_cast<ui::MeshProvider<MESH>*>(
-			app_.module("MeshProvider (" + std::string{mesh_traits<MESH>::name} + ")"));
-		mesh_provider_->foreach_mesh([this](MESH& m, const std::string&) { init_mesh(&m); });
-		connections_.push_back(boost::synapse::connect<typename MeshProvider<MESH>::mesh_added>(
-			mesh_provider_, this, &GraphSelection<MESH>::init_mesh));
+		graph_provider_ = static_cast<ui::GraphProvider<GRAPH>*>(
+			app_.module("GraphProvider (" + std::string{mesh_traits<GRAPH>::name} + ")"));
+		graph_provider_->foreach_graph([this](GRAPH& m, const std::string&) { init_graph(&m); });
+		connections_.push_back(boost::synapse::connect<typename GraphProvider<GRAPH>::graph_added>(
+			graph_provider_, this, &GraphSelection<GRAPH>::init_graph));
 	}
 
 	void mouse_press_event(View* view, int32 button, int32 x, int32 y) override
 	{
-		if (selected_mesh_ && view->control_pressed())
+		if (selected_graph_ && view->control_pressed())
 		{
-			// MeshData<MESH>* md = mesh_provider_->mesh_data(*selected_mesh_);
-			Parameters& p = parameters_[selected_mesh_];
+			Parameters& p = parameters_[selected_graph_];
 
 			if (p.vertex_position_)
 			{
@@ -229,7 +228,7 @@ protected:
 						if (p.selected_vertices_set_)
 						{
 							std::vector<Vertex> picked;
-							cgogn::geometry::picking_sphere(*selected_mesh_, p.vertex_position_.get(), 50, A, B, picked);
+							cgogn::geometry::picking_sphere(*selected_graph_, p.vertex_position_.get(), 50, A, B, picked);
 							if (!picked.empty())
 							{
 								switch (button)
@@ -241,7 +240,7 @@ protected:
 									p.selected_vertices_set_->unselect(picked[0]);
 									break;
 								}
-								mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_vertices_set_);
+								graph_provider_->emit_cells_set_changed(*selected_graph_, p.selected_vertices_set_);
 							} 
 						}
 						break;
@@ -278,19 +277,19 @@ protected:
 	{
 		bool need_update = false;
 
-		imgui_mesh_selector(mesh_provider_, selected_mesh_, "Surface", [&](MESH& m) {
-			selected_mesh_ = &m;
-			mesh_provider_->mesh_data(m).outlined_until_ = App::frame_time_ + 1.0;
+		imgui_graph_selector(graph_provider_, selected_graph_, "Surface", [&](GRAPH& m) {
+			selected_graph_ = &m;
+			graph_provider_->graph_data(m).outlined_until_ = App::frame_time_ + 1.0;
 		});
 
-		if (selected_mesh_)
+		if (selected_graph_)
 		{
 			// float X_button_width = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2;
-			Parameters& p = parameters_[selected_mesh_];
+			Parameters& p = parameters_[selected_graph_];
 
-			imgui_combo_attribute<Vertex, Vec3>(*selected_mesh_, p.vertex_position_, "Position",
+			imgui_combo_attribute<Vertex, Vec3>(*selected_graph_, p.vertex_position_, "Position",
 												[&](const std::shared_ptr<Attribute<Vec3>>& attribute) {
-													set_vertex_position(*selected_mesh_, attribute);
+													set_vertex_position(*selected_graph_, attribute);
 												});
 
 			if (p.vertex_position_)
@@ -301,13 +300,13 @@ protected:
 
 				ImGui::RadioButton("Single", reinterpret_cast<int*>(&p.selection_method_), SingleCell);
 
-				MeshData<MESH>& md = mesh_provider_->mesh_data(*selected_mesh_);
+				GraphData<GRAPH>& md = graph_provider_->graph_data(*selected_graph_);
 
 				if (p.selecting_cell_ == VertexSelect)
 				{
 					if (ImGui::Button("Create set##vertices_set"))
 						md.template add_cells_set<Vertex>();
-					imgui_combo_cells_set(md, p.selected_vertices_set_, "Sets", [&](CellsSet<MESH, Vertex>* cs) {
+					imgui_combo_cells_set_graph(md, p.selected_vertices_set_, "Sets", [&](CellsSet<GRAPH, Vertex>* cs) {
 						p.selected_vertices_set_ = cs;
 						p.update_selected_vertices_vbo();
 						need_update = true;
@@ -318,7 +317,7 @@ protected:
 						if (ImGui::Button("Clear##vertices_set"))
 						{
 							p.selected_vertices_set_->clear();
-							mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_vertices_set_);
+							graph_provider_->emit_cells_set_changed(*selected_graph_, p.selected_vertices_set_);
 						}
 					}
 					ImGui::TextUnformatted("Drawing parameters");
@@ -335,11 +334,11 @@ protected:
 	}
 
 private:
-	const MESH* selected_mesh_;
-	std::unordered_map<const MESH*, Parameters> parameters_;
+	const GRAPH* selected_graph_;
+	std::unordered_map<const GRAPH*, Parameters> parameters_;
 	std::vector<std::shared_ptr<boost::synapse::connection>> connections_;
-	std::unordered_map<const MESH*, std::vector<std::shared_ptr<boost::synapse::connection>>> mesh_connections_;
-	MeshProvider<MESH>* mesh_provider_;
+	std::unordered_map<const GRAPH*, std::vector<std::shared_ptr<boost::synapse::connection>>> graph_connections_;
+	GraphProvider<GRAPH>* graph_provider_;
 };
 
 } // namespace ui

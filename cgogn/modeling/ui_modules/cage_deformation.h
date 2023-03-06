@@ -29,6 +29,8 @@
 #include <cgogn/ui/imgui_helpers.h>
 #include <cgogn/ui/module.h>
 
+#include <cgogn/modeling/algos/deformation/deformation_definitions.h>
+
 #include <cgogn/core/functions/mesh_ops/volume.h>
 
 #include <cgogn/geometry/algos/normal.h>
@@ -171,20 +173,6 @@ const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3&
 
 	return (-1.0 / (4.0 * M_PI)) * abs(I[0] - I[1] - sqrt_c * beta);
 }
-
-// https://github.com/blaisebundle/green_cage_deformer/blob/master/src/green_cage_deformer.cc
-namespace
-{
-const Vec3 NULL_VECTOR(0.0, 0.0, 0);
-constexpr auto TOLERANCE = 1e-6;
-} // namespace
-
-namespace MathConstants
-{
-constexpr auto PI = 3.14159265358979323846;
-constexpr auto ONE_OVER_FOUR_PI = 0.07957747154594767;
-constexpr auto SQRT8 = 2.828427124746190097603;
-}; // namespace MathConstants
 
 const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2)
 {

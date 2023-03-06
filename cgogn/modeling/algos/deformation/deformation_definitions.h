@@ -21,12 +21,10 @@
  *                                                                              *
  *******************************************************************************/
 
-#ifndef CGOGN_MODELING_ALGOS_DEFORMATION_UTILS_H_
-#define CGOGN_MODELING_ALGOS_DEFORMATION_UTILS_H_
+#ifndef CGOGN_MODELING_ALGOS_DEFORMATION_DEFINITIONS_H_
+#define CGOGN_MODELING_ALGOS_DEFORMATION_DEFINITIONS_H_
 
 #include <cgogn/geometry/types/vector_traits.h>
-#include <cgogn/modeling/algos/deformation/math_utils.h>
-#include <cgogn/modeling/algos/deformation/deformation_definitions.h>
 
 namespace cgogn
 {
@@ -34,44 +32,24 @@ namespace cgogn
 namespace modeling
 {
 
-using Vec3 = geometry::Vec3; 
-using Scalar = geometry::Scalar;
-
-using Graph = cgogn::IncidenceGraph;
-
-// https://github.com/blaisebundle/green_cage_deformer/blob/master/src/green_cage_deformer.cc
-namespace
+enum class SelectionMethod: int
 {
-extern const Vec3 NULL_VECTOR(0.0, 0.0, 0);
-extern constexpr auto TOLERANCE = 1e-6;
+	SingleCell = 0,
+	WithinSphere,
+	ConnectedComponent
+};
 
-extern constexpr double epsilon = 0.00000001;
-} // namespace
-
-namespace MathConstants
+enum class SelectingCell: int
 {
-extern constexpr auto PI = 3.14159265358979323846;
-extern constexpr auto ONE_OVER_FOUR_PI = 0.07957747154594767;
-extern constexpr auto SQRT8 = 2.828427124746190097603;
-}; // namespace MathConstants
+	VertexSelect = 0,
+	EdgeSelect,
+	FaceSelect
+};
 
-
-
-float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage, const Vec3& cage_point,
-					  CMap2::Attribute<Vec3>* cage_position); 
-
-const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3& nu); 
-
-const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2); 
-     
-Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>& eigen_values, const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors); 
-
-Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::Attribute<Vec3>* face_gradient, const CMap2::Attribute<Vec3>* vertex_position); 
-
-std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, const Vec3& B, const Vec3& C, const Vec3& object_point); 
+using Vec3 = geometry::Vec3;
 
 } // namespace modeling
 
 } // namespace cgogn
 
-#endif // CGOGN_MODELING_ALGOS_DEFORMATION_UTILS_H_
+#endif // CGOGN_MODELING_ALGOS_DEFORMATION_DEFINITIONS_H_

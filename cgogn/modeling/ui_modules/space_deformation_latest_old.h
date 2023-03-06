@@ -157,6 +157,15 @@ public:
 		selected_mesh_ = &m;
 	}
 
+	void set_model(MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_normal){
+		selected_mesh_ = &m;
+
+		geometry::compute_normal<MeshVertex>(m, vertex_position.get(), vertex_normal.get());
+		mesh_provider_->emit_attribute_changed(m, vertex_normal.get());
+
+		set_vertex_position(m, vertex_position); 
+	}
+
 	void set_vertex_position(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position)
 	{
 		Parameters& p = parameters_[&m];
@@ -760,7 +769,7 @@ private:
 
 	{
 		selected_cdt_->bind_mvc(object, object_vertex_position);
-		selected_cdt_->set_up_attenuation(object, object_vertex_position);
+		//selected_cdt_->set_up_attenuation(object, object_vertex_position);
 
 		displayGammaColor(object);
 
@@ -781,7 +790,7 @@ private:
 
 						mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
 
-						selected_cdt_->update_deformation_object_mvc(object, object_vertex_position, p.init_position_);
+						//selected_cdt_->update_deformation_object_mvc(object, object_vertex_position, p.init_position_);
 
 						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
 					}

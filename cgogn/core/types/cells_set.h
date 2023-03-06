@@ -61,7 +61,7 @@ public:
 	}
 
 	inline void select(CELL c)
-	{
+	{ 
 		if (!marker_.is_marked(c))
 		{ 
 			marker_.mark(c);

@@ -29,6 +29,7 @@
 
 #include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 #include <cgogn/modeling/algos/deformation/deformation_utils.h>
+#include <cgogn/modeling/algos/deformation/deformation_definitions.h>
 
 #include <cgogn/core/ui_modules/mesh_provider.h>
 #include <cgogn/ui/app.h>
@@ -612,8 +613,6 @@ private:
 		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
 			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
 
-		const Vec3 NULL_VECTOR(0.0, 0.0, 0);
-
 		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 		{
 			std::vector<Vec3> triangle_position(3);
@@ -692,8 +691,6 @@ private:
 
 		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
 			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
-
-		const Vec3 NULL_VECTOR(0.0, 0.0, 0);
 
 		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 		{

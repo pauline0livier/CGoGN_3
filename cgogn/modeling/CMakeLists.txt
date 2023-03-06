@@ -20,6 +20,7 @@ target_sources(${PROJECT_NAME}	PRIVATE
 		"${CMAKE_CURRENT_LIST_DIR}/algos/decimation/edge_queue_update.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/decimation/QEM_helper.h"
 		
+		"${CMAKE_CURRENT_LIST_DIR}/algos/deformation/deformation_definitions.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/deformation/math_utils.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/deformation/math_utils.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/deformation/creation_space_tool.h"
@@ -49,6 +50,10 @@ target_sources(${PROJECT_NAME}	PRIVATE
 		"${CMAKE_CURRENT_LIST_DIR}/algos/volume_utils.h"
 		"${CMAKE_CURRENT_LIST_DIR}/algos/volume_utils.cpp"
 
+		"${CMAKE_CURRENT_LIST_DIR}/types/mesh_parameters.h"
+		"${CMAKE_CURRENT_LIST_DIR}/types/graph_parameters.h"
+		"${CMAKE_CURRENT_LIST_DIR}/types/space_deformation_tool.h"
+		"${CMAKE_CURRENT_LIST_DIR}/types/space_deformation_tool.h"
 		"${CMAKE_CURRENT_LIST_DIR}/types/space_deformation_tool.h"
 		"${CMAKE_CURRENT_LIST_DIR}/types/cage_deformation_tool.h"
 		"${CMAKE_CURRENT_LIST_DIR}/types/global_cage_deformation_tool.h"

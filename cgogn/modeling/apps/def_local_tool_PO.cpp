@@ -29,6 +29,9 @@
 #include <cgogn/core/ui_modules/mesh_provider.h>
 #include <cgogn/core/ui_modules/graph_provider.h>
 
+#include <cgogn/geometry/ui_modules/graph_selection.h>
+#include <cgogn/geometry/ui_modules/surface_selection.h>
+
 #include <cgogn/rendering/ui_modules/surface_render.h>
 #include <cgogn/rendering/ui_modules/graph_render.h>
 
@@ -74,6 +77,8 @@ int main(int argc, char** argv)
 	cgogn::ui::MeshProvider<Mesh> mp(app);
 	cgogn::ui::GraphProvider<Graph> gp(app);
 
+	cgogn::ui::GraphSelection<Graph> gs(app); 
+
 	cgogn::ui::SurfaceRender<Mesh> sr(app);
 	cgogn::ui::GraphRender<Graph> gr(app);
 
@@ -86,6 +91,8 @@ int main(int argc, char** argv)
 	v1->link_module(&mp);
 
 	v1->link_module(&gp);
+
+	v1->link_module(&gs); 
 
 	v1->link_module(&gr);
 	v1->link_module(&sr);

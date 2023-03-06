@@ -25,6 +25,7 @@
 #define CGOGN_MODELING_CAGE_DEFORMATION_TOOL_H_
 
 #include <cgogn/modeling/types/space_deformation_tool.h>
+#include <cgogn/modeling/algos/deformation/deformation_utils.h>
 
 namespace cgogn
 {
@@ -985,7 +986,6 @@ private:
 		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
 			get_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
 
-		double epsilon = 0.00000001;
 		double sumWeights = 0.0;
 
 		Eigen::VectorXd w_control_cage_coords_;
@@ -1103,7 +1103,6 @@ private:
 	{
 		uint32 nbv_cage = 8; // nb_cells<Vertex>(*control_cage_);
 
-		double epsilon = 0.00000001;
 		double sumWeights = 0.0;
 
 		Eigen::VectorXd w_control_cage_coords_;
