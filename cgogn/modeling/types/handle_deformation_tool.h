@@ -26,7 +26,7 @@
 
 
 #include <cgogn/modeling/types/space_deformation_tool.h>
-
+#include <cgogn/geometry/algos/laplacian.h>
 
 namespace cgogn
 {

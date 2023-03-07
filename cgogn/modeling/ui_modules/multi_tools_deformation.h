@@ -36,9 +36,7 @@
 #include <cgogn/ui/module.h>
 #include <cgogn/ui/view.h>
 
-#include <cgogn/geometry/algos/laplacian.h>
 #include <cgogn/geometry/algos/normal.h>
-#include <cgogn/geometry/functions/angle.h>
 
 #include <GLFW/glfw3.h>
 
@@ -100,11 +98,14 @@ class MultiToolsDeformation : public ViewModule
 
 public:
 	std::unordered_map<std::string, std::shared_ptr<modeling::HandleDeformationTool<MESH>>> handle_container_;
+	std::unordered_map<std::string, std::shared_ptr<modeling::CageDeformationTool<MESH>>> cage_container_;
+	std::unordered_map<std::string, std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>>>
+		global_cage_container_;
 
 	MultiToolsDeformation(const App& app)
 		: ViewModule(app, "MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), model_(nullptr),
 		  influence_set_(nullptr), selected_mesh_(nullptr), selected_graph_(nullptr), selected_handle_(nullptr),
-		  new_tool_(false)//, //dragging_mesh_(false), dragging_handle_(false)
+		  selected_cage_(nullptr), new_tool_(false)
 	{
 	}
 
@@ -114,7 +115,6 @@ public:
 
 	void init_mesh(MESH* m)
 	{
-		
 		parameters_[m] = new modeling::Parameters<MESH>();  
 		modeling::Parameters<MESH>& p = *parameters_[m]; 
 		p.mesh_ = m;
@@ -212,6 +212,29 @@ public:
 	}
 
 	template <typename FUNC>
+	void foreach_cage(const FUNC& f)
+	{
+		static_assert(is_ith_func_parameter_same<FUNC, 0, MESH&>::value, "Wrong function parameter type");
+		static_assert(is_ith_func_parameter_same<FUNC, 1, const std::string&>::value, "Wrong function parameter type");
+		for (auto& [name, gcdt] : global_cage_container_)
+			f(*(gcdt->global_cage_), name);
+
+		for (auto& [name, cdt] : cage_container_)
+			f(*(cdt->control_cage_), name);
+	}
+
+	template <typename FUNC>
+	void foreach_local_cage(const FUNC& f)
+	{
+		static_assert(is_ith_func_parameter_same<FUNC, 0, MESH&>::value, "Wrong function parameter type");
+		static_assert(is_ith_func_parameter_same<FUNC, 1, const std::string&>::value, "Wrong function parameter type");
+
+		for (auto& [name, cdt] : cage_container_)
+			f(*(cdt->control_cage_), name);
+	}
+
+
+	template <typename FUNC>
 	void foreach_handle(const FUNC& f)
 	{
 		for (auto& [name, hdt] : handle_container_)
@@ -222,6 +245,7 @@ public:
 	// SIGNALS //
 	/////////////
 	using handle_added = struct handle_added_ (*)(modeling::HandleDeformationTool<MESH>* h);
+	using global_cage_added = struct global_cage_added_ (*)(modeling::GlobalCageDeformationTool<MESH>* gcdt);
 
 private:
 	void set_vertex_position(MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position)
@@ -263,6 +287,44 @@ private:
 
 		for (View* v : linked_views_)
 			v->request_update();
+	}
+
+	// Create tools 
+	MESH* generate_global_cage(const MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position)
+	{
+		std::string cage_name = "global_cage";
+		MESH* cage = mesh_provider_->add_mesh(cage_name);
+		std::shared_ptr<MeshAttribute<Vec3>> cage_vertex_position =
+			add_attribute<Vec3, MeshVertex>(*cage, "position");
+		mesh_provider_->set_mesh_bb_vertex_position(*cage, cage_vertex_position);
+
+		set_vertex_position(*cage, cage_vertex_position);
+
+		const auto [it, inserted] = global_cage_container_.emplace(
+			cage_name, std::make_shared<modeling::GlobalCageDeformationTool<MESH>>());
+		modeling::GlobalCageDeformationTool<MESH>* gcdt = it->second.get();
+
+		if (inserted)
+		{
+			MeshData<MESH>& md = mesh_provider_->mesh_data(m);
+			std::tuple<Vec3, Vec3, Vec3> extended_bounding_box =
+				modeling::get_extended_bounding_box(md.bb_min_, md.bb_max_, 1.2);
+
+			gcdt->create_global_cage(cage, cage_vertex_position.get(), std::get<0>(extended_bounding_box),
+									 std::get<1>(extended_bounding_box));
+
+			mesh_provider_->emit_connectivity_changed(*cage);
+			mesh_provider_->emit_attribute_changed(*cage, cage_vertex_position.get());
+
+			MeshData<MESH>& c_md = mesh_provider_->mesh_data(*cage);
+
+			ui::View* v1 = app_.current_view();
+
+			surface_render_->set_vertex_position(*v1, *cage, cage_vertex_position);
+			surface_render_->set_render_faces(*v1, *cage, false);
+		}
+
+		return cage;
 	}
 
 	//
@@ -328,6 +390,278 @@ private:
 	}
 
 	/// BIND
+	void bind_global_cage(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
+						  MESH& global_cage, std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position,
+						  std::string binding_type)
+	{
+
+		std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> gcdt = global_cage_container_["global_cage"];
+
+		gcdt->deformation_type_ = binding_type;
+
+		if (binding_type == "MVC")
+		{
+			gcdt->bind_mvc(object, object_vertex_position.get());
+
+			if (handle_container_.size() > 0)
+			{
+				for (auto& [name, hdt] : handle_container_)
+				{
+					modeling::GraphParameters<GRAPH>& p_handle = *graph_parameters_[hdt->control_handle_];
+
+					GraphVertex handle_vertex = hdt->get_handle_vertex();
+
+					Eigen::VectorXf weights =
+						gcdt->bind_mvc_handle(*(hdt->control_handle_), p_handle.vertex_position_, handle_vertex);
+
+					hdt->global_cage_weights_ = weights;
+				}
+			}
+
+			gcdt->cage_attribute_update_connection_ =
+				boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
+					&global_cage, [&](MeshAttribute<Vec3>* attribute) {
+						if (cage_vertex_position.get() == attribute)
+						{
+
+							if (deformed_tool_ == Cage)
+							{
+								std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> current_gcdt =
+									global_cage_container_["global_cage"];
+
+								std::shared_ptr<MeshAttribute<uint32>> cage_vertex_index =
+									get_attribute<uint32, MeshVertex>(*(current_gcdt->global_cage_), "vertex_index");
+
+								std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
+									get_attribute<uint32, MeshVertex>(object, "vertex_index");
+
+								parallel_foreach_cell(object, [&](MeshVertex v) -> bool {
+									uint32 vidx = value<uint32>(object, object_vertex_index, v);
+
+									Vec3 new_pos_ = {0.0, 0.0, 0.0};
+
+									foreach_cell(*(current_gcdt->global_cage_), [&](MeshVertex cv) -> bool {
+										const Vec3& cage_point =
+											value<Vec3>(*(current_gcdt->global_cage_),
+														current_gcdt->global_cage_vertex_position_, cv);
+
+										uint32 cage_point_idx =
+											value<uint32>(*(current_gcdt->global_cage_), cage_vertex_index, cv);
+
+										new_pos_ +=
+											current_gcdt->global_cage_coords_(vidx, cage_point_idx) * cage_point;
+
+										return true;
+									});
+
+									value<Vec3>(object, object_vertex_position, v) = new_pos_;
+									return true;
+								});
+
+								mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+
+								// Handle update
+								if (handle_container_.size() > 0)
+								{
+									for (auto& [name, hdt] : handle_container_)
+									{
+										modeling::GraphParameters<GRAPH>& p_handle = *graph_parameters_[hdt->control_handle_];
+
+										Eigen::VectorXf weights = hdt->global_cage_weights_;
+
+										GraphVertex handle_vertex = hdt->get_handle_vertex();
+
+										Vec3 new_pos_handle = {0.0, 0.0, 0.0};
+
+										foreach_cell(*(current_gcdt->global_cage_), [&](MeshVertex cv) -> bool {
+											const Vec3& cage_point =
+												value<Vec3>(*(current_gcdt->global_cage_),
+															current_gcdt->global_cage_vertex_position_, cv);
+
+											uint32 cage_point_idx =
+												value<uint32>(*(current_gcdt->global_cage_), cage_vertex_index, cv);
+
+											new_pos_handle += weights[cage_point_idx] * cage_point;
+
+											return true;
+										});
+
+										value<Vec3>(*(hdt->control_handle_), p_handle.vertex_position_, handle_vertex) =
+											new_pos_handle;
+
+										graph_provider_->emit_attribute_changed(
+											*(hdt->control_handle_), hdt->control_handle_vertex_position_.get());
+									}
+								}
+							}
+						}
+					});
+		}
+
+		if (binding_type == "Green")
+		{
+			gcdt->bind_green(object, object_vertex_position.get());
+
+			if (handle_container_.size() > 0)
+			{
+				for (auto& [name, hdt] : handle_container_)
+				{
+					modeling::GraphParameters<GRAPH>& p_handle = *graph_parameters_[hdt->control_handle_];
+
+					GraphVertex handle_vertex = hdt->get_handle_vertex();
+
+					std::pair<Eigen::VectorXf, Eigen::VectorXf> weights =
+						gcdt->bind_green_handle(*(hdt->control_handle_), p_handle.vertex_position_, handle_vertex);
+
+					hdt->global_cage_weights_ = weights.first;
+					hdt->global_cage_normal_weights_ = weights.second;
+				}
+			}
+
+			gcdt->cage_attribute_update_connection_ =
+				boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
+					&global_cage, [&](MeshAttribute<Vec3>* attribute) {
+						if (cage_vertex_position.get() == attribute)
+						{
+							std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> current_gcdt =
+								global_cage_container_["global_cage"];
+
+							std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
+								get_attribute<uint32, MeshVertex>(object, "vertex_index");
+
+							std::shared_ptr<MeshAttribute<uint32>> cage_vertex_index =
+								get_attribute<uint32, MeshVertex>(*(current_gcdt->global_cage_), "vertex_index");
+
+							std::shared_ptr<MeshAttribute<uint32>> cage_face_index =
+								get_attribute<uint32, MeshFace>(*(current_gcdt->global_cage_), "face_index");
+
+							parallel_foreach_cell(object, [&](MeshVertex v) -> bool {
+								uint32 vidx = value<uint32>(object, object_vertex_index, v);
+
+								Vec3 new_pos_update_ = {0.0, 0.0, 0.0};
+
+								const auto sqrt8 = sqrt(8);
+
+								foreach_cell(*(current_gcdt->global_cage_), [&](MeshVertex cv) -> bool {
+									const Vec3& cage_point = value<Vec3>(
+										*(current_gcdt->global_cage_), current_gcdt->global_cage_vertex_position_, cv);
+
+									uint32 cage_point_idx =
+										value<uint32>(*(current_gcdt->global_cage_), cage_vertex_index, cv);
+
+									new_pos_update_ +=
+										current_gcdt->global_cage_coords_(vidx, cage_point_idx) * cage_point;
+
+									return true;
+								});
+
+								Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
+
+								for (std::size_t t = 0; t < current_gcdt->cage_triangles_.size(); t++)
+								{
+
+									std::vector<Vec3> triangle_position(3);
+									for (std::size_t i = 0; i < 3; i++)
+									{
+										triangle_position[i] = value<Vec3>(*(current_gcdt->global_cage_),
+										current_gcdt->global_cage_vertex_position_,
+										current_gcdt->cage_triangles_[t][i]);
+									}
+
+									const Vec3 t_normal = current_gcdt->cage_triangles_normal_[t];
+									const auto t_u0 = current_gcdt->cage_triangles_edge_[t].first;
+									const auto t_v0 = current_gcdt->cage_triangles_edge_[t].second;
+
+									const auto t_u1 = triangle_position[1] - triangle_position[0];
+									const auto t_v1 = triangle_position[2] - triangle_position[1];
+
+									const auto area_face = (t_u0.cross(t_v0)).norm() * 0.5;
+									double t_sj = sqrt((t_u1.squaredNorm()) * (t_v0.squaredNorm()) -
+													   2.0 * (t_u1.dot(t_v1)) * (t_u0.dot(t_v0)) +
+													   (t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
+												  (sqrt8 * area_face);
+
+									new_norm_update_ +=
+										current_gcdt->global_cage_normal_coords_(vidx, t) * t_sj * t_normal;
+								}
+
+								value<Vec3>(object, object_vertex_position, v) = new_pos_update_ + new_norm_update_;
+
+								// current_gcdt->update_green(object, object_vertex_position.get());
+								return true; 
+							});
+
+							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+
+							if (handle_container_.size() > 0)
+							{
+								for (auto& [name, hdt] : handle_container_)
+								{
+									modeling::GraphParameters<GRAPH>& p_handle = *graph_parameters_[hdt->control_handle_];
+
+									Eigen::VectorXf weights = hdt->global_cage_weights_;
+
+									Eigen::VectorXf normal_weights = hdt->global_cage_normal_weights_;
+
+									GraphVertex handle_vertex = hdt->get_handle_vertex();
+
+									Vec3 new_pos_handle = {0.0, 0.0, 0.0};
+
+									const auto sqrt8 = sqrt(8);
+
+									foreach_cell(*(current_gcdt->global_cage_), [&](MeshVertex cv) -> bool {
+										const Vec3& cage_point =
+											value<Vec3>(*(current_gcdt->global_cage_),
+														current_gcdt->global_cage_vertex_position_, cv);
+
+										uint32 cage_point_idx =
+											value<uint32>(*(current_gcdt->global_cage_), cage_vertex_index, cv);
+
+										new_pos_handle += weights[cage_point_idx] * cage_point;
+
+										return true;
+									});
+
+									Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
+
+									for (std::size_t t = 0; t < current_gcdt->cage_triangles_.size(); t++)
+									{
+
+										std::vector<Vec3> triangle_position(3);
+										for (std::size_t i = 0; i < 3; i++)
+										{
+											triangle_position[i] = value<Vec3>(
+												*(current_gcdt->global_cage_),
+												current_gcdt->global_cage_vertex_position_, current_gcdt->cage_triangles_[t][i]);
+										}
+
+										const Vec3 t_normal = current_gcdt->cage_triangles_normal_[t];
+										const auto t_u0 = current_gcdt->cage_triangles_edge_[t].first;
+										const auto t_v0 = current_gcdt->cage_triangles_edge_[t].second;
+
+										const auto t_u1 = triangle_position[1] - triangle_position[0];
+										const auto t_v1 = triangle_position[2] - triangle_position[1];
+
+										const auto area_face = (t_u0.cross(t_v0)).norm() * 0.5;
+										double t_sj = sqrt((t_u1.squaredNorm()) * (t_v0.squaredNorm()) -
+														   2.0 * (t_u1.dot(t_v1)) * (t_u0.dot(t_v0)) +
+														   (t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
+													  (sqrt8 * area_face);
+
+										new_norm_update_ += normal_weights[t] * t_sj * t_normal;
+									}
+
+									value<Vec3>(*(hdt->control_handle_), p_handle.vertex_position_, handle_vertex) =
+										new_pos_handle + new_norm_update_;
+
+									graph_provider_->emit_attribute_changed(*(hdt->control_handle_),
+									hdt->control_handle_vertex_position_.get());
+								}
+							}
+						}
+					});
+		}
+	}
 
 	void bind_local_handle(MESH& object, const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 						   GRAPH& control_handle, const std::shared_ptr<GraphAttribute<Vec3>>& handle_vertex_position,
@@ -550,6 +884,48 @@ protected:
 				ImGui::Text("Create tool");
 				ImGui::Separator();
 
+				ImGui::Separator();
+				ImGui::Text("Global");
+				if (ImGui::Button("Generate global cage"))
+				{
+					generate_global_cage(*model_, model_p.vertex_position_);
+				}
+
+				if (global_cage_container_.size() == 1)
+				{
+					const char* items[] = {"MVC", "Green"};
+					static const char* current_item = "MVC";
+					ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
+
+					ImGuiStyle& style = ImGui::GetStyle();
+					float w = ImGui::CalcItemWidth();
+					float spacing = style.ItemInnerSpacing.x;
+					float button_sz = ImGui::GetFrameHeight();
+					ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
+					if (ImGui::BeginCombo("##custom combo", current_item, ImGuiComboFlags_NoArrowButton))
+					{
+						for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+						{
+							bool is_selected = (current_item == items[n]);
+							if (ImGui::Selectable(items[n], is_selected))
+								current_item = items[n];
+							if (is_selected)
+								ImGui::SetItemDefaultFocus();
+						}
+						ImGui::EndCombo();
+					}
+
+					if (ImGui::Button("Bind global cage"))
+					{
+						std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> gcdt =
+							global_cage_container_["global_cage"];
+
+						bind_global_cage(*model_, model_p.vertex_position_, *(gcdt->global_cage_),
+										 gcdt->global_cage_vertex_position_, current_item);
+					}
+				}
+
+				ImGui::Separator();
 				ImGui::Text("Local");
 				ImGui::RadioButton("Handle", reinterpret_cast<int*>(&selected_tool_), Handle);
 
@@ -694,7 +1070,87 @@ protected:
 				ImGui::Separator();
 				ImGui::Text("Deform Tool");
 
+				ImGui::RadioButton("Deform Cage", reinterpret_cast<int*>(&deformed_tool_), Cage);
+				ImGui::SameLine();
 				ImGui::RadioButton("Deform Handle", reinterpret_cast<int*>(&deformed_tool_), Handle);
+
+				if (deformed_tool_ == Cage)
+				{
+
+					if ((cage_container_.size() + global_cage_container_.size()) > 0)
+					{
+						MultiToolsDeformation<MESH, GRAPH>* multi_tools_deformation =
+							static_cast<MultiToolsDeformation<MESH, GRAPH>*>(
+								app_.module("MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
+
+						imgui_cage_selector(multi_tools_deformation, selected_cage_, "Cage", [&](MESH& m) {
+							if (selected_cage_)
+							{
+								modeling::Parameters<MESH>& old_p = *parameters_[selected_cage_];
+								old_p.selected_vertices_set_ = nullptr;
+							}
+							selected_cage_ = &m;
+						});
+
+						if (selected_cage_)
+						{
+
+							modeling::Parameters<MESH>& old_p = *parameters_[selected_mesh_];
+							old_p.selected_vertices_set_ = nullptr;
+
+							selected_mesh_ = selected_cage_;
+							modeling::Parameters<MESH>& cage_p = *parameters_[selected_mesh_];
+
+							const std::string cage_name = mesh_provider_->mesh_name(*selected_cage_);
+
+							std::string prefix = "local_cage";
+							if (cage_name.size() > 0)
+							{
+								if (std::mismatch(prefix.begin(), prefix.end(), cage_name.begin()).first ==
+									prefix.end())
+								{
+									// local cage
+									selected_cdt_ = cage_container_[cage_name];
+								}
+								else
+								{
+									selected_gcdt_ = global_cage_container_[cage_name];
+								}
+
+								MeshData<MESH>& cage_md = mesh_provider_->mesh_data(*selected_cage_);
+
+								imgui_combo_cells_set(cage_md, cage_p.selected_vertices_set_, "Cage D sets",
+													  [&](CellsSet<MESH, MeshVertex>* cs) {
+														  cage_p.selected_vertices_set_ = cs;
+														  cage_p.update_selected_vertices_vbo();
+														  need_update = true;
+													  });
+
+								if (cage_p.selected_vertices_set_)
+								{
+									ImGui::Text("(nb elements: %d)", cage_p.selected_vertices_set_->size());
+									if (ImGui::Button("Clear cage selection##vertices_set"))
+									{
+										cage_p.selected_vertices_set_->clear();
+										mesh_provider_->emit_cells_set_changed(*selected_cage_,
+																			   cage_p.selected_vertices_set_);
+									}
+								}
+								ImGui::TextUnformatted("Drawing parameters");
+								need_update |=
+									ImGui::ColorEdit3("color##vertices", cage_p.param_point_sprite_->color_.data(),
+													  ImGuiColorEditFlags_NoInputs);
+
+								if (need_update || cage_p.object_update_)
+								{
+									for (View* v : linked_views_)
+										v->request_update();
+								}
+							}
+						}
+					}
+				}
+
 
 				if (deformed_tool_ == Handle)
 				{
@@ -775,6 +1231,7 @@ private:
 	MESH* model_;
 
 	MESH* selected_mesh_;
+	MESH* selected_cage_;
 	GRAPH* selected_handle_;
 	GRAPH* selected_graph_;
 

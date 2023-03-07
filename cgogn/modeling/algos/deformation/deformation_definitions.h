@@ -24,8 +24,6 @@
 #ifndef CGOGN_MODELING_ALGOS_DEFORMATION_DEFINITIONS_H_
 #define CGOGN_MODELING_ALGOS_DEFORMATION_DEFINITIONS_H_
 
-#include <cgogn/geometry/types/vector_traits.h>
-
 namespace cgogn
 {
 
@@ -45,8 +43,6 @@ enum class SelectingCell: int
 	EdgeSelect,
 	FaceSelect
 };
-
-using Vec3 = geometry::Vec3;
 
 } // namespace modeling
 

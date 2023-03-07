@@ -29,17 +29,8 @@
 
 #include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 #include <cgogn/modeling/algos/deformation/deformation_utils.h>
-#include <cgogn/modeling/algos/deformation/deformation_definitions.h>
-
-#include <cgogn/core/ui_modules/mesh_provider.h>
-#include <cgogn/ui/app.h>
-#include <cgogn/ui/imgui_helpers.h>
-#include <cgogn/ui/module.h>
-
-#include <cgogn/core/functions/mesh_ops/volume.h>
 
 #include <cgogn/geometry/algos/normal.h>
-#include <cgogn/geometry/functions/angle.h>
 #include <cgogn/geometry/types/vector_traits.h>
 
 #include <boost/synapse/connect.hpp>
@@ -64,7 +55,7 @@ class GlobalCageDeformationTool
 	using Vec2 = geometry::Vec2;
 	using Vec3 = geometry::Vec3;
 
-	using Graph = cgogn::IncidenceGraph;
+	using Graph = IncidenceGraph;
 
 	template <typename T>
 	using GraphAttribute = typename mesh_traits<IncidenceGraph>::template Attribute<T>;
@@ -99,13 +90,13 @@ public:
 	{
 		global_cage_ = m;
 
-		vertices_ = cgogn::modeling::create_bounding_box(*m, vertex_position, bb_min, bb_max);
+		vertices_ = modeling::create_bounding_box(*m, vertex_position, bb_min, bb_max);
 
-		global_cage_vertex_position_ = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
+		global_cage_vertex_position_ = get_attribute<Vec3, Vertex>(*m, "position");
 
 		std::shared_ptr<Attribute<uint32>> vertex_index =
-			cgogn::add_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
-		cgogn::modeling::set_attribute_vertex_index(*global_cage_, vertex_index.get());
+			add_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
+		modeling::set_attribute_vertex_index(*global_cage_, vertex_index.get());
 
 		foreach_cell(*global_cage_, [&](Face fc) -> bool {
 			std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(*global_cage_, fc);
@@ -131,7 +122,7 @@ public:
 
 	void update_global_cage(const Vec3& bb_min, const Vec3& bb_max)
 	{
-		cgogn::modeling::update_bounding_box(*global_cage_, global_cage_vertex_position_.get(), vertices_, bb_min,
+		modeling::update_bounding_box(*global_cage_, global_cage_vertex_position_.get(), vertices_, bb_min,
 											 bb_max);
 	}
 
@@ -156,7 +147,7 @@ public:
 	}
 
 	void update_local_mvc(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position,
-						  cgogn::ui::CellsSet<MESH, Vertex>* influence_area)
+						  ui::CellsSet<MESH, Vertex>* influence_area)
 	{
 		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "vertex_index");
 
@@ -306,7 +297,7 @@ public:
 			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
 
 		std::shared_ptr<Attribute<uint32>> cage_face_index =
-			cgogn::get_attribute<uint32, Face>(*global_cage_, "face_index");
+			get_attribute<uint32, Face>(*global_cage_, "face_index");
 
 		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
@@ -622,7 +613,7 @@ private:
 			}
 
 			const Vec3 t_normal =
-				(cgogn::geometry::normal(triangle_position[0], triangle_position[1], triangle_position[2]))
+				(geometry::normal(triangle_position[0], triangle_position[1], triangle_position[2]))
 					.normalized();
 			cage_triangles_normal_[t] = t_normal;
 
@@ -650,8 +641,8 @@ private:
 				const auto t_vjpt = ((t_v0 - t_p_).cross((t_v1 - t_p_))).dot(t_normal);
 				t_s[l] = t_vjpt < 0 ? -1.0 : 1.0;
 
-				t_I[l] = cgogn::modeling::GCTriInt2(t_p_, t_v0, t_v1);
-				t_II[l] = cgogn::modeling::GCTriInt2(NULL_VECTOR, t_v1, t_v0);
+				t_I[l] = modeling::GCTriInt2(t_p_, t_v0, t_v1);
+				t_II[l] = modeling::GCTriInt2(NULL_VECTOR, t_v1, t_v0);
 				t_N[l] = (t_v1.cross(t_v0)).normalized();
 			}
 
@@ -701,7 +692,7 @@ private:
 			}
 
 			const Vec3 t_normal =
-				(cgogn::geometry::normal(triangle_position[0], triangle_position[1], triangle_position[2]))
+				(geometry::normal(triangle_position[0], triangle_position[1], triangle_position[2]))
 					.normalized();
 			cage_triangles_normal_[t] = t_normal;
 
@@ -729,8 +720,8 @@ private:
 				const auto t_vjpt = ((t_v0 - t_p_).cross((t_v1 - t_p_))).dot(t_normal);
 				t_s[l] = t_vjpt < 0 ? -1.0 : 1.0;
 
-				t_I[l] = cgogn::modeling::GCTriInt2(t_p_, t_v0, t_v1);
-				t_II[l] = cgogn::modeling::GCTriInt2(NULL_VECTOR, t_v1, t_v0);
+				t_I[l] = modeling::GCTriInt2(t_p_, t_v0, t_v1);
+				t_II[l] = modeling::GCTriInt2(NULL_VECTOR, t_v1, t_v0);
 				t_N[l] = (t_v1.cross(t_v0)).normalized();
 			}
 
