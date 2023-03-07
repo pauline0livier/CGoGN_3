@@ -495,71 +495,19 @@ private:
 
 							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
 
-							/*if (handle_container_.size() > 0)
+							if (handle_container_.size() > 0)
 							{
 								for (auto& [name, hdt] : handle_container_)
 								{
 									modeling::GraphParameters<GRAPH>& p_handle = *graph_parameters_[hdt->control_handle_];
 
-									Eigen::VectorXf weights = hdt->global_cage_weights_;
-
-									Eigen::VectorXf normal_weights = hdt->global_cage_normal_weights_;
-
-									GraphVertex handle_vertex = hdt->get_handle_vertex();
-
-									Vec3 new_pos_handle = {0.0, 0.0, 0.0};
-
-									const auto sqrt8 = sqrt(8);
-
-									foreach_cell(*(current_gcdt->global_cage_), [&](MeshVertex cv) -> bool {
-										const Vec3& cage_point =
-											value<Vec3>(*(current_gcdt->global_cage_),
-														current_gcdt->global_cage_vertex_position_, cv);
-
-										uint32 cage_point_idx =
-											value<uint32>(*(current_gcdt->global_cage_), cage_vertex_index, cv);
-
-										new_pos_handle += weights[cage_point_idx] * cage_point;
-
-										return true;
-									});
-
-									Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
-
-									for (std::size_t t = 0; t < current_gcdt->cage_triangles_.size(); t++)
-									{
-
-										std::vector<Vec3> triangle_position(3);
-										for (std::size_t i = 0; i < 3; i++)
-										{
-											triangle_position[i] = value<Vec3>(
-												*(current_gcdt->global_cage_),
-												current_gcdt->global_cage_vertex_position_, current_gcdt->cage_triangles_[t][i]);
-										}
-
-										const Vec3 t_normal = current_gcdt->cage_triangles_normal_[t];
-										const auto t_u0 = current_gcdt->cage_triangles_edge_[t].first;
-										const auto t_v0 = current_gcdt->cage_triangles_edge_[t].second;
-
-										const auto t_u1 = triangle_position[1] - triangle_position[0];
-										const auto t_v1 = triangle_position[2] - triangle_position[1];
-
-										const auto area_face = (t_u0.cross(t_v0)).norm() * 0.5;
-										double t_sj = sqrt((t_u1.squaredNorm()) * (t_v0.squaredNorm()) -
-														   2.0 * (t_u1.dot(t_v1)) * (t_u0.dot(t_v0)) +
-														   (t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
-													  (sqrt8 * area_face);
-
-										new_norm_update_ += normal_weights[t] * t_sj * t_normal;
-									}
-
-									value<Vec3>(*(hdt->control_handle_), p_handle.vertex_position_, handle_vertex) =
-										new_pos_handle + new_norm_update_;
+									current_gcdt->update_green_handle(*(hdt->control_handle_), p_handle.vertex_position_,
+						  				hdt->global_cage_weights_, hdt->global_cage_normal_weights_, hdt->get_handle_vertex()); 
 
 									graph_provider_->emit_attribute_changed(*(hdt->control_handle_),
 									hdt->control_handle_vertex_position_.get());
 								}
-							}*/
+							}
 						}
 					});
 		}
