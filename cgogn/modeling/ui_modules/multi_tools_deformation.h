@@ -438,133 +438,15 @@ protected:
 		{
 
 			modeling::Parameters<MESH>& p = *parameters_[selected_mesh_];
-
-			p.object_update_ = true;
-			if (p.vertex_position_)
-			{
+			if (p.vertex_position_){
 				rendering::GLVec3d near_d = view->unproject(x, y, 0.0);
 				rendering::GLVec3d far_d = view->unproject(x, y, 1.0);
 				Vec3 A{near_d.x(), near_d.y(), near_d.z()};
 				Vec3 B{far_d.x(), far_d.y(), far_d.z()};
 
-				switch (p.selection_method_)
-				{
-				case modeling::SelectionMethod::SingleCell: {
-					switch (p.selecting_cell_)
-					{
-					case modeling::SelectingCell::VertexSelect:
-						if (p.selected_vertices_set_)
-						{
-							std::vector<MeshVertex> picked;
-							geometry::picking(*selected_mesh_, p.vertex_position_.get(), A, B, picked);
-
-							if (!picked.empty())
-							{
-								switch (button)
-								{
-								case 0:
-									p.selected_vertices_set_->select(picked[0]);
-									break;
-								case 1:
-									p.selected_vertices_set_->unselect(picked[0]);
-									break;
-								}
-
-								mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_vertices_set_);
-							}
-
-							if (p.back_selection_)
-							{
-								CellCache<MESH> cache_back_ = geometry::within_sphere(
-									*selected_mesh_, picked[1], p.vertex_base_size_ * p.sphere_scale_factor_,
-									p.vertex_position_.get());
-
-								p.selected_depth_vertices_.push_back(std::make_pair(picked[0], picked[1]));
-							}
-						}
-
-						break;
-					}
-					break;
-				}
-				case modeling::SelectionMethod::WithinSphere: {
-					std::vector<MeshVertex> picked;
-					geometry::picking(*selected_mesh_, p.vertex_position_.get(), A, B, picked);
-					if (!picked.empty())
-					{
-
-						CellCache<MESH> cache = geometry::within_sphere(*selected_mesh_, picked[0],
-																		p.vertex_base_size_ * p.sphere_scale_factor_,
-																		p.vertex_position_.get());
-
-						switch (p.selecting_cell_)
-						{
-						case modeling::SelectingCell::VertexSelect:
-							if (p.selected_vertices_set_)
-							{
-								switch (button)
-								{
-								case 0:
-									foreach_cell(cache, [&p](MeshVertex v) -> bool {
-										p.selected_vertices_set_->select(v);
-										return true;
-									});
-
-									break;
-								case 1:
-									foreach_cell(cache, [&p](MeshVertex v) -> bool {
-										p.selected_vertices_set_->unselect(v);
-										return true;
-									});
-									break;
-								}
-								if (!p.back_selection_)
-								{
-									mesh_provider_->emit_cells_set_changed(*selected_mesh_, p.selected_vertices_set_);
-								}
-							}
-							break;
-						}
-
-						if (p.back_selection_)
-						{
-							if (picked.size() > 1)
-							{
-								CellCache<MESH> cache_back_ = geometry::within_sphere(
-									*selected_mesh_, picked[1], p.vertex_base_size_ * p.sphere_scale_factor_,
-									p.vertex_position_.get());
-
-								if (p.selecting_cell_ == modeling::SelectingCell::VertexSelect)
-								{
-									if (p.selected_vertices_set_)
-									{
-										switch (button)
-										{
-										case 0:
-											foreach_cell(cache_back_, [&p](MeshVertex v) -> bool {
-												p.selected_vertices_set_->select(v);
-												return true;
-											});
-											break;
-
-										case 1:
-											foreach_cell(cache_back_, [&p](MeshVertex v) -> bool {
-												p.selected_vertices_set_->unselect(v);
-												return true;
-											});
-
-											break;
-										}
-										mesh_provider_->emit_cells_set_changed(*selected_mesh_,
-																			   p.selected_vertices_set_);
-									}
-								}
-							}
-						}
-					}
-					break;
-				}
-				}
+				p.select_vertices_set(button, A, B); 
+				mesh_provider_->emit_cells_set_changed(*selected_mesh_,
+													p.selected_vertices_set_);
 			}
 		}
 
@@ -579,26 +461,8 @@ protected:
 				Vec3 A{near_d.x(), near_d.y(), near_d.z()};
 				Vec3 B{far_d.x(), far_d.y(), far_d.z()};
 
-				if (p.selected_vertices_set_)
-				{
-					std::vector<GraphVertex> picked;
-
-					geometry::picking_sphere(*selected_graph_, p.vertex_position_.get(), 50, A, B, picked);
-					if (!picked.empty())
-					{
-						switch (button)
-						{
-						case 0:
-							p.selected_vertices_set_->select(picked[0]);
-							break;
-						case 1:
-							p.selected_vertices_set_->unselect(picked[0]);
-							break;
-						}
-
-						graph_provider_->emit_cells_set_changed(*selected_graph_, p.selected_vertices_set_);
-					}
-				}
+				p.select_vertices_set(button, A, B); 
+				graph_provider_->emit_cells_set_changed(*selected_graph_, p.selected_vertices_set_);
 			}
 		}
 	}

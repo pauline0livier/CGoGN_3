@@ -24,11 +24,13 @@
 #ifndef CGOGN_MODELING_TYPES_MESH_PARAMETERS_H_
 #define CGOGN_MODELING_TYPES_MESH_PARAMETERS_H_
 
-#include <cgogn/geometry/types/vector_traits.h>
-#include <cgogn/rendering/shaders/shader_point_sprite.h>
-#include <cgogn/modeling/algos/deformation/deformation_definitions.h>
 #include <cgogn/core/types/cells_set.h>
+#include <cgogn/geometry/types/vector_traits.h>
+#include <cgogn/modeling/algos/deformation/deformation_definitions.h>
+#include <cgogn/rendering/shaders/shader_point_sprite.h>
 
+#include <cgogn/geometry/algos/selection.h>
+#include <cgogn/geometry/algos/picking.h>
 
 namespace cgogn
 {
@@ -47,69 +49,177 @@ class Parameters
 	using Vec3 = geometry::Vec3;
 
 public:
-
 	Parameters()
-			: vertex_position_(nullptr), selection_method_(SelectionMethod::SingleCell), selecting_cell_(SelectingCell::VertexSelect),
-			  selected_vertices_set_(nullptr), vertex_scale_factor_(1.0), sphere_scale_factor_(10.0),
-			  object_update_(false), back_selection_(false)
-		{
-			param_point_sprite_ = rendering::ShaderPointSprite::generate_param();
-			param_point_sprite_->color_ = rendering::GLColor(1, 0, 0, 0.65f);
-			param_point_sprite_->set_vbos({&selected_vertices_vbo_});
-		}
+		: vertex_position_(nullptr), selection_method_(SelectionMethod::SingleCell),
+		  selecting_cell_(SelectingCell::VertexSelect), selected_vertices_set_(nullptr), vertex_scale_factor_(1.0),
+		  sphere_scale_factor_(10.0), object_update_(false), back_selection_(false)
+	{
+		param_point_sprite_ = rendering::ShaderPointSprite::generate_param();
+		param_point_sprite_->color_ = rendering::GLColor(1, 0, 0, 0.65f);
+		param_point_sprite_->set_vbos({&selected_vertices_vbo_});
+	}
 
-		~Parameters()
-		{
-		}
-
+	~Parameters()
+	{
+	}
 
 	void update_selected_vertices_vbo()
+	{
+
+		if (selected_vertices_set_)
 		{
-
-			if (selected_vertices_set_)
-			{
-				std::vector<Vec3> selected_vertices_position;
-				selected_vertices_position.reserve(selected_vertices_set_->size());
-				selected_vertices_set_->foreach_cell([&](Vertex v) {
-					selected_vertices_position.push_back(value<Vec3>(*mesh_, vertex_position_, v));
-				});
-				rendering::update_vbo(selected_vertices_position, &selected_vertices_vbo_);
-			}
+			std::vector<Vec3> selected_vertices_position;
+			selected_vertices_position.reserve(selected_vertices_set_->size());
+			selected_vertices_set_->foreach_cell(
+				[&](Vertex v) { selected_vertices_position.push_back(value<Vec3>(*mesh_, vertex_position_, v)); });
+			rendering::update_vbo(selected_vertices_position, &selected_vertices_vbo_);
 		}
+	}
 
-		//CGOGN_NOT_COPYABLE_NOR_MOVABLE(Parameters);
+	void select_vertices_set(const int32& button, const Vec3& A, const Vec3& B)
+	{
+		object_update_ = true;
 
-		MESH* mesh_;
-		std::string name_;
+		switch (selection_method_)
+		{
+		case modeling::SelectionMethod::SingleCell: {
+			switch (selecting_cell_)
+			{
+			case modeling::SelectingCell::VertexSelect:
+				if (selected_vertices_set_)
+				{
+					std::vector<Vertex> picked;
+					geometry::picking(*mesh_, vertex_position_.get(), A, B, picked);
 
-		std::shared_ptr<Attribute<Vec3>> vertex_position_;
+					if (!picked.empty())
+					{
+						switch (button)
+						{
+						case 0:
+							selected_vertices_set_->select(picked[0]);
+							break;
+						case 1:
+							selected_vertices_set_->unselect(picked[0]);
+							break;
+						}
+					}
 
-		std::vector<Vec3> init_position_;
+					if (back_selection_)
+					{
+						CellCache<MESH> cache_back_ = geometry::within_sphere(
+							*mesh_, picked[1], vertex_base_size_ * sphere_scale_factor_, vertex_position_.get());
 
-		std::shared_ptr<boost::synapse::connection> cells_set_connection_;
+						selected_depth_vertices_.push_back(std::make_pair(picked[0], picked[1]));
+					}
+				}
 
-		bool object_update_;
+				break;
+			}
+			break;
+		}
+		case modeling::SelectionMethod::WithinSphere: {
+			std::vector<MeshVertex> picked;
+			geometry::picking(*mesh_, vertex_position_.get(), A, B, picked);
+			if (!picked.empty())
+			{
+				CellCache<MESH> cache = geometry::within_sphere(
+					*mesh_, picked[0], vertex_base_size_ * sphere_scale_factor_, vertex_position_.get());
 
-		bool back_selection_;
+				switch (selecting_cell_)
+				{
+				case modeling::SelectingCell::VertexSelect:
+					if (selected_vertices_set_)
+					{
+						switch (button)
+						{
+						case 0:
+							foreach_cell(cache, [&](Vertex v) -> bool {
+								selected_vertices_set_->select(v);
+								return true;
+							});
 
-		std::unique_ptr<rendering::ShaderPointSprite::Param> param_point_sprite_;
+							break;
+						case 1:
+							foreach_cell(cache, [&](Vertex v) -> bool {
+								selected_vertices_set_->unselect(v);
+								return true;
+							});
+							break;
+						}
+					}
+					break;
+				}
 
-		float32 vertex_scale_factor_;
-		float32 vertex_base_size_;
-		float32 sphere_scale_factor_;
+				if (back_selection_)
+				{
+					if (picked.size() > 1)
+					{
+						CellCache<MESH> cache_back_ = geometry::within_sphere(
+							*mesh_, picked[1], vertex_base_size_ * sphere_scale_factor_, vertex_position_.get());
 
-		rendering::VBO selected_vertices_vbo_;
+						if (selecting_cell_ == modeling::SelectingCell::VertexSelect)
+						{
+							if (selected_vertices_set_)
+							{
+								switch (button)
+								{
+								case 0:
+									foreach_cell(cache_back_, [&](Vertex v) -> bool {
+										selected_vertices_set_->select(v);
+										return true;
+									});
+									break;
 
-		std::vector<std::pair<Vertex, Vertex>> selected_depth_vertices_; 
+								case 1:
+									foreach_cell(cache_back_, [&](Vertex v) -> bool {
+										selected_vertices_set_->unselect(v);
+										return true;
+									});
 
-		ui::CellsSet<MESH, Vertex>* selected_vertices_set_;
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+			break;
+		}
+		}
+	}
 
-		SelectingCell selecting_cell_;
-		SelectionMethod selection_method_;
-	
+	// CGOGN_NOT_COPYABLE_NOR_MOVABLE(Parameters);
+
+	MESH* mesh_;
+	std::string name_;
+
+	std::shared_ptr<Attribute<Vec3>> vertex_position_;
+
+	std::vector<Vec3> init_position_;
+
+	std::shared_ptr<boost::synapse::connection> cells_set_connection_;
+
+	bool object_update_;
+
+	bool back_selection_;
+
+	std::unique_ptr<rendering::ShaderPointSprite::Param> param_point_sprite_;
+
+	float32 vertex_scale_factor_;
+	float32 vertex_base_size_;
+	float32 sphere_scale_factor_;
+
+	rendering::VBO selected_vertices_vbo_;
+
+	std::vector<std::pair<Vertex, Vertex>> selected_depth_vertices_;
+
+	ui::CellsSet<MESH, Vertex>* selected_vertices_set_;
+
+	SelectingCell selecting_cell_;
+	SelectionMethod selection_method_;
 };
 
-} // namespace geometry
+} // namespace modeling
 
 } // namespace cgogn
 

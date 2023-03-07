@@ -78,6 +78,28 @@ public:
 		}
 	}
 
+	void select_vertices_set(const int32& button, const Vec3& A, const Vec3& B)
+	{
+		if (selected_vertices_set_)
+		{
+			std::vector<Vertex> picked;
+
+			geometry::picking_sphere(*graph_, vertex_position_.get(), 50, A, B, picked);
+			if (!picked.empty())
+			{
+				switch (button)
+				{
+				case 0:
+					selected_vertices_set_->select(picked[0]);
+					break;
+				case 1:
+					selected_vertices_set_->unselect(picked[0]);
+					break;
+				}
+			}
+		}
+	}
+
 	GRAPH* graph_;
 	std::string name_;
 
@@ -110,7 +132,6 @@ public:
 	Vec3 rotation_center_;
 
 	rendering::Transfo3d transformation_;
-
 };
 
 } // namespace modeling
