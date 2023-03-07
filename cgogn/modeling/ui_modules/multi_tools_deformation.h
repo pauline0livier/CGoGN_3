@@ -172,7 +172,7 @@ public:
 					modeling::GraphParameters<GRAPH>& p = *graph_parameters_[g];
 					if (p.vertex_position_.get() == attribute)
 					{
-						p.vertex_base_size_ = 5.0;
+						p.vertex_base_size_ = 6.0;
 						p.update_selected_vertices_vbo();
 					}
 
@@ -782,6 +782,9 @@ protected:
 											  model_p.update_selected_vertices_vbo();
 											  need_update = true;
 										  });
+					//model_p.selected_vertices_set_ = model_md.template get_valid_cell_set<MeshVertex>();
+					//model_p.update_selected_vertices_vbo();
+					//need_update = true;
 
 					ImGui::RadioButton("Set_handle", reinterpret_cast<int*>(&model_p.selection_method_),
 									   (int) modeling::SelectionMethod::SingleCell);

@@ -27,6 +27,7 @@
 #include <cgogn/geometry/types/vector_traits.h>
 #include <cgogn/modeling/algos/deformation/deformation_definitions.h>
 #include <cgogn/rendering/shaders/shader_point_sprite.h>
+#include <cgogn/rendering/vbo_update.h>
 
 namespace cgogn
 {
@@ -67,7 +68,6 @@ public:
 
 	void update_selected_vertices_vbo()
 	{
-
 		if (selected_vertices_set_)
 		{
 			std::vector<Vec3> selected_vertices_position;
