@@ -201,10 +201,15 @@ public:
 	}
 
 	template <typename CELL>
-	CellsSet<MESH, CELL>& get_cells_set()
+	std::size_t get_cells_set_size()
 	{ 
-		CellsSet<MESH, CELL> first_element = *cells_sets<CELL>().begin(); 
-		return &first_element; 
+		return cells_sets<CELL>().size(); 
+	}
+
+	template <typename CELL>
+	CellsSet<MESH, CELL> get_cells_set_first()
+	{ 
+		return *cells_sets<CELL>().begin(); 
 	}
 
 	template <typename CELL>

@@ -157,7 +157,6 @@ public:
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(*m);
 		md.template add_cells_set<MeshVertex>();
-		md.template add_cells_set<MeshVertex>();
 	}
 
 	void init_graph(GRAPH* g)
@@ -775,15 +774,13 @@ protected:
 					selected_mesh_ = model_;
 					ImGui::Separator();
 
-					// model_p.selected_vertices_set_ = model_md.template get_cells_set<MeshVertex>();
 					imgui_combo_cells_set(model_md, model_p.selected_vertices_set_, "Set_for_handle",
 										  [&](CellsSet<MESH, MeshVertex>* cs) {
 											  model_p.selected_vertices_set_ = cs;
 											  model_p.update_selected_vertices_vbo();
 											  need_update = true;
 										  });
-					//model_p.selected_vertices_set_ = model_md.template get_valid_cell_set<MeshVertex>();
-					//model_p.update_selected_vertices_vbo();
+					
 					//need_update = true;
 
 					ImGui::RadioButton("Set_handle", reinterpret_cast<int*>(&model_p.selection_method_),

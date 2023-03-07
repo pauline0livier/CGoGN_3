@@ -121,7 +121,46 @@ void imgui_combo_attribute_graph(const GRAPH& g,
 }
 
 template <typename CELL, typename MESH, typename FUNC>
-void imgui_combo_cells_set(MeshData<MESH>& md, const CellsSet<MESH, CELL>* selected_set, const std::string& label,
+bool imgui_combo_cells_set(MeshData<MESH>& md, const CellsSet<MESH, CELL>* selected_set, const std::string& label,
+						   const FUNC& on_change)
+{
+	static_assert(is_func_parameter_same<FUNC, CellsSet<MESH, CELL>*>::value, "Wrong function CellsSet parameter type");
+
+	//std::size_t cells_set_size = md.template get_cells_set_size<CELL>(); 
+
+	//if (ImGui::ListBoxHeader(label.c_str(), cells_set_size))
+	//{
+		md.template foreach_cells_set<CELL>([&](CellsSet<MESH, CELL>& cs) {
+			if (cs.size() == 0){
+				if (&cs != selected_set){
+					on_change(&cs);
+					ImGui::SetItemDefaultFocus();
+					return true;
+				}	
+			}
+		});
+		return false;
+		/*md.template foreach_cells_set<CELL>([&](CellsSet<MESH, CELL>& cs) {
+			bool is_selected = &cs == selected_set;
+			if (ImGui::Selectable(cs.name().c_str(), is_selected))
+			{
+				if (&cs != selected_set)
+					on_change(&cs);
+			}
+			if (is_selected) {
+				ImGui::SetItemDefaultFocus();
+			}
+				
+
+		});*/
+		//ImGui::ListBoxFooter();
+		
+	//}
+	
+}
+
+template <typename CELL, typename MESH, typename FUNC>
+void imgui_combo_cells_set_bis(MeshData<MESH>& md, const CellsSet<MESH, CELL>* selected_set, const std::string& label,
 						   const FUNC& on_change)
 {
 	static_assert(is_func_parameter_same<FUNC, CellsSet<MESH, CELL>*>::value, "Wrong function CellsSet parameter type");
