@@ -448,12 +448,7 @@ protected:
 
 			if (p.vertex_position_)
 			{
-				rendering::GLVec3d near_d = view->unproject(x, y, 0.0);
-				rendering::GLVec3d far_d = view->unproject(x, y, 1.0);
-				Vec3 A{near_d.x(), near_d.y(), near_d.z()};
-				Vec3 B{far_d.x(), far_d.y(), far_d.z()};
-
-				p.select_vertices_set(button, A, B); 
+				p.select_vertices_set(view, button, x, y); 
 				graph_provider_->emit_cells_set_changed(*selected_graph_, p.selected_vertices_set_);
 			}
 		}
@@ -488,10 +483,10 @@ protected:
 			modeling::Parameters<MESH>& p = *parameters_[selected_mesh_];
 			p.key_release_D_event(view); 
 		}
-		else if (key_code == GLFW_KEY_H)
+		else if (key_code == GLFW_KEY_H || key_code == GLFW_KEY_Q || key_code == GLFW_KEY_A)
 		{
 			modeling::GraphParameters<GRAPH>& p = *graph_parameters_[selected_graph_];
-			p.key_release_H_event(view); 
+			p.key_release_graph_event(view); 
 		}
 	}
 
@@ -518,33 +513,12 @@ protected:
 	{
 		for (auto& [m, p] : parameters_)
 		{
-			const rendering::GLMat4& proj_matrix = view->projection_matrix();
-			const rendering::GLMat4& view_matrix = view->modelview_matrix();
-
-			if (p->selecting_cell_ == modeling::SelectingCell::VertexSelect && p->selected_vertices_set_ && p->selected_vertices_set_->size() > 0 &&
-				p->param_point_sprite_->attributes_initialized())
-			{
-				p->param_point_sprite_->point_size_ = p->vertex_base_size_ * p->vertex_scale_factor_;
-				p->param_point_sprite_->bind(proj_matrix, view_matrix);
-				glDrawArrays(GL_POINTS, 0, p->selected_vertices_set_->size());
-				p->param_point_sprite_->release();
-			}
+			p->local_draw(view); 
 		}
 
 		for (auto& [m, p] : graph_parameters_)
 		{
-			const rendering::GLMat4& proj_matrix = view->projection_matrix();
-			const rendering::GLMat4& view_matrix = view->modelview_matrix();
-
-			if (p->selecting_cell_ == modeling::SelectingCell::VertexSelect && p->selected_vertices_set_ &&
-				p->selected_vertices_set_->size() > 0 &&
-				p->param_point_sprite_->attributes_initialized())
-			{
-				p->param_point_sprite_->point_size_ = p->vertex_base_size_ * p->vertex_scale_factor_;
-				p->param_point_sprite_->bind(proj_matrix, view_matrix);
-				glDrawArrays(GL_POINTS, 0, p->selected_vertices_set_->size());
-				p->param_point_sprite_->release();
-			}
+			p->local_draw(view);
 		}
 	}
 
@@ -590,8 +564,6 @@ protected:
 											  model_p.update_selected_vertices_vbo();
 											  need_update = true;
 										  });
-					
-					//need_update = true;
 
 					ImGui::RadioButton("Set_handle", reinterpret_cast<int*>(&model_p.selection_method_),
 									   (int) modeling::SelectionMethod::SingleCell);
@@ -829,12 +801,6 @@ private:
 	SelectionTool deformed_tool_;
 
 	bool axis_init_;
-
-	//bool dragging_mesh_;
-	//bool dragging_handle_;
-	float64 drag_z_;
-
-	rendering::GLVec3d previous_drag_pos_;
 
 	CellsSet<MESH, MeshVertex>* influence_set_;
 	bool new_tool_;

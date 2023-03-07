@@ -83,10 +83,15 @@ public:
 		}
 	}
 
-	void select_vertices_set(const int32& button, const Vec3& A, const Vec3& B)
+	void select_vertices_set(ui::View* view, const int32& button, const int32& x, const int32& y)
 	{
 		if (selected_vertices_set_)
 		{
+			rendering::GLVec3d near_d = view->unproject(x, y, 0.0);
+			rendering::GLVec3d far_d = view->unproject(x, y, 1.0);
+			Vec3 A{near_d.x(), near_d.y(), near_d.z()};
+			Vec3 B{far_d.x(), far_d.y(), far_d.z()};
+
 			std::vector<Vertex> picked;
 
 			geometry::picking_sphere(*graph_, vertex_position_.get(), 50, A, B, picked);
@@ -123,7 +128,7 @@ public:
 		}
 	}
 
-	void key_release_H_event(ui::View* view)
+	void key_release_graph_event(ui::View* view)
 	{
 		if (dragging_graph_)
 			dragging_graph_ = false;
@@ -141,6 +146,21 @@ public:
 			selected_vertices_set_->foreach_cell([&](Vertex v) { value<Vec3>(*graph_, vertex_position_, v) += t_bis; });
 			// as_rigid_as_possible(*selected_mesh_);
 			previous_drag_pos_ = drag_pos + t_bis;
+		}
+	}
+
+	void local_draw(ui::View* view)
+	{
+		const rendering::GLMat4& proj_matrix = view->projection_matrix();
+		const rendering::GLMat4& view_matrix = view->modelview_matrix();
+
+		if (selecting_cell_ == modeling::SelectingCell::VertexSelect && selected_vertices_set_ &&
+			selected_vertices_set_->size() > 0 && param_point_sprite_->attributes_initialized())
+		{
+			param_point_sprite_->point_size_ = vertex_base_size_ * vertex_scale_factor_;
+			param_point_sprite_->bind(proj_matrix, view_matrix);
+			glDrawArrays(GL_POINTS, 0, selected_vertices_set_->size());
+			param_point_sprite_->release();
 		}
 	}
 

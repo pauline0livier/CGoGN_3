@@ -26,7 +26,6 @@
 
 #include <cgogn/geometry/types/vector_traits.h>
 #include <cgogn/modeling/algos/deformation/math_utils.h>
-#include <cgogn/modeling/algos/deformation/deformation_definitions.h>
 
 namespace cgogn
 {

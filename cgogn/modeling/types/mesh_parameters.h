@@ -59,7 +59,6 @@ public:
 		param_point_sprite_ = rendering::ShaderPointSprite::generate_param();
 		param_point_sprite_->color_ = rendering::GLColor(1, 0, 0, 0.65f);
 		param_point_sprite_->set_vbos({&selected_vertices_vbo_});
-
 	}
 
 	~Parameters()
@@ -230,10 +229,24 @@ public:
 		{
 			rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
 			Vec3 t = drag_pos - previous_drag_pos_;
-			selected_vertices_set_->foreach_cell(
-				[&](Vertex v) { value<Vec3>(*mesh_, vertex_position_, v) += t; });
+			selected_vertices_set_->foreach_cell([&](Vertex v) { value<Vec3>(*mesh_, vertex_position_, v) += t; });
 			// as_rigid_as_possible(*selected_mesh_);
 			previous_drag_pos_ = drag_pos;
+		}
+	}
+
+	void local_draw(ui::View* view)
+	{
+		const rendering::GLMat4& proj_matrix = view->projection_matrix();
+		const rendering::GLMat4& view_matrix = view->modelview_matrix();
+
+		if (selecting_cell_ == modeling::SelectingCell::VertexSelect && selected_vertices_set_ &&
+			selected_vertices_set_->size() > 0 && param_point_sprite_->attributes_initialized())
+		{
+			param_point_sprite_->point_size_ = vertex_base_size_ * vertex_scale_factor_;
+			param_point_sprite_->bind(proj_matrix, view_matrix);
+			glDrawArrays(GL_POINTS, 0, selected_vertices_set_->size());
+			param_point_sprite_->release();
 		}
 	}
 
