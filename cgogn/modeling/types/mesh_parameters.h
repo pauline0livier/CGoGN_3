@@ -29,8 +29,10 @@
 #include <cgogn/modeling/algos/deformation/deformation_definitions.h>
 #include <cgogn/rendering/shaders/shader_point_sprite.h>
 
-#include <cgogn/geometry/algos/selection.h>
 #include <cgogn/geometry/algos/picking.h>
+#include <cgogn/geometry/algos/selection.h>
+
+#include <cgogn/ui/view.h>
 
 namespace cgogn
 {
@@ -52,11 +54,12 @@ public:
 	Parameters()
 		: vertex_position_(nullptr), selection_method_(SelectionMethod::SingleCell),
 		  selecting_cell_(SelectingCell::VertexSelect), selected_vertices_set_(nullptr), vertex_scale_factor_(1.0),
-		  sphere_scale_factor_(10.0), object_update_(false), back_selection_(false)
+		  sphere_scale_factor_(10.0), object_update_(false), back_selection_(false), dragging_mesh_(false)
 	{
 		param_point_sprite_ = rendering::ShaderPointSprite::generate_param();
 		param_point_sprite_->color_ = rendering::GLColor(1, 0, 0, 0.65f);
 		param_point_sprite_->set_vbos({&selected_vertices_vbo_});
+
 	}
 
 	~Parameters()
@@ -76,115 +79,161 @@ public:
 		}
 	}
 
-	void select_vertices_set(const int32& button, const Vec3& A, const Vec3& B)
+	void select_vertices_set(ui::View* view, const int32& button, const int32& x, const int32& y)
 	{
-		object_update_ = true;
-
-		switch (selection_method_)
+		if (vertex_position_)
 		{
-		case modeling::SelectionMethod::SingleCell: {
-			switch (selecting_cell_)
+			rendering::GLVec3d near_d = view->unproject(x, y, 0.0);
+			rendering::GLVec3d far_d = view->unproject(x, y, 1.0);
+			Vec3 A{near_d.x(), near_d.y(), near_d.z()};
+			Vec3 B{far_d.x(), far_d.y(), far_d.z()};
+
+			object_update_ = true;
+
+			switch (selection_method_)
 			{
-			case modeling::SelectingCell::VertexSelect:
-				if (selected_vertices_set_)
-				{
-					std::vector<Vertex> picked;
-					geometry::picking(*mesh_, vertex_position_.get(), A, B, picked);
-
-					if (!picked.empty())
-					{
-						switch (button)
-						{
-						case 0:
-							selected_vertices_set_->select(picked[0]);
-							break;
-						case 1:
-							selected_vertices_set_->unselect(picked[0]);
-							break;
-						}
-					}
-
-					if (back_selection_)
-					{
-						CellCache<MESH> cache_back_ = geometry::within_sphere(
-							*mesh_, picked[1], vertex_base_size_ * sphere_scale_factor_, vertex_position_.get());
-
-						selected_depth_vertices_.push_back(std::make_pair(picked[0], picked[1]));
-					}
-				}
-
-				break;
-			}
-			break;
-		}
-		case modeling::SelectionMethod::WithinSphere: {
-			std::vector<MeshVertex> picked;
-			geometry::picking(*mesh_, vertex_position_.get(), A, B, picked);
-			if (!picked.empty())
-			{
-				CellCache<MESH> cache = geometry::within_sphere(
-					*mesh_, picked[0], vertex_base_size_ * sphere_scale_factor_, vertex_position_.get());
-
+			case modeling::SelectionMethod::SingleCell: {
 				switch (selecting_cell_)
 				{
 				case modeling::SelectingCell::VertexSelect:
 					if (selected_vertices_set_)
 					{
-						switch (button)
-						{
-						case 0:
-							foreach_cell(cache, [&](Vertex v) -> bool {
-								selected_vertices_set_->select(v);
-								return true;
-							});
+						std::vector<Vertex> picked;
+						geometry::picking(*mesh_, vertex_position_.get(), A, B, picked);
 
-							break;
-						case 1:
-							foreach_cell(cache, [&](Vertex v) -> bool {
-								selected_vertices_set_->unselect(v);
-								return true;
-							});
-							break;
+						if (!picked.empty())
+						{
+							switch (button)
+							{
+							case 0:
+								selected_vertices_set_->select(picked[0]);
+								break;
+							case 1:
+								selected_vertices_set_->unselect(picked[0]);
+								break;
+							}
+						}
+
+						if (back_selection_)
+						{
+							CellCache<MESH> cache_back_ = geometry::within_sphere(
+								*mesh_, picked[1], vertex_base_size_ * sphere_scale_factor_, vertex_position_.get());
+
+							selected_depth_vertices_.push_back(std::make_pair(picked[0], picked[1]));
 						}
 					}
+
 					break;
 				}
+				break;
+			}
 
-				if (back_selection_)
+			case modeling::SelectionMethod::WithinSphere: {
+				std::vector<MeshVertex> picked;
+				geometry::picking(*mesh_, vertex_position_.get(), A, B, picked);
+				if (!picked.empty())
 				{
-					if (picked.size() > 1)
+					CellCache<MESH> cache = geometry::within_sphere(
+						*mesh_, picked[0], vertex_base_size_ * sphere_scale_factor_, vertex_position_.get());
+
+					switch (selecting_cell_)
 					{
-						CellCache<MESH> cache_back_ = geometry::within_sphere(
-							*mesh_, picked[1], vertex_base_size_ * sphere_scale_factor_, vertex_position_.get());
-
-						if (selecting_cell_ == modeling::SelectingCell::VertexSelect)
+					case modeling::SelectingCell::VertexSelect:
+						if (selected_vertices_set_)
 						{
-							if (selected_vertices_set_)
+							switch (button)
 							{
-								switch (button)
+							case 0:
+								foreach_cell(cache, [&](Vertex v) -> bool {
+									selected_vertices_set_->select(v);
+									return true;
+								});
+
+								break;
+							case 1:
+								foreach_cell(cache, [&](Vertex v) -> bool {
+									selected_vertices_set_->unselect(v);
+									return true;
+								});
+								break;
+							}
+						}
+						break;
+					}
+
+					if (back_selection_)
+					{
+						if (picked.size() > 1)
+						{
+							CellCache<MESH> cache_back_ = geometry::within_sphere(
+								*mesh_, picked[1], vertex_base_size_ * sphere_scale_factor_, vertex_position_.get());
+
+							if (selecting_cell_ == modeling::SelectingCell::VertexSelect)
+							{
+								if (selected_vertices_set_)
 								{
-								case 0:
-									foreach_cell(cache_back_, [&](Vertex v) -> bool {
-										selected_vertices_set_->select(v);
-										return true;
-									});
-									break;
+									switch (button)
+									{
+									case 0:
+										foreach_cell(cache_back_, [&](Vertex v) -> bool {
+											selected_vertices_set_->select(v);
+											return true;
+										});
+										break;
 
-								case 1:
-									foreach_cell(cache_back_, [&](Vertex v) -> bool {
-										selected_vertices_set_->unselect(v);
-										return true;
-									});
+									case 1:
+										foreach_cell(cache_back_, [&](Vertex v) -> bool {
+											selected_vertices_set_->unselect(v);
+											return true;
+										});
 
-									break;
+										break;
+									}
 								}
 							}
 						}
 					}
 				}
+				break;
 			}
-			break;
+			}
 		}
+	}
+
+	void key_pressed_D_event(ui::View* view)
+	{
+		if (vertex_position_ && selected_vertices_set_ && selected_vertices_set_->size() > 0)
+		{
+			drag_z_ = 0.0;
+			selected_vertices_set_->foreach_cell([&](Vertex v) {
+				const Vec3& pos = value<Vec3>(*mesh_, vertex_position_, v);
+				rendering::GLVec4d vec(pos[0], pos[1], pos[2], 1.0);
+				vec = view->projection_matrix_d() * view->modelview_matrix_d() * vec;
+				vec /= vec[3];
+				drag_z_ += (1.0 + vec[2]) / 2.0;
+			});
+			drag_z_ /= selected_vertices_set_->size();
+			previous_drag_pos_ = view->unproject(view->previous_mouse_x(), view->previous_mouse_y(), drag_z_);
+			dragging_mesh_ = true;
+		}
+	}
+
+	void key_release_D_event(ui::View* view)
+	{
+		if (dragging_mesh_)
+			dragging_mesh_ = false;
+	}
+
+	void mouse_displacement(ui::View* view, const int32& x, const int32& y)
+	{
+		if (dragging_mesh_)
+		{
+			rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
+			Vec3 t = drag_pos - previous_drag_pos_;
+			selected_vertices_set_->foreach_cell(
+				[&](Vertex v) { value<Vec3>(*mesh_, vertex_position_, v) += t; });
+			// as_rigid_as_possible(*selected_mesh_);
+			previous_drag_pos_ = drag_pos;
 		}
 	}
 
@@ -217,6 +266,10 @@ public:
 
 	SelectingCell selecting_cell_;
 	SelectionMethod selection_method_;
+
+	bool dragging_mesh_;
+	float64 drag_z_;
+	rendering::GLVec3d previous_drag_pos_;
 };
 
 } // namespace modeling

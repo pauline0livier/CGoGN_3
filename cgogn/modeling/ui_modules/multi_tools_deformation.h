@@ -38,8 +38,6 @@
 
 #include <cgogn/geometry/algos/laplacian.h>
 #include <cgogn/geometry/algos/normal.h>
-#include <cgogn/geometry/algos/picking.h>
-#include <cgogn/geometry/algos/selection.h>
 #include <cgogn/geometry/functions/angle.h>
 
 #include <GLFW/glfw3.h>
@@ -106,7 +104,7 @@ public:
 	MultiToolsDeformation(const App& app)
 		: ViewModule(app, "MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), model_(nullptr),
 		  influence_set_(nullptr), selected_mesh_(nullptr), selected_graph_(nullptr), selected_handle_(nullptr),
-		  new_tool_(false), dragging_mesh_(false), dragging_handle_(false)
+		  new_tool_(false)//, //dragging_mesh_(false), dragging_handle_(false)
 	{
 	}
 
@@ -438,16 +436,10 @@ protected:
 		{
 
 			modeling::Parameters<MESH>& p = *parameters_[selected_mesh_];
-			if (p.vertex_position_){
-				rendering::GLVec3d near_d = view->unproject(x, y, 0.0);
-				rendering::GLVec3d far_d = view->unproject(x, y, 1.0);
-				Vec3 A{near_d.x(), near_d.y(), near_d.z()};
-				Vec3 B{far_d.x(), far_d.y(), far_d.z()};
 
-				p.select_vertices_set(button, A, B); 
-				mesh_provider_->emit_cells_set_changed(*selected_mesh_,
+			p.select_vertices_set(view, button, x, y); 
+			mesh_provider_->emit_cells_set_changed(*selected_mesh_,
 													p.selected_vertices_set_);
-			}
 		}
 
 		if (selected_graph_ && view->control_pressed())
@@ -474,20 +466,7 @@ protected:
 			if (selected_mesh_)
 			{
 				modeling::Parameters<MESH>& p = *parameters_[selected_mesh_];
-				if (p.vertex_position_ && p.selected_vertices_set_ && p.selected_vertices_set_->size() > 0)
-				{
-					drag_z_ = 0.0;
-					p.selected_vertices_set_->foreach_cell([&](MeshVertex v) {
-						const Vec3& pos = value<Vec3>(*selected_mesh_, p.vertex_position_, v);
-						rendering::GLVec4d vec(pos[0], pos[1], pos[2], 1.0);
-						vec = view->projection_matrix_d() * view->modelview_matrix_d() * vec;
-						vec /= vec[3];
-						drag_z_ += (1.0 + vec[2]) / 2.0;
-					});
-					drag_z_ /= p.selected_vertices_set_->size();
-					previous_drag_pos_ = view->unproject(view->previous_mouse_x(), view->previous_mouse_y(), drag_z_);
-					dragging_mesh_ = true;
-				}
+				p.key_pressed_D_event(view); 
 			}
 		}
 
@@ -496,21 +475,7 @@ protected:
 			if (selected_graph_)
 			{
 				modeling::GraphParameters<GRAPH>& p = *graph_parameters_[selected_graph_];
-
-				if (p.vertex_position_ && p.selected_vertices_set_ && p.selected_vertices_set_->size() > 0)
-				{
-					drag_z_ = 0.0;
-					p.selected_vertices_set_->foreach_cell([&](GraphVertex v) {
-						const Vec3& pos = value<Vec3>(*selected_graph_, p.vertex_position_, v);
-						rendering::GLVec4d vec(pos[0], pos[1], pos[2], 1.0);
-						vec = view->projection_matrix_d() * view->modelview_matrix_d() * vec;
-						vec /= vec[3];
-						drag_z_ += (1.0 + vec[2]) / 2.0;
-					});
-					drag_z_ /= p.selected_vertices_set_->size();
-					previous_drag_pos_ = view->unproject(view->previous_mouse_x(), view->previous_mouse_y(), drag_z_);
-					dragging_handle_ = true;
-				}
+				p.key_pressed_H_event(view); 
 			}
 		}
 	}
@@ -520,54 +485,33 @@ protected:
 		unused_parameters(view);
 		if (key_code == GLFW_KEY_D)
 		{
-			if (dragging_mesh_)
-				dragging_mesh_ = false;
+			modeling::Parameters<MESH>& p = *parameters_[selected_mesh_];
+			p.key_release_D_event(view); 
 		}
 		else if (key_code == GLFW_KEY_H)
 		{
-			if (dragging_handle_)
-				dragging_handle_ = false;
+			modeling::GraphParameters<GRAPH>& p = *graph_parameters_[selected_graph_];
+			p.key_release_H_event(view); 
 		}
 	}
 
 	void mouse_move_event(View* view, int32 x, int32 y) override
 	{
-		if (dragging_mesh_)
-		{
-			if (selected_mesh_)
+
+		if (selected_mesh_)
 			{
 				modeling::Parameters<MESH>& p = *parameters_[selected_mesh_];
-
-				rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
-				Vec3 t = drag_pos - previous_drag_pos_;
-				p.selected_vertices_set_->foreach_cell(
-					[&](MeshVertex v) { value<Vec3>(*selected_mesh_, p.vertex_position_, v) += t; });
-				// as_rigid_as_possible(*selected_mesh_);
-				previous_drag_pos_ = drag_pos;
+				p.mouse_displacement(view, x, y); 
 
 				mesh_provider_->emit_attribute_changed(*selected_mesh_, p.vertex_position_.get());
 			}
-		}
 
-		if (dragging_handle_)
-		{
-			if (selected_graph_)
+		if (selected_graph_)
 			{
 				modeling::GraphParameters<GRAPH>& p = *graph_parameters_[selected_graph_];
-
-				rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
-				Vec3 t = drag_pos - previous_drag_pos_;
-
-				Vec3 t_bis = t.dot(p.normal_) * p.normal_;
-
-				p.selected_vertices_set_->foreach_cell(
-					[&](GraphVertex v) { value<Vec3>(*selected_graph_, p.vertex_position_, v) += t_bis; });
-				// as_rigid_as_possible(*selected_mesh_);
-				previous_drag_pos_ = drag_pos + t_bis;
-
+				p.mouse_displacement(view, x, y); 
 				graph_provider_->emit_attribute_changed(*selected_graph_, p.vertex_position_.get());
 			}
-		}
 	}
 
 	void draw(View* view) override
@@ -886,8 +830,8 @@ private:
 
 	bool axis_init_;
 
-	bool dragging_mesh_;
-	bool dragging_handle_;
+	//bool dragging_mesh_;
+	//bool dragging_handle_;
 	float64 drag_z_;
 
 	rendering::GLVec3d previous_drag_pos_;

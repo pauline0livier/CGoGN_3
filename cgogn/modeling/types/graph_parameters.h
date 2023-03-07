@@ -29,6 +29,11 @@
 #include <cgogn/rendering/shaders/shader_point_sprite.h>
 #include <cgogn/rendering/vbo_update.h>
 
+#include <cgogn/geometry/algos/picking.h>
+#include <cgogn/geometry/algos/selection.h>
+
+#include <cgogn/ui/view.h>
+
 namespace cgogn
 {
 
@@ -49,7 +54,7 @@ public:
 	GraphParameters()
 		: vertex_position_(nullptr), vertex_scale_factor_(1.0), sphere_scale_factor_(10.0),
 		  selected_vertices_set_(nullptr), object_update_(false), selecting_cell_(SelectingCell::VertexSelect),
-		  selection_method_(SelectionMethod::SingleCell)
+		  selection_method_(SelectionMethod::SingleCell), dragging_graph_(false)
 	{
 		param_point_sprite_ = rendering::ShaderPointSprite::generate_param();
 		param_point_sprite_->color_ = rendering::GLColor(1, 0, 0, 0.65f);
@@ -100,6 +105,45 @@ public:
 		}
 	}
 
+	void key_pressed_H_event(ui::View* view)
+	{
+		if (vertex_position_ && selected_vertices_set_ && selected_vertices_set_->size() > 0)
+		{
+			drag_z_ = 0.0;
+			selected_vertices_set_->foreach_cell([&](Vertex v) {
+				const Vec3& pos = value<Vec3>(*graph_, vertex_position_, v);
+				rendering::GLVec4d vec(pos[0], pos[1], pos[2], 1.0);
+				vec = view->projection_matrix_d() * view->modelview_matrix_d() * vec;
+				vec /= vec[3];
+				drag_z_ += (1.0 + vec[2]) / 2.0;
+			});
+			drag_z_ /= selected_vertices_set_->size();
+			previous_drag_pos_ = view->unproject(view->previous_mouse_x(), view->previous_mouse_y(), drag_z_);
+			dragging_graph_ = true;
+		}
+	}
+
+	void key_release_H_event(ui::View* view)
+	{
+		if (dragging_graph_)
+			dragging_graph_ = false;
+	}
+
+	void mouse_displacement(ui::View* view, const int32& x, const int32& y)
+	{
+		if (dragging_graph_)
+		{
+			rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
+			Vec3 t = drag_pos - previous_drag_pos_;
+
+			Vec3 t_bis = t.dot(normal_) * normal_;
+
+			selected_vertices_set_->foreach_cell([&](Vertex v) { value<Vec3>(*graph_, vertex_position_, v) += t_bis; });
+			// as_rigid_as_possible(*selected_mesh_);
+			previous_drag_pos_ = drag_pos + t_bis;
+		}
+	}
+
 	GRAPH* graph_;
 	std::string name_;
 
@@ -132,6 +176,10 @@ public:
 	Vec3 rotation_center_;
 
 	rendering::Transfo3d transformation_;
+
+	bool dragging_graph_;
+	float64 drag_z_;
+	rendering::GLVec3d previous_drag_pos_;
 };
 
 } // namespace modeling
