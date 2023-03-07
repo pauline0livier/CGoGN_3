@@ -206,28 +206,6 @@ public:
 		return cells_sets<CELL>().size(); 
 	}
 
-	template <typename CELL>
-	CellsSet<MESH, CELL> get_cells_set_first()
-	{ 
-		return *cells_sets<CELL>().begin(); 
-	}
-
-	template <typename CELL>
-	CellsSet<MESH, CELL>* get_valid_cell_set()
-	{ 
-		CellsSet<MESH, CELL>* valid_cell_set; 
-		 foreach_cells_set<CELL>([&](CellsSet<MESH, CELL>& cs) {
-			if (cs.size() == 0){
-				valid_cell_set = &cs; 
-			}
-
-		});
-		return valid_cell_set; 
-	}
-	
-
-
-
 private:
 	template <typename CELL>
 	void internal_rebuild_cells_sets_of_type()

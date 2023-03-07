@@ -55,7 +55,8 @@ struct GraphData
 
 	using Vec3 = geometry::Vec3;
 
-	GraphData() : graph_(nullptr), bb_vertex_position_(nullptr), bb_min_(0, 0, 0), bb_max_(0, 0, 0), outlined_until_(0.0)
+	GraphData()
+		: graph_(nullptr), bb_vertex_position_(nullptr), bb_min_(0, 0, 0), bb_max_(0, 0, 0), outlined_until_(0.0)
 	{
 	}
 
@@ -196,7 +197,13 @@ public:
 		static_assert(is_in_tuple<CELL, typename mesh_traits<GRAPH>::Cells>::value, "CELL not supported in this GRAPH");
 		static const uint32 cell_index = tuple_type_index<CELL, typename mesh_traits<GRAPH>::Cells>::value;
 		return cells_sets<CELL>().emplace_back(*graph_, mesh_traits<GRAPH>::cell_names[cell_index] +
-													std::to_string(cells_sets<CELL>().size()));
+															std::to_string(cells_sets<CELL>().size()));
+	}
+
+	template <typename CELL>
+	std::size_t get_cells_set_size()
+	{
+		return cells_sets<CELL>().size();
 	}
 
 private:

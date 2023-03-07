@@ -28,8 +28,8 @@
 
 #include <cgogn/core/functions/attributes.h>
 #include <cgogn/core/functions/traversals/global.h>
-#include <cgogn/core/ui_modules/mesh_data.h>
 #include <cgogn/core/ui_modules/graph_data.h>
+#include <cgogn/core/ui_modules/mesh_data.h>
 
 #include <cgogn/rendering/shaders/shader_function_color_maps.h>
 
@@ -89,9 +89,9 @@ void imgui_combo_attribute(const MESH& m,
  * @param on_change function to call with newly selected attribute
  */
 template <typename CELL, typename T, typename GRAPH, typename FUNC>
-void imgui_combo_attribute_graph(const GRAPH& g,
-						   const std::shared_ptr<typename mesh_traits<GRAPH>::template Attribute<T>>& selected_attribute,
-						   const std::string& label, const FUNC& on_change)
+void imgui_combo_attribute_graph(
+	const GRAPH& g, const std::shared_ptr<typename mesh_traits<GRAPH>::template Attribute<T>>& selected_attribute,
+	const std::string& label, const FUNC& on_change)
 {
 	using Attribute = typename mesh_traits<GRAPH>::template Attribute<T>;
 	static_assert(is_func_parameter_same<FUNC, const std::shared_ptr<Attribute>&>::value,
@@ -126,42 +126,23 @@ bool imgui_combo_cells_set(MeshData<MESH>& md, const CellsSet<MESH, CELL>* selec
 {
 	static_assert(is_func_parameter_same<FUNC, CellsSet<MESH, CELL>*>::value, "Wrong function CellsSet parameter type");
 
-	//std::size_t cells_set_size = md.template get_cells_set_size<CELL>(); 
-
-	//if (ImGui::ListBoxHeader(label.c_str(), cells_set_size))
-	//{
-		md.template foreach_cells_set<CELL>([&](CellsSet<MESH, CELL>& cs) {
-			if (cs.size() == 0){
-				if (&cs != selected_set){
-					on_change(&cs);
-					ImGui::SetItemDefaultFocus();
-					return true;
-				}	
-			}
-		});
-		return false;
-		/*md.template foreach_cells_set<CELL>([&](CellsSet<MESH, CELL>& cs) {
-			bool is_selected = &cs == selected_set;
-			if (ImGui::Selectable(cs.name().c_str(), is_selected))
+	md.template foreach_cells_set<CELL>([&](CellsSet<MESH, CELL>& cs) {
+		if (cs.size() == 0)
+		{
+			if (&cs != selected_set)
 			{
-				if (&cs != selected_set)
-					on_change(&cs);
-			}
-			if (is_selected) {
+				on_change(&cs);
 				ImGui::SetItemDefaultFocus();
+				return true;
 			}
-				
-
-		});*/
-		//ImGui::ListBoxFooter();
-		
-	//}
-	
+		}
+	});
+	return false;
 }
 
 template <typename CELL, typename MESH, typename FUNC>
 void imgui_combo_cells_set_bis(MeshData<MESH>& md, const CellsSet<MESH, CELL>* selected_set, const std::string& label,
-						   const FUNC& on_change)
+							   const FUNC& on_change)
 {
 	static_assert(is_func_parameter_same<FUNC, CellsSet<MESH, CELL>*>::value, "Wrong function CellsSet parameter type");
 
@@ -176,13 +157,12 @@ void imgui_combo_cells_set_bis(MeshData<MESH>& md, const CellsSet<MESH, CELL>* s
 			}
 			if (is_selected)
 				ImGui::SetItemDefaultFocus();
-
 		});
 		ImGui::EndCombo();
 	}
 
 	if (selected_set)
-	{ 
+	{
 		double X_button_width = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2;
 		ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - X_button_width);
 		if (ImGui::Button(("X##" + label).c_str()))
@@ -191,12 +171,35 @@ void imgui_combo_cells_set_bis(MeshData<MESH>& md, const CellsSet<MESH, CELL>* s
 }
 
 template <typename CELL, typename GRAPH, typename FUNC>
-void imgui_combo_cells_set_graph(GraphData<GRAPH>& gd, const CellsSet<GRAPH, CELL>* selected_set_graph, const std::string& label,
-						   const FUNC& on_change)
+bool imgui_combo_cells_set_graph(GraphData<GRAPH>& gd, const CellsSet<GRAPH, CELL>* selected_set_graph,
+								 const std::string& label, const FUNC& on_change)
 {
-	static_assert(is_func_parameter_same<FUNC, CellsSet<GRAPH, CELL>*>::value, "Wrong function CellsSet parameter type");
+	static_assert(is_func_parameter_same<FUNC, CellsSet<GRAPH, CELL>*>::value,
+				  "Wrong function CellsSet parameter type");
 
-	if (ImGui::BeginCombo(label.c_str(), selected_set_graph ? selected_set_graph->name().c_str() : "-- select_graph --"))
+	gd.template foreach_cells_set<CELL>([&](CellsSet<GRAPH, CELL>& cs) {
+		if (cs.size() == 0)
+		{
+			if (&cs != selected_set_graph)
+			{
+				on_change(&cs);
+				ImGui::SetItemDefaultFocus();
+				return true;
+			}
+		}
+	});
+	return false;
+}
+
+template <typename CELL, typename GRAPH, typename FUNC>
+void imgui_combo_cells_set_graph_bis(GraphData<GRAPH>& gd, const CellsSet<GRAPH, CELL>* selected_set_graph,
+									 const std::string& label, const FUNC& on_change)
+{
+	static_assert(is_func_parameter_same<FUNC, CellsSet<GRAPH, CELL>*>::value,
+				  "Wrong function CellsSet parameter type");
+
+	if (ImGui::BeginCombo(label.c_str(),
+						  selected_set_graph ? selected_set_graph->name().c_str() : "-- select_graph --"))
 	{
 		gd.template foreach_cells_set<CELL>([&](CellsSet<GRAPH, CELL>& cs) {
 			bool is_selected = &cs == selected_set_graph;
@@ -208,17 +211,16 @@ void imgui_combo_cells_set_graph(GraphData<GRAPH>& gd, const CellsSet<GRAPH, CEL
 			if (is_selected)
 				ImGui::SetItemDefaultFocus();
 		});
-		ImGui::EndCombo(); 
-	} 
+		ImGui::EndCombo();
+	}
 
-	
 	if (selected_set_graph)
 	{
 		double X_button_width = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2;
 		ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - X_button_width);
 		if (ImGui::Button(("X_##" + label).c_str()))
 			on_change(nullptr);
-	} 
+	}
 }
 
 template <template <typename MESH> typename MESH_PROVIDER, typename MESH, typename FUNC>
@@ -243,7 +245,7 @@ bool imgui_mesh_selector(MESH_PROVIDER<MESH>* mesh_provider, const MESH* selecte
 
 template <template <typename GRAPH> typename GRAPH_PROVIDER, typename GRAPH, typename FUNC>
 bool imgui_graph_selector(GRAPH_PROVIDER<GRAPH>* graph_provider, const GRAPH* selected_graph, const std::string& label,
-						 const FUNC& on_change)
+						  const FUNC& on_change)
 {
 	static_assert(is_func_parameter_same<FUNC, GRAPH&>::value, "Wrong function parameter type");
 	if (ImGui::ListBoxHeader(label.c_str(), graph_provider->number_of_graphs()))
@@ -263,8 +265,8 @@ bool imgui_graph_selector(GRAPH_PROVIDER<GRAPH>* graph_provider, const GRAPH* se
 
 using Graph = cgogn::IncidenceGraph;
 template <template <typename MESH, typename Graph> typename MULTI_TOOLS_DEFORMATION, typename MESH, typename FUNC>
-bool imgui_local_cage_selector(MULTI_TOOLS_DEFORMATION<MESH,Graph>* multi_tools_deformation, const MESH* selected_mesh, const std::string& label,
-						 const FUNC& on_change)
+bool imgui_local_cage_selector(MULTI_TOOLS_DEFORMATION<MESH, Graph>* multi_tools_deformation, const MESH* selected_mesh,
+							   const std::string& label, const FUNC& on_change)
 {
 	static_assert(is_func_parameter_same<FUNC, MESH&>::value, "Wrong function parameter type");
 	if (ImGui::ListBoxHeader(label.c_str(), multi_tools_deformation->cage_container_.size()))
@@ -278,18 +280,18 @@ bool imgui_local_cage_selector(MULTI_TOOLS_DEFORMATION<MESH,Graph>* multi_tools_
 		});
 		ImGui::ListBoxFooter();
 		return true;
-		
 	}
 	return false;
 }
 
 using Graph = cgogn::IncidenceGraph;
 template <template <typename MESH, typename Graph> typename MULTI_TOOLS_DEFORMATION, typename MESH, typename FUNC>
-bool imgui_cage_selector(MULTI_TOOLS_DEFORMATION<MESH,Graph>* multi_tools_deformation, const MESH* selected_mesh, const std::string& label,
-						 const FUNC& on_change)
+bool imgui_cage_selector(MULTI_TOOLS_DEFORMATION<MESH, Graph>* multi_tools_deformation, const MESH* selected_mesh,
+						 const std::string& label, const FUNC& on_change)
 {
 	static_assert(is_func_parameter_same<FUNC, MESH&>::value, "Wrong function parameter type");
-	if (ImGui::ListBoxHeader(label.c_str(), multi_tools_deformation->cage_container_.size() + multi_tools_deformation->global_cage_container_.size()))
+	if (ImGui::ListBoxHeader(label.c_str(), multi_tools_deformation->cage_container_.size() +
+												multi_tools_deformation->global_cage_container_.size()))
 	{
 		multi_tools_deformation->foreach_cage([&](MESH& m, const std::string& name) {
 			if (ImGui::Selectable(name.c_str(), &m == selected_mesh))
@@ -300,18 +302,17 @@ bool imgui_cage_selector(MULTI_TOOLS_DEFORMATION<MESH,Graph>* multi_tools_deform
 		});
 		ImGui::ListBoxFooter();
 		return true;
-		
 	}
 	return false;
 }
 
 using Graph = cgogn::IncidenceGraph;
 template <template <typename MESH, typename Graph> typename SPACE_DEFORMATION, typename MESH, typename FUNC>
-bool imgui_handle_selector(SPACE_DEFORMATION<MESH,Graph>* space_deformation, const Graph* selected_graph, const std::string& label,
-						 const FUNC& on_change)
+bool imgui_handle_selector(SPACE_DEFORMATION<MESH, Graph>* space_deformation, const Graph* selected_graph,
+						   const std::string& label, const FUNC& on_change)
 {
-	//static_assert(is_func_parameter_same<FUNC, MESH&>::value, "Wrong function parameter type");
-	
+	// static_assert(is_func_parameter_same<FUNC, MESH&>::value, "Wrong function parameter type");
+
 	if (ImGui::ListBoxHeader(label.c_str(), space_deformation->handle_container_.size()))
 	{
 		space_deformation->foreach_handle([&](Graph& g, const std::string& name) {
@@ -323,16 +324,15 @@ bool imgui_handle_selector(SPACE_DEFORMATION<MESH,Graph>* space_deformation, con
 		});
 		ImGui::ListBoxFooter();
 		return true;
-		
 	}
 	return false;
 }
 
 template <template <typename MESH, typename Graph> typename SPACE_DEFORMATION, typename MESH, typename FUNC>
-bool imgui_axis_selector(SPACE_DEFORMATION<MESH,Graph>* space_deformation, const Graph* selected_graph, const std::string& label,
-						 const FUNC& on_change)
+bool imgui_axis_selector(SPACE_DEFORMATION<MESH, Graph>* space_deformation, const Graph* selected_graph,
+						 const std::string& label, const FUNC& on_change)
 {
-	
+
 	if (ImGui::ListBoxHeader(label.c_str(), space_deformation->axis_container_.size()))
 	{
 		space_deformation->foreach_axis([&](Graph& g, const std::string& name) {
@@ -344,11 +344,9 @@ bool imgui_axis_selector(SPACE_DEFORMATION<MESH,Graph>* space_deformation, const
 		});
 		ImGui::ListBoxFooter();
 		return true;
-		
 	}
 	return false;
 }
-
 
 template <typename FUNC>
 bool imgui_view_selector(ViewModule* vm, const View* selected, const FUNC& on_change)

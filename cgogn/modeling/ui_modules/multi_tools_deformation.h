@@ -198,6 +198,8 @@ public:
 						std::cout << "ok " << std::endl;
 					// p.solver_ready_ = false;
 				});*/
+		GraphData<GRAPH>& gd = graph_provider_->graph_data(*g);
+		gd.template add_cells_set<GraphVertex>();
 	}
 
 	void set_model(MESH& m, const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
@@ -941,9 +943,9 @@ protected:
 
 								GraphData<GRAPH>& handle_gd = graph_provider_->graph_data(*selected_handle_);
 
-								if (ImGui::Button("Choose handle vertices##vertices_set"))
+								//if (ImGui::Button("Choose handle vertices##vertices_set"))
 
-									handle_gd.template add_cells_set<GraphVertex>();
+									//handle_gd.template add_cells_set<GraphVertex>();
 
 								imgui_combo_cells_set_graph(handle_gd, handle_p.selected_vertices_set_, "Handle_sets",
 															[&](CellsSet<GRAPH, GraphVertex>* cs) {
