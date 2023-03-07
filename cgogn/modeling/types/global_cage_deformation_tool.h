@@ -94,9 +94,9 @@ public:
 
 		global_cage_vertex_position_ = get_attribute<Vec3, Vertex>(*m, "position");
 
-		std::shared_ptr<Attribute<uint32>> vertex_index =
+		global_cage_vertex_index_ =
 			add_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
-		modeling::set_attribute_vertex_index(*global_cage_, vertex_index.get());
+		modeling::set_attribute_vertex_index(*global_cage_, global_cage_vertex_index_.get());
 
 		foreach_cell(*global_cage_, [&](Face fc) -> bool {
 			std::vector<CMap2::Vertex> face_vertices_ = incident_vertices(*global_cage_, fc);
@@ -236,12 +236,8 @@ public:
 		return std::make_pair(handle_weights, handle_normal_weights);
 	}
 
-	void update_mvc(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position)
+	void update_mvc(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position, CMap2::Attribute<uint32>* object_vertex_index)
 	{
-		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "vertex_index");
-
-		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
-			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
 
 		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
@@ -251,7 +247,7 @@ public:
 			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
 				const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cv);
 
-				uint32 cage_point_idx = value<uint32>(*global_cage_, cage_vertex_index, cv);
+				uint32 cage_point_idx = value<uint32>(*global_cage_, global_cage_vertex_index_, cv);
 
 				new_pos_ += global_cage_coords_(vidx, cage_point_idx) * cage_point;
 
@@ -264,52 +260,37 @@ public:
 	}
 
 	void update_mvc_handle(Graph& g, std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
-						   Eigen::VectorXf weights)
+						   const Eigen::VectorXf& weights, const GraphVertex& handle_vertex)
 	{
-
-		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
-			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
-
-		foreach_cell(g, [&](GraphVertex v) -> bool {
-			Vec3 new_pos_ = {0.0, 0.0, 0.0};
+			Vec3 new_position_ = {0.0, 0.0, 0.0};
 
 			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
 				const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cv);
 
-				uint32 cage_point_idx = value<uint32>(*global_cage_, cage_vertex_index, cv);
+				uint32 cage_point_idx = value<uint32>(*global_cage_, global_cage_vertex_index_, cv);
 
-				new_pos_ += weights(cage_point_idx) * cage_point;
+				new_position_ += weights(cage_point_idx) * cage_point;
 
 				return true;
 			});
 
-			value<Vec3>(g, graph_vertex_position, v) = new_pos_;
-			return true;
-		});
+			value<Vec3>(g, graph_vertex_position, handle_vertex) = new_position_;
 	}
 
-	void update_green(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position)
+	void update_green(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position, CMap2::Attribute<uint32>* object_vertex_index)
 	{
-
-		std::shared_ptr<Attribute<uint32>> object_vertex_index = get_attribute<uint32, Vertex>(object, "vertex_index");
-
-		std::shared_ptr<Attribute<uint32>> cage_vertex_index =
-			get_attribute<uint32, Vertex>(*global_cage_, "vertex_index");
-
-		std::shared_ptr<Attribute<uint32>> cage_face_index =
-			get_attribute<uint32, Face>(*global_cage_, "face_index");
 
 		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
 			Vec3 new_pos_update_ = {0.0, 0.0, 0.0};
 
-			const auto sqrt8 = sqrt(8);
+			const auto sqrt8 = modeling::MathConstants.SQRT8;
 
 			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
 				const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cv);
 
-				uint32 cage_point_idx = value<uint32>(*global_cage_, cage_vertex_index, cv);
+				uint32 cage_point_idx = value<uint32>(*global_cage_, global_cage_vertex_index_, cv);
 
 				new_pos_update_ += global_cage_coords_(vidx, cage_point_idx) * cage_point;
 
@@ -352,6 +333,8 @@ public:
 
 private:
 	std::vector<CMap2::Vertex> vertices_;
+	std::shared_ptr<Attribute<uint32>> global_cage_vertex_index_;
+
 
 	bool compute_mvc_coordinates_on_point(const Vec3& surface_point, const uint32& surface_point_idx)
 	{
