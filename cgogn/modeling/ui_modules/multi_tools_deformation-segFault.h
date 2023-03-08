@@ -1177,7 +1177,7 @@ void set_graph_vertex_position(const GRAPH& g, const std::shared_ptr<GraphAttrib
 									GraphVertex handle_vertex = current_hdt->get_handle_vertex();
 
 									const Vec3& graph_point = value<Vec3>(*(current_hdt->control_handle_),
-																		  p_handle.vertex_position_, handle_vertex);
+										p_handle.vertex_position_, handle_vertex);
 
 									DartMarker dm(*global_cage);
 
@@ -1199,7 +1199,7 @@ void set_graph_vertex_position(const GRAPH& g, const std::shared_ptr<GraphAttrib
 
 											float mvc_value =
 												modeling::compute_mvc(graph_point, d, *global_cage, cage_point,
-																			 gcdt->global_cage_vertex_position_.get());
+												gcdt->global_cage_vertex_position_.get());
 
 											current_hdt->global_cage_weights_[cage_point_idx] = mvc_value;
 

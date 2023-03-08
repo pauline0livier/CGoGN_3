@@ -128,7 +128,7 @@ public:
 			}
 
 			case modeling::SelectionMethod::WithinSphere: {
-				std::vector<MeshVertex> picked;
+				std::vector<Vertex> picked;
 				geometry::picking(*mesh_, vertex_position_.get(), A, B, picked);
 				if (!picked.empty())
 				{

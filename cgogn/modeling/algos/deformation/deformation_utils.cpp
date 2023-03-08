@@ -136,7 +136,7 @@ const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2)
 
 	const auto alpha =
 		std::acos(std::min(std::max(((v2_v1).dot((p_v1))) / ((v2_v1).norm() * (p_v1).norm()), -1.0), 1.0));
-	if (abs(alpha - MathConstants::PI) < TOLERANCE || abs(alpha) < TOLERANCE)
+	if (abs(alpha - M_PI) < TOLERANCE || abs(alpha) < TOLERANCE)
 	{
 		return 0.0;
 	}
@@ -149,7 +149,7 @@ const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2)
 	const auto sqrt_c = sqrt(c);
 	const auto sqrt_lambda = sqrt(lambda);
 
-	const std::array<double, 2> theta{MathConstants::PI - alpha, MathConstants::PI - alpha - beta};
+	const std::array<double, 2> theta{M_PI - alpha, M_PI - alpha - beta};
 	std::array<double, 2> I;
 
 	for (size_t i = 0; i < 2; ++i)
@@ -168,7 +168,7 @@ const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2)
 		I[i] = half_sign * (tan_part + (sqrt_lambda * log_part));
 	}
 
-	return -MathConstants::ONE_OVER_FOUR_PI * abs(I[0] - I[1] - sqrt_c * beta);
+	return (-1.0 / (4.0 * M_PI))* abs(I[0] - I[1] - sqrt_c * beta);
 }
 
 Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::Attribute<Vec3>* face_gradient,

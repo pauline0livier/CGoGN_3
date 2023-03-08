@@ -43,17 +43,7 @@ namespace
 {
 extern const Vec3 NULL_VECTOR(0.0, 0.0, 0);
 extern constexpr auto TOLERANCE = 1e-6;
-
-extern constexpr double epsilon = 0.00000001;
 } // namespace
-
-namespace MathConstants
-{
-extern constexpr auto PI = 3.14159265358979323846;
-extern constexpr auto ONE_OVER_FOUR_PI = 0.07957747154594767;
-extern constexpr auto SQRT8 = 2.828427124746190097603;
-}; // namespace MathConstants
-
 
 
 float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage, const Vec3& cage_point,

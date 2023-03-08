@@ -116,21 +116,19 @@ public:
 		compute_attenuation(object, vertex_position);
 	}
 
-	void update_deformation_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+	void deform_object(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position, CMap2::Attribute<uint32>* object_vertex_index )
 	{
-
-		std::shared_ptr<Attribute<uint32>> object_vertex_index =
-			cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
-
 		const Vec3 new_deformation = get_handle_deformation();
 
-		this->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
+		const std::size_t influence_area_length = this->object_influence_area_.size(); 
+
+		for (std::size_t i = 0; i < influence_area_length; i++)
+		{
+			MeshVertex v = this->object_influence_area_[i]; 
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
 			value<Vec3>(object, object_vertex_position, v) += attenuation_[vidx] * new_deformation;
-
-			return true;
-		});
+		}
 	}
 
 	void set_handle_mesh_vertex(const MeshVertex& m_v)
@@ -149,38 +147,7 @@ public:
 		return deformation;
 	}
 
-	void update_deformation_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
-								   const std::vector<Vec3>& init_position)
-	{
-		// deformation
-		const Vec3 handle_new_position = value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_vertex_);
-
-		const Vec3 deformation = (handle_new_position - handle_position_);
-
-		handle_position_ = handle_new_position;
-
-		std::shared_ptr<Attribute<uint32>> object_vertex_index =
-			cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
-
-		this->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
-			uint32 vidx = value<uint32>(object, object_vertex_index, v);
-
-			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
-
-			double current_attenuation = attenuation_(vidx);
-
-			Vec3 new_pos_ = surface_point + deformation;
-			new_pos_ = new_pos_ * current_attenuation;
-
-			Vec3 current_pos = (1.0 - current_attenuation) * surface_point; //
-			// init_position[vidx];
-			//(0.1*init_position[vidx] + 0.9*surface_point);
-
-			value<Vec3>(object, object_vertex_position, v) = new_pos_ + current_pos;
-
-			return true;
-		});
-	}
+	
 
 private:
 	Graph::Vertex handle_vertex_;
@@ -202,7 +169,11 @@ private:
 		Scalar max_dist = 0.0;
 		std::vector<Vec2> attenuation_points;
 
-		this->influence_area_->foreach_cell([&](MeshVertex v) {
+		const std::size_t influence_area_length = this->object_influence_area_.size(); 
+
+		for (std::size_t i = 0; i < influence_area_length; i++)
+		{
+			MeshVertex v = this->object_influence_area_[i]; 
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
 			Vec3 surface_point = value<Vec3>(object, vertex_position, v);
@@ -220,9 +191,12 @@ private:
 
 			// this->attenuation_(surface_point_idx) = (float)sin(0.5*M_PI * (i_dist ));
 			attenuation_(surface_point_idx) = i_dist;
-		});
+			
+		}
 
-		this->influence_area_->foreach_cell([&](MeshVertex v) {
+		for (std::size_t i = 0; i < influence_area_length; i++)
+		{
+			MeshVertex v = this->object_influence_area_[i]; 
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
 
 			// attenuation_(surface_point_idx) = 1.0 - pow((attenuation_(surface_point_idx) / max_dist),2);
@@ -230,7 +204,8 @@ private:
 			// attenuation_(surface_point_idx) = pow(1.0 - (attenuation_(surface_point_idx) / max_dist),5);
 
 			attenuation_(surface_point_idx) = 1.0 - (attenuation_(surface_point_idx) / max_dist);
-		});
+			
+		}
 	}
 
 	void geodesic_distance(MESH& m, const Attribute<Vec3>* vertex_position)
@@ -332,3 +307,40 @@ private:
 } // namespace cgogn
 
 #endif // CGOGN_MODELING_HANDLE_DEFORMATION_TOOL_H_
+
+
+/*
+void update_deformation_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
+								   const std::vector<Vec3>& init_position)
+	{
+		// deformation
+		const Vec3 handle_new_position = value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_vertex_);
+
+		const Vec3 deformation = (handle_new_position - handle_position_);
+
+		handle_position_ = handle_new_position;
+
+		std::shared_ptr<Attribute<uint32>> object_vertex_index =
+			cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
+
+		this->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
+			uint32 vidx = value<uint32>(object, object_vertex_index, v);
+
+			const Vec3& surface_point = value<Vec3>(object, object_vertex_position, v);
+
+			double current_attenuation = attenuation_(vidx);
+
+			Vec3 new_pos_ = surface_point + deformation;
+			new_pos_ = new_pos_ * current_attenuation;
+
+			Vec3 current_pos = (1.0 - current_attenuation) * surface_point; //
+			// init_position[vidx];
+			//(0.1*init_position[vidx] + 0.9*surface_point);
+
+			value<Vec3>(object, object_vertex_position, v) = new_pos_ + current_pos;
+
+			return true;
+		});
+	}
+
+*/

@@ -609,8 +609,6 @@ public:
 
 							Vec3 new_pos_update_ = {0.0, 0.0, 0.0};
 
-							const auto sqrt8 = sqrt(8);
-
 							foreach_cell(cage, [&](Vertex cv) -> bool {
 								const Vec3& cage_point = value<Vec3>(cage, cage_vertex_position, cv);
 								uint32 cage_point_idx = value<uint32>(cage, cage_vertex_index, cv);
@@ -621,6 +619,8 @@ public:
 							});
 
 							Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
+							const auto sqrt8 = sqrt(8);
+
 							foreach_cell(cage, [&](Face cf) -> bool {
 								uint32 cage_face_idx = value<uint32>(cage, cage_face_index, cf);
 

@@ -234,7 +234,7 @@ public:
 		return std::make_pair(handle_weights, handle_normal_weights);
 	}
 
-	void update_mvc(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position,
+	void deform_object_mvc(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position,
 					CMap2::Attribute<uint32>* object_vertex_index)
 	{
 
@@ -258,7 +258,7 @@ public:
 		});
 	}
 
-	void update_mvc_handle(Graph& g, std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
+	void deform_handle_mvc(Graph& g, std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 						   const Eigen::VectorXf& weights, const GraphVertex& handle_vertex)
 	{
 		Vec3 new_position_ = {0.0, 0.0, 0.0};
@@ -276,7 +276,7 @@ public:
 		value<Vec3>(g, graph_vertex_position, handle_vertex) = new_position_;
 	}
 
-	void update_green(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position,
+	void deform_object_green(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position,
 					  CMap2::Attribute<uint32>* object_vertex_index)
 	{
 
@@ -284,8 +284,6 @@ public:
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
 			Vec3 new_pos_update_ = {0.0, 0.0, 0.0};
-
-			const auto sqrt8 = modeling::MathConstants::SQRT8;
 
 			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
 				const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cv);
@@ -298,6 +296,8 @@ public:
 			});
 
 			Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
+
+			const auto sqrt8 = sqrt(8);
 
 			for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 			{
@@ -331,13 +331,11 @@ public:
 		});
 	}
 
-	void update_green_handle(Graph& g, std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
+	void deform_handle_green(Graph& g, std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 							 const Eigen::VectorXf& weights, const Eigen::VectorXf& normal_weights,
 							 const GraphVertex& handle_vertex)
 	{
 		Vec3 new_pos_handle = {0.0, 0.0, 0.0};
-
-		const auto sqrt8 = modeling::MathConstants::SQRT8;
 
 		foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
 			const Vec3& cage_point =
@@ -351,6 +349,7 @@ public:
 		});
 
 		Vec3 new_norm_update_ = {0.0, 0.0, 0.0};
+		const auto sqrt8 = sqrt(8);
 
 		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 		{

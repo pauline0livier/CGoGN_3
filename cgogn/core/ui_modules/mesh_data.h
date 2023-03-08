@@ -192,6 +192,26 @@ public:
 	}
 
 	template <typename CELL>
+	CellsSet<MESH, CELL>& find_valid_cell_set()
+	{
+		static_assert(is_in_tuple<CELL, typename mesh_traits<MESH>::Cells>::value, "CELL not supported in this MESH");
+
+		bool found = false; 
+
+		for (CellsSet<MESH, CELL>& cs : cells_sets<CELL>()){
+			if (cs.size() == 0){
+				found = true; 
+				return cs; 
+			}
+		}
+
+		if (!found){
+			return add_cells_set<CELL>(); 
+		}
+			
+	}
+
+	template <typename CELL>
 	CellsSet<MESH, CELL>& add_cells_set()
 	{
 		static_assert(is_in_tuple<CELL, typename mesh_traits<MESH>::Cells>::value, "CELL not supported in this MESH");

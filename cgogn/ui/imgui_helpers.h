@@ -126,6 +126,8 @@ bool imgui_combo_cells_set(MeshData<MESH>& md, const CellsSet<MESH, CELL>* selec
 {
 	static_assert(is_func_parameter_same<FUNC, CellsSet<MESH, CELL>*>::value, "Wrong function CellsSet parameter type");
 
+	bool found = false; 
+
 	md.template foreach_cells_set<CELL>([&](CellsSet<MESH, CELL>& cs) {
 		if (cs.size() == 0)
 		{
@@ -133,8 +135,8 @@ bool imgui_combo_cells_set(MeshData<MESH>& md, const CellsSet<MESH, CELL>* selec
 			{
 				on_change(&cs);
 				ImGui::SetItemDefaultFocus();
-				return true;
 			}
+			return true;
 		}
 	});
 	return false;
@@ -177,15 +179,15 @@ bool imgui_combo_cells_set_graph(GraphData<GRAPH>& gd, const CellsSet<GRAPH, CEL
 	static_assert(is_func_parameter_same<FUNC, CellsSet<GRAPH, CELL>*>::value,
 				  "Wrong function CellsSet parameter type");
 
-	gd.template foreach_cells_set<CELL>([&](CellsSet<GRAPH, CELL>& cs) {
+	gd.template foreach_cells_set<CELL>([&](CellsSet<GRAPH, CELL>& cs) -> bool {
 		if (cs.size() == 0)
 		{
 			if (&cs != selected_set_graph)
 			{
 				on_change(&cs);
 				ImGui::SetItemDefaultFocus();
-				return true;
 			}
+			return true;
 		}
 	});
 	return false;

@@ -987,6 +987,7 @@ private:
 			get_attribute<uint32, Vertex>(*control_cage_, "vertex_index");
 
 		double sumWeights = 0.0;
+		double epsilon = 0.00000001;
 
 		Eigen::VectorXd w_control_cage_coords_;
 
@@ -1104,6 +1105,7 @@ private:
 		uint32 nbv_cage = 8; // nb_cells<Vertex>(*control_cage_);
 
 		double sumWeights = 0.0;
+		double epsilon = 0.00000001;
 
 		Eigen::VectorXd w_control_cage_coords_;
 

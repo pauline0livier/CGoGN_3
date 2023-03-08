@@ -50,10 +50,9 @@ public:
 	using Vec2 = geometry::Vec2;
 	using Vec3 = geometry::Vec3;
 
+	std::vector<Vertex> object_influence_area_; 
 
-	cgogn::ui::CellsSet<MESH, Vertex>* influence_area_;
-
-	SpaceDeformationTool() : influence_area_(nullptr)
+	SpaceDeformationTool()
 	{
 	}
 
@@ -67,16 +66,6 @@ public:
 
 	virtual void update_deformation_object()
 	{
-	}
-
-	void set_influence_area(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position,
-							cgogn::ui::CellsSet<MESH, Vertex>* influence_set)
-	{
-
-		influence_set->foreach_cell([&](Vertex v) -> bool {
-			influence_area_->select(v);
-			return true;
-		});
 	}
 
 	void set_deformation_type(const std::string new_type){
