@@ -1239,9 +1239,13 @@ protected:
 				ImGui::Separator();
 				ImGui::Text("Deform Tool");
 
+				
+				ImGui::RadioButton("Deform Axis", reinterpret_cast<int*>(&deformed_tool_), Axis);
+				ImGui::SameLine();
 				ImGui::RadioButton("Deform Cage", reinterpret_cast<int*>(&deformed_tool_), Cage);
 				ImGui::SameLine();
 				ImGui::RadioButton("Deform Handle", reinterpret_cast<int*>(&deformed_tool_), Handle);
+				
 
 				if (deformed_tool_ == Cage)
 				{
@@ -1347,10 +1351,6 @@ protected:
 
 								GraphData<GRAPH>& handle_gd = graph_provider_->graph_data(*selected_handle_);
 
-								// if (ImGui::Button("Choose handle vertices##vertices_set"))
-
-								// handle_gd.template add_cells_set<GraphVertex>();
-
 								imgui_combo_cells_set_graph(handle_gd, handle_p.selected_vertices_set_, "Handle_sets",
 															[&](CellsSet<GRAPH, GraphVertex>* cs) {
 									handle_p.selected_vertices_set_ = cs;
@@ -1424,10 +1424,6 @@ protected:
 								selected_adt_ = axis_container_[axis_name];
 
 								GraphData<GRAPH>& axis_gd = graph_provider_->graph_data(*selected_axis_);
-
-								if (ImGui::Button("Choose axis vertices##vertices_set"))
-
-									axis_gd.template add_cells_set<GraphVertex>();
 
 								imgui_combo_cells_set_graph(axis_gd, axis_p.selected_vertices_set_, "Axis_sets",
 															[&](CellsSet<GRAPH, GraphVertex>* cs) 
