@@ -356,9 +356,8 @@ Graph::Vertex create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, G
 	return nv;
 }
 
-std::vector<Graph::Vertex> create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_position,
-									   Graph::Attribute<Scalar>* vertex_radius,
-									   const std::vector<Vec3>& vertices_positions)
+std::vector<Graph::Vertex> create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius,
+	const std::vector<Vec3>& vertices_positions)
 {
 	std::vector<Graph::Vertex> list_vertex;
 	Graph::Vertex nv = add_vertex(g);
@@ -366,7 +365,8 @@ std::vector<Graph::Vertex> create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_
 	list_vertex.push_back(nv);
 
 	value<Vec3>(g, vertex_position, nv) = vertices_positions[0];
-	value<Scalar>(g, vertex_radius, nv) = Scalar(0.05);
+	//value<Scalar>(g, vertex_radius, nv) = Scalar(0.05);
+	value<Scalar>(g, vertex_radius, nv) = Scalar(5); 
 
 	Graph::Vertex lastVertex = nv;
 
@@ -376,7 +376,8 @@ std::vector<Graph::Vertex> create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_
 		list_vertex.push_back(nv1);
 
 		value<Vec3>(g, vertex_position, nv1) = vertices_positions[i];
-		value<Scalar>(g, vertex_radius, nv1) = Scalar(0.05);
+		//value<Scalar>(g, vertex_radius, nv1) = Scalar(0.05);
+		value<Scalar>(g, vertex_radius, nv1) = Scalar(5); 
 
 		connect_vertices(g, lastVertex, nv1);
 

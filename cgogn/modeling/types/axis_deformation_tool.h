@@ -147,8 +147,11 @@ private:
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
 			get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
-		this->influence_area_->foreach_cell([&](MeshVertex v) {
+		const std::size_t influence_area_length = this->object_influence_area_.size(); 
 
+		for (std::size_t i = 0; i < influence_area_length; i++)
+		{
+			MeshVertex v = this->object_influence_area_[i]; 
 			Vec3 surface_point = value<Vec3>(object, vertex_position, v);
 
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
@@ -165,8 +168,7 @@ private:
 
 			axis_fixed_point_(surface_point_idx, 0) = result_weights.second[0]; 
 			axis_fixed_point_(surface_point_idx, 1) = result_weights.second[1];
-
-		}); 
+		}
 
 	}
 

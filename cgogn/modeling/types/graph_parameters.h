@@ -54,7 +54,7 @@ public:
 	GraphParameters()
 		: vertex_position_(nullptr), vertex_scale_factor_(1.0), sphere_scale_factor_(10.0),
 		  selected_vertices_set_(nullptr), object_update_(false), selecting_cell_(SelectingCell::VertexSelect),
-		  selection_method_(SelectionMethod::SingleCell), dragging_graph_(false)
+		  selection_method_(SelectionMethod::SingleCell), dragging_handle_(false), dragging_axis_(false)
 	{
 		param_point_sprite_ = rendering::ShaderPointSprite::generate_param();
 		param_point_sprite_->color_ = rendering::GLColor(1, 0, 0, 0.65f);
@@ -124,19 +124,25 @@ public:
 			});
 			drag_z_ /= selected_vertices_set_->size();
 			previous_drag_pos_ = view->unproject(view->previous_mouse_x(), view->previous_mouse_y(), drag_z_);
-			dragging_graph_ = true;
+			dragging_handle_ = true;
 		}
 	}
 
-	void key_release_graph_event(ui::View* view)
+	void key_release_handle_event(ui::View* view)
 	{
-		if (dragging_graph_)
-			dragging_graph_ = false;
+		if (dragging_handle_)
+			dragging_handle_ = false;
+	}
+
+	void key_release_axis_event(ui::View* view)
+	{
+		if (dragging_axis_)
+			dragging_axis_ = false;
 	}
 
 	void mouse_displacement(ui::View* view, const int32& x, const int32& y)
 	{
-		if (dragging_graph_)
+		if (dragging_handle_)
 		{
 			rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
 			Vec3 t = drag_pos - previous_drag_pos_;
@@ -146,6 +152,45 @@ public:
 			selected_vertices_set_->foreach_cell([&](Vertex v) { value<Vec3>(*graph_, vertex_position_, v) += t_bis; });
 			// as_rigid_as_possible(*selected_mesh_);
 			previous_drag_pos_ = drag_pos + t_bis;
+		}
+
+		if (dragging_axis_)
+		{
+			float64 dx = float64(x - view->previous_mouse_x());
+			float64 dy = float64(y - view->previous_mouse_y());
+
+			if (std::abs(dx) + std::abs(dy) > 0.0)
+			{
+				rendering::GLVec3d axis(dy, dx, 0.0);
+				float64 spinning_speed = axis.norm();
+
+				axis /= spinning_speed;
+				spinning_speed *= 0.005;
+
+				float64 sign;
+				if (dy > 0.0)
+				{
+					sign = -1.0;
+				}
+				else
+				{
+					sign = 1.0;
+				}
+
+				rendering::Transfo3d inv_camera = view->camera().frame_.inverse();
+				rendering::Transfo3d sm(Eigen::AngleAxisd(sign * 1.0 * spinning_speed, normal_)); // 2.0
+				rendering::Transfo3d rot((inv_camera * sm * view->camera().frame_).linear());
+
+				rendering::Transfo3d M =
+					Eigen::Translation3d(rotation_center_) * rot * Eigen::Translation3d(-rotation_center_);
+
+				transformation_ = M;
+
+				selected_vertices_set_->foreach_cell([&](Vertex v) {
+					Vec3& pos = value<Vec3>(*graph_, vertex_position_, v);
+					pos = M * pos;
+				});
+			}
 		}
 	}
 
@@ -197,7 +242,8 @@ public:
 
 	rendering::Transfo3d transformation_;
 
-	bool dragging_graph_;
+	bool dragging_handle_;
+	bool dragging_axis_;
 	float64 drag_z_;
 	rendering::GLVec3d previous_drag_pos_;
 };
