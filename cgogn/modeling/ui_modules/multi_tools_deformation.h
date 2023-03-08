@@ -563,7 +563,7 @@ private:
 
 							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
 
-							/*md.update_bb();
+							md.update_bb();
 							std::tuple<Vec3, Vec3, Vec3> extended_bounding_box =
 								modeling::get_extended_bounding_box(md.bb_min_, md.bb_max_, 1.2);
 
@@ -606,7 +606,7 @@ private:
 										// update weights spatial tools
 									}
 								}
-							}*/
+							}
 						}
 					}
 				});
