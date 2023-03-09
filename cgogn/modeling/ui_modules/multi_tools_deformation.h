@@ -699,42 +699,11 @@ private:
 							std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
 								get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
-							/*current_adt->influence_area_->foreach_cell([&](MeshVertex v) -> bool {
-								uint32 object_index = value<uint32>(object, object_vertex_index, v);
+							current_adt->set_axis_transformation(p_axis.transformations_); 
 
-								Vec3& object_position = value<Vec3>(object, object_vertex_position, v);
+							/*current_adt->deform_object(object, object_vertex_position.get(), object_vertex_index.get()); 
 
-								Vec3 left_influence;
-								Vec3 right_influence;
-								if (p_axis.weight_number == 0)
-								{
-									left_influence = p_axis.transformation_ * object_position;
-									right_influence = object_position;
-								}
-								else
-								{
-									right_influence = p_axis.transformation_ * object_position;
-									left_influence = object_position;
-								}
-
-								if (current_adt->axis_fixed_point_(object_index,0)){
-									left_influence = object_position; 
-								}
-
-								if (current_adt->axis_fixed_point_(object_index,1)){
-									right_influence = object_position; 
-								}
-
-								float weight0 = current_adt->axis_weights_(object_index, 0);
-
-								float weight1 = current_adt->axis_weights_(object_index, 1);
-
-								object_position = weight0 * left_influence + weight1 * right_influence;
-
-								return true;
-							});*/
-
-							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
+							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());*/
 						}
 					}
 				});
@@ -804,6 +773,13 @@ protected:
 			{
 				modeling::GraphParameters<GRAPH>& p = *graph_parameters_[selected_graph_];
 				p.key_pressed_H_event(view);
+			}
+		}
+
+		if (key_code == GLFW_KEY_Q || key_code == GLFW_KEY_A){
+			if (selected_graph_){
+				modeling::GraphParameters<GRAPH>& p = *graph_parameters_[selected_graph_];
+				p.key_pressed_A_event(view);
 			}
 		}
 	}

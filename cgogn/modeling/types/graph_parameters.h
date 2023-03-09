@@ -47,6 +47,7 @@ class GraphParameters
 	template <typename T>
 	using Attribute = typename mesh_traits<GRAPH>::template Attribute<T>;
 	using Vertex = typename mesh_traits<GRAPH>::Vertex;
+	using Edge = typename mesh_traits<GRAPH>::Edge;
 
 	using Vec3 = geometry::Vec3;
 
@@ -60,7 +61,6 @@ public:
 		param_point_sprite_->color_ = rendering::GLColor(1, 0, 0, 0.65f);
 		param_point_sprite_->set_vbos({&selected_vertices_vbo_});
 
-		transformation_.setIdentity();
 	}
 
 	~GraphParameters()
@@ -128,6 +128,33 @@ public:
 		}
 	}
 
+	void key_pressed_A_event(ui::View* view)
+	{
+		if (vertex_position_ && selected_vertices_set_ && selected_vertices_set_->size() > 0)
+		{
+			transformations_.resize(2); 
+			transformations_[0].setIdentity(); 
+			transformations_[1].setIdentity();
+			selected_vertices_set_->foreach_cell([&](Vertex v) {
+				std::vector<Edge>& edges = (*graph_->vertex_incident_edges_)[v.index_];
+
+				Edge e0 = edges[0];
+				Vertex v1;
+				if ((*graph_->edge_incident_vertices_)[e0.index_].first == v)
+				{
+					v1 = (*graph_->edge_incident_vertices_)[e0.index_].second;
+					rotation_center_ = value<Vec3>(*graph_, vertex_position_, v1);
+				}
+				else
+				{
+					v1 = (*graph_->edge_incident_vertices_)[e0.index_].first;
+					rotation_center_ = value<Vec3>(*graph_, vertex_position_, v1);
+				}
+			});
+			dragging_axis_ = true;
+		}
+	}
+
 	void key_release_handle_event(ui::View* view)
 	{
 		if (dragging_handle_)
@@ -184,11 +211,11 @@ public:
 				rendering::Transfo3d M =
 					Eigen::Translation3d(rotation_center_) * rot * Eigen::Translation3d(-rotation_center_);
 
-				transformation_ = M;
-
 				selected_vertices_set_->foreach_cell([&](Vertex v) {
 					Vec3& pos = value<Vec3>(*graph_, vertex_position_, v);
 					pos = M * pos;
+					std::cout << v.index_ << std::endl; 
+					transformations_[0] = M;
 				});
 			}
 		}
@@ -240,7 +267,7 @@ public:
 
 	Vec3 rotation_center_;
 
-	rendering::Transfo3d transformation_;
+	std::vector<rendering::Transfo3d> transformations_;
 
 	bool dragging_handle_;
 	bool dragging_axis_;

@@ -25,6 +25,7 @@
 #define CGOGN_MODELING_AXIS_DEFORMATION_TOOL_H_
 
 #include <cgogn/modeling/types/space_deformation_tool.h>
+#include <cgogn/rendering/types.h>
 
 namespace cgogn
 {
@@ -111,21 +112,42 @@ public:
 		compute_weights(object, vertex_position);
 	}
 
-	void update_deformation_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+	void set_axis_transformation(const std::vector<rendering::Transfo3d>& axis_transformation){
+		axis_transformation_ = axis_transformation; 
+	}
+
+	void deform_object(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position, CMap2::Attribute<uint32>* object_vertex_index)
 	{
 
-		std::shared_ptr<Attribute<uint32>> object_vertex_index =
-			cgogn::get_attribute<uint32, MeshVertex>(object, "vertex_index");
+		const std::size_t influence_area_length = this->object_influence_area_.size(); 
 
-		/*const Vec3 new_deformation = get_axis_deformation();
+		for (std::size_t i = 0; i < influence_area_length; i++)
+		{
+			MeshVertex v = this->object_influence_area_[i]; 
+			uint32 v_index = value<uint32>(object, object_vertex_index, v);
+			Vec3 v_position = value<Vec3>(object, object_vertex_position, v);
 
-		influence_area_->foreach_cell([&](MeshVertex v) -> bool {
-			uint32 vidx = value<uint32>(object, object_vertex_index, v);
+			Vec3 left_influence = axis_transformation_[0]*v_position; 
+			Vec3 right_influence = axis_transformation_[1]*v_position;
 
-			value<Vec3>(object, object_vertex_position, v) += attenuation_[vidx] * new_deformation;
+			if (axis_fixed_point_(v_index,0)){
+				left_influence = v_position; 
+			}
 
-			return true;
-		});*/
+			if (axis_fixed_point_(v_index,1)){
+				right_influence = v_position; 
+			}
+
+			double weight0 = axis_weights_(v_index, 0);
+
+			double weight1 = axis_weights_(v_index, 1);
+
+			value<Vec3>(object, object_vertex_position, v) = weight0 * left_influence + weight1 * right_influence;
+
+
+			/*value<Vec3>(object, object_vertex_position, v) += attenuation_[vidx] * new_deformation;*/
+		}
+
 	}
 
 	std::vector<Graph::Vertex> get_axis_skeleton(){
@@ -139,6 +161,8 @@ private:
 	Vec3 axis_normal_;
 	Eigen::Matrix3d local_frame_;
 	Eigen::Matrix3d local_frame_inverse_;
+
+	std::vector<rendering::Transfo3d> axis_transformation_; 
 
 	std::vector<Vec3> inside_axis_position_; 
 
@@ -155,10 +179,6 @@ private:
 			Vec3 surface_point = value<Vec3>(object, vertex_position, v);
 
 			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
-
-			/*const Vec3 A = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[0]); 
-			const Vec3 B = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[1]); 
-			const Vec3 C = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[2]); */
 
 			std::pair<Eigen::Vector2d, std::vector<bool>> result_weights = cgogn::modeling::weight_two_bones(inside_axis_position_[0], inside_axis_position_[1], inside_axis_position_[2], surface_point); 
 
