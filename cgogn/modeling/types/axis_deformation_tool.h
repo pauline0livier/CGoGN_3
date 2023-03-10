@@ -118,7 +118,7 @@ public:
 
 	void deform_object(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position, CMap2::Attribute<uint32>* object_vertex_index)
 	{
-
+		 
 		const std::size_t influence_area_length = this->object_influence_area_.size(); 
 
 		for (std::size_t i = 0; i < influence_area_length; i++)

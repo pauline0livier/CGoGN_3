@@ -61,6 +61,9 @@ public:
 		param_point_sprite_->color_ = rendering::GLColor(1, 0, 0, 0.65f);
 		param_point_sprite_->set_vbos({&selected_vertices_vbo_});
 
+		transformations_.resize(2);
+		transformations_[0].setIdentity();
+		transformations_[1].setIdentity();
 	}
 
 	~GraphParameters()
@@ -94,7 +97,7 @@ public:
 
 			std::vector<Vertex> picked;
 
-			geometry::picking_sphere(*graph_, vertex_position_.get(), 50, A, B, picked);
+			geometry::picking_sphere(*graph_, vertex_position_.get(), 5, A, B, picked);
 			if (!picked.empty())
 			{
 				switch (button)
@@ -132,25 +135,78 @@ public:
 	{
 		if (vertex_position_ && selected_vertices_set_ && selected_vertices_set_->size() > 0)
 		{
-			transformations_.resize(2); 
-			transformations_[0].setIdentity(); 
-			transformations_[1].setIdentity();
-			selected_vertices_set_->foreach_cell([&](Vertex v) {
-				std::vector<Edge>& edges = (*graph_->vertex_incident_edges_)[v.index_];
+			if (selected_vertices_set_->size() == 1)
+			{
+				selected_vertices_set_->foreach_cell([&](Vertex v) {
+					if (v.index_ == 0 || v.index_ == 2)
+					{
+						std::vector<Edge>& edges = (*graph_->vertex_incident_edges_)[v.index_];
 
-				Edge e0 = edges[0];
-				Vertex v1;
-				if ((*graph_->edge_incident_vertices_)[e0.index_].first == v)
-				{
-					v1 = (*graph_->edge_incident_vertices_)[e0.index_].second;
-					rotation_center_ = value<Vec3>(*graph_, vertex_position_, v1);
-				}
-				else
-				{
-					v1 = (*graph_->edge_incident_vertices_)[e0.index_].first;
-					rotation_center_ = value<Vec3>(*graph_, vertex_position_, v1);
-				}
-			});
+						Edge e0 = edges[0];
+						if ((*graph_->edge_incident_vertices_)[e0.index_].first == v)
+						{
+							Vertex v1 = (*graph_->edge_incident_vertices_)[e0.index_].second;
+							rotation_center_ = value<Vec3>(*graph_, vertex_position_, v1);
+						}
+						else
+						{
+							Vertex v1 = (*graph_->edge_incident_vertices_)[e0.index_].first;
+							rotation_center_ = value<Vec3>(*graph_, vertex_position_, v1);
+						}
+					}
+				});
+			}
+			else if (selected_vertices_set_->size() == 2)
+			{
+				std::vector<Vertex> valid_vertex;
+				selected_vertices_set_->foreach_cell([&](Vertex v) {
+					if (v.index_ == 0 || v.index_ == 2)
+					{
+						std::vector<Edge>& edges = (*graph_->vertex_incident_edges_)[v.index_];
+						Edge e0 = edges[0];
+						Vertex v1;
+						Vertex target_vertex; 
+						if ((*graph_->edge_incident_vertices_)[e0.index_].first == v)
+						{
+							v1 = (*graph_->edge_incident_vertices_)[e0.index_].second;
+						}
+						else
+						{
+							v1 = (*graph_->edge_incident_vertices_)[e0.index_].first;
+						}
+
+						std::vector<Edge>& edges1 = (*graph_->vertex_incident_edges_)[v1.index_];
+						Edge e1_0 = edges1[0];
+						if ((*graph_->edge_incident_vertices_)[e1_0.index_].first == v ||
+							(*graph_->edge_incident_vertices_)[e1_0.index_].second == v)
+						{
+							Edge e1_1 = edges1[1];
+							if ((*graph_->edge_incident_vertices_)[e1_1.index_].first == v1)
+							{
+								target_vertex = (*graph_->edge_incident_vertices_)[e1_1.index_].second;
+							}
+							else
+							{
+								target_vertex = (*graph_->edge_incident_vertices_)[e1_1.index_].first;
+							}
+						}
+						else
+						{
+							if ((*graph_->edge_incident_vertices_)[e1_0.index_].first == v1)
+							{
+								target_vertex = (*graph_->edge_incident_vertices_)[e1_0.index_].second;
+							}
+							else
+							{
+								target_vertex = (*graph_->edge_incident_vertices_)[e1_0.index_].first;
+							}
+						}
+						rotation_center_ = value<Vec3>(*graph_, vertex_position_, target_vertex);
+					}
+						
+				});
+			}
+
 			dragging_axis_ = true;
 		}
 	}
@@ -194,15 +250,12 @@ public:
 				axis /= spinning_speed;
 				spinning_speed *= 0.005;
 
-				float64 sign;
-				if (dy > 0.0)
+				float64 sign = 1.0; 
+				if (dx < 0.0)
 				{
 					sign = -1.0;
 				}
-				else
-				{
-					sign = 1.0;
-				}
+				
 
 				rendering::Transfo3d inv_camera = view->camera().frame_.inverse();
 				rendering::Transfo3d sm(Eigen::AngleAxisd(sign * 1.0 * spinning_speed, normal_)); // 2.0
@@ -212,10 +265,20 @@ public:
 					Eigen::Translation3d(rotation_center_) * rot * Eigen::Translation3d(-rotation_center_);
 
 				selected_vertices_set_->foreach_cell([&](Vertex v) {
-					Vec3& pos = value<Vec3>(*graph_, vertex_position_, v);
-					pos = M * pos;
-					std::cout << v.index_ << std::endl; 
-					transformations_[0] = M;
+					Vec3& axis_vertex_position = value<Vec3>(*graph_, vertex_position_, v);
+					axis_vertex_position = M * axis_vertex_position;
+					if (v.index_ == 0)
+					{
+						transformations_[0] = M;
+					}
+					else if (v.index_ == 2)
+					{
+						transformations_[1] = M;
+					}
+					else
+					{
+						std::cout << "need to deal with this case later" << std::endl;
+					}
 				});
 			}
 		}

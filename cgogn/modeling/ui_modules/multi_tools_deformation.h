@@ -374,20 +374,20 @@ private:
 	{
 		int axis_number = axis_container_.size();
 		std::string axis_name = "local_axis" + std::to_string(axis_number);
-		GRAPH* axis = graph_provider_->add_graph(axis_name);
-
-		auto axis_vertex_position = add_attribute<Vec3, GraphVertex>(*axis, "position");
-		auto axis_vertex_radius = add_attribute<Scalar, GraphVertex>(*axis, "radius");
-
-		set_graph_vertex_position(*axis, axis_vertex_position);
-
-		auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 		 
 		const auto [it, inserted] =
 			axis_container_.emplace(axis_name, std::make_shared<modeling::AxisDeformationTool<MESH>>());
 		modeling::AxisDeformationTool<MESH>* adt = it->second.get();
 		if (inserted)
 		{
+			GRAPH* axis = graph_provider_->add_graph(axis_name);
+
+			auto axis_vertex_position = add_attribute<Vec3, GraphVertex>(*axis, "position");
+			auto axis_vertex_radius = add_attribute<Scalar, GraphVertex>(*axis, "radius");
+
+			set_graph_vertex_position(*axis, axis_vertex_position);
+
+			auto mesh_vertex_normal = get_attribute<Vec3, MeshVertex>(m, "normal");
 
 			modeling::Parameters<MESH>& model_p = *parameters_[model_];
 
@@ -602,7 +602,7 @@ private:
 					if (handle_vertex_position.get() == attribute)
 					{
 						if (deformed_tool_ == Handle)
-						{
+						{ 
 							std::shared_ptr<modeling::HandleDeformationTool<MESH>> current_hdt =
 								handle_container_[p_handle.name_];
 
@@ -701,9 +701,9 @@ private:
 
 							current_adt->set_axis_transformation(p_axis.transformations_); 
 
-							/*current_adt->deform_object(object, object_vertex_position.get(), object_vertex_index.get()); 
+							current_adt->deform_object(object, object_vertex_position.get(), object_vertex_index.get()); 
 
-							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());*/
+							mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
 						}
 					}
 				});
@@ -1376,18 +1376,18 @@ protected:
 								app_.module("MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"));
 
 						imgui_axis_selector(multi_tools_deformation, selected_axis_, "Axis", [&](GRAPH& g) {
-							if (selected_axis_)
+							/*if (selected_axis_)
 							{
 								modeling::GraphParameters<GRAPH>& old_p = *graph_parameters_[selected_axis_];
 								old_p.selected_vertices_set_ = nullptr;
-							}
+							}*/
 							selected_axis_ = &g;
 						});
 
 						if (selected_axis_)
 						{
-							modeling::Parameters<MESH>& old_p = *parameters_[selected_mesh_];
-							old_p.selected_vertices_set_ = nullptr;
+							/*modeling::Parameters<MESH>& old_p = *parameters_[selected_mesh_];
+							old_p.selected_vertices_set_ = nullptr;*/
 
 							selected_graph_ = selected_axis_;
 							modeling::GraphParameters<GRAPH>& axis_p = *graph_parameters_[selected_graph_];
@@ -1406,7 +1406,6 @@ protected:
 								{
 								axis_p.selected_vertices_set_ = cs;
 								axis_p.update_selected_vertices_vbo();
-
 								need_update = true;
 								});
 
@@ -1426,16 +1425,16 @@ protected:
 													  ImGuiColorEditFlags_NoInputs);
 
 								if (need_update || axis_p.object_update_)
-								{
+								{ 
 									for (View* v : linked_views_)
 										v->request_update();
 
-									std::shared_ptr<modeling::AxisDeformationTool<MESH>> current_adt =
-										axis_container_[axis_p.name_];
+									/*std::shared_ptr<modeling::AxisDeformationTool<MESH>> current_adt =
+										axis_container_[axis_p.name_];*/
 
-									graph_provider_->emit_attribute_changed(
+									/*graph_provider_->emit_attribute_changed(
 										*(current_adt->control_axis_),
-										current_adt->control_axis_vertex_position_.get());
+										current_adt->control_axis_vertex_position_.get());*/
 								}
 							}
 						}

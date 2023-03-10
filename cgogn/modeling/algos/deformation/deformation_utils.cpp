@@ -211,7 +211,7 @@ std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, co
 	fixed_point[1] = false; 
 	
 	const double resAB = projection_on_segment(A, B, object_point); 
-	if (resAB > 0.0 && resAB < 1.0){
+	if (resAB > 0.0 && resAB < 1.0){ 
 		if (resAB >= 0.8 || resAB <= 0.2){
 			const double delta = std::min(resAB, 1.0 - resAB); 
 			const double local_value = (delta*0.5)/0.2; 
@@ -219,7 +219,7 @@ std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, co
 			weights[1] = local_value; 
 		} else {
 			weights[0] = 1.0; 
-			weights[1] = 0.0; 
+			weights[1] = 0.0;  
 		}
 		
 	} else if (resAB <= 0.0){
@@ -235,7 +235,6 @@ std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, co
 			weights[1] = 1 - local_value;
 			fixed_point[1] = true; 
 		}
-		
 	} else if (resAB >= 1.0){
 		if (resAB == 1.0){
 			weights[0] = 0.5; 
@@ -253,21 +252,28 @@ std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, co
 					weights[1] = 1.0; 
 				}
 			} else if (resBC >= 1.0){
-				const double delta = 1.0 - resBC; 
+				/*const double delta = resBC - 1.0; 
 				if (delta > 0.2){
 					weights[0] = 0.5; 
 					weights[1] = 0.5; 
 					fixed_point[0] = true; 
-					fixed_point[1] = true; 
+					fixed_point[1] = true;  
 				} else {
 					const double local_value = (delta*0.5)/0.2; 
 					weights[0] = 1.0 - local_value; 
 					weights[1] = local_value; 
 					fixed_point[0] = true; 
-				}
-			} 
+				}*/
+				weights[0] = 0.0; 
+				weights[1] = 1.0;
+			} else {
+				//const double resAC = projection_on_segment(A, C, object_point);
+				weights[0] = 0.5; 
+				weights[1] = 0.5; 
+			}
 		}
-	}
+	} 
+	//std::cout << "weights " << weights[0] << " "<< weights[1] << std::endl; 
 	return std::make_pair(weights, fixed_point); 
 }
 
