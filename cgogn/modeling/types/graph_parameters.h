@@ -219,8 +219,12 @@ public:
 
 	void key_release_axis_event(ui::View* view)
 	{
-		if (dragging_axis_)
+		if (dragging_axis_){
 			dragging_axis_ = false;
+			transformations_[0].setIdentity();
+			transformations_[1].setIdentity();
+		}
+			
 	}
 
 	void mouse_displacement(ui::View* view, const int32& x, const int32& y)
@@ -264,7 +268,8 @@ public:
 				rendering::Transfo3d M =
 					Eigen::Translation3d(rotation_center_) * rot * Eigen::Translation3d(-rotation_center_);
 
-				selected_vertices_set_->foreach_cell([&](Vertex v) {
+				if (selected_vertices_set_->size() == 1){
+					selected_vertices_set_->foreach_cell([&](Vertex v) {
 					Vec3& axis_vertex_position = value<Vec3>(*graph_, vertex_position_, v);
 					axis_vertex_position = M * axis_vertex_position;
 					if (v.index_ == 0)
@@ -280,6 +285,16 @@ public:
 						std::cout << "need to deal with this case later" << std::endl;
 					}
 				});
+				} else if (selected_vertices_set_->size() == 2){
+					selected_vertices_set_->foreach_cell([&](Vertex v) {
+						Vec3& axis_vertex_position = value<Vec3>(*graph_, vertex_position_, v);
+						axis_vertex_position = M * axis_vertex_position;
+					}); 
+
+					transformations_[0] = M;
+					transformations_[1] = M;
+				}
+				
 			}
 		}
 	}
