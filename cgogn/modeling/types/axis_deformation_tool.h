@@ -58,6 +58,7 @@ public:
 	std::shared_ptr<boost::synapse::connection> axis_attribute_update_connection_;
 
 	Eigen::MatrixXf global_cage_weights_;
+	Eigen::MatrixXf global_cage_normal_weights_;
 
 	AxisDeformationTool() : SpaceDeformationTool<MESH>(), control_axis_vertex_position_(nullptr)
 	{

@@ -458,6 +458,21 @@ private:
 				}
 			}
 
+			if (axis_container_.size() > 0){
+
+				for (auto& [name, adt] : axis_container_)
+				{
+					modeling::GraphParameters<GRAPH>& p_axis = *graph_parameters_[adt->control_axis_];
+
+					std::vector<GraphVertex> axis_vertices = adt->get_axis_skeleton();
+
+					Eigen::MatrixXf weights =
+						gcdt->bind_mvc_axis(*(adt->control_axis_), p_axis.vertex_position_, axis_vertices);
+
+					adt->global_cage_weights_ = weights;
+				}
+			}			
+
 			gcdt->cage_attribute_update_connection_ =
 				boost::synapse::connect<typename MeshProvider<MESH>::template attribute_changed_t<Vec3>>(
 					&global_cage, [&](MeshAttribute<Vec3>* attribute) {
@@ -484,16 +499,29 @@ private:
 										modeling::GraphParameters<GRAPH>& p_handle =
 											*graph_parameters_[hdt->control_handle_];
 
-										Eigen::VectorXf weights = hdt->global_cage_weights_;
-
-										GraphVertex handle_vertex = hdt->get_handle_vertex();
-
 										current_gcdt->deform_handle_mvc(*(hdt->control_handle_),
 										p_handle.vertex_position_,
-										hdt->global_cage_weights_, handle_vertex);
+										hdt->global_cage_weights_, hdt->get_handle_vertex());
 
 										graph_provider_->emit_attribute_changed(
 											*(hdt->control_handle_), hdt->control_handle_vertex_position_.get());
+									}
+								}
+
+								// Axis update 
+								if (axis_container_.size() > 0)
+								{
+									for (auto& [name, adt] : axis_container_)
+									{
+										modeling::GraphParameters<GRAPH>& p_axis =
+											*graph_parameters_[adt->control_axis_];
+
+										current_gcdt->deform_axis_mvc(*(adt->control_axis_),
+										p_axis.vertex_position_,
+										adt->global_cage_weights_, adt->get_axis_skeleton());
+
+										graph_provider_->emit_attribute_changed(
+											*(adt->control_axis_), adt->control_axis_vertex_position_.get());
 									}
 								}
 							}
@@ -518,6 +546,21 @@ private:
 
 					hdt->global_cage_weights_ = weights.first;
 					hdt->global_cage_normal_weights_ = weights.second;
+				}
+			}
+
+			if (axis_container_.size() > 0){
+				for (auto& [name, adt] : axis_container_)
+				{
+					modeling::GraphParameters<GRAPH>& p_axis = *graph_parameters_[adt->control_axis_];
+
+					std::vector<GraphVertex> axis_vertices = adt->get_axis_skeleton();
+
+					std::pair<Eigen::VectorXf, Eigen::VectorXf> weights =
+						gcdt->bind_green_axis(*(adt->control_axis_), p_axis.vertex_position_, axis_vertices);
+
+					adt->global_cage_weights_ = weights.first;
+					adt->global_cage_normal_weights_ = weights.second;
 				}
 			}
 
@@ -550,6 +593,22 @@ private:
 
 									graph_provider_->emit_attribute_changed(*(hdt->control_handle_),
 									hdt->control_handle_vertex_position_.get());
+								}
+							}
+
+							if (axis_container_.size() > 0)
+							{
+								for (auto& [name, adt] : axis_container_)
+								{
+									modeling::GraphParameters<GRAPH>& p_axis =
+										*graph_parameters_[adt->control_axis_];
+
+									current_gcdt->deform_axis_green(
+										*(adt->control_axis_), p_axis.vertex_position_, adt->global_cage_weights_,
+										adt->global_cage_normal_weights_, adt->get_axis_skeleton());
+
+									graph_provider_->emit_attribute_changed(*(adt->control_axis_),
+									adt->control_axis_vertex_position_.get());
 								}
 							}
 						}
