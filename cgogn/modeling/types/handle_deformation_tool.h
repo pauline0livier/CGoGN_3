@@ -96,6 +96,10 @@ public:
 		return handle_vertex_; 
 	}
 
+	Vec3 get_handle_position(){
+		return value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_vertex_);
+	}
+
 	void set_attenuation_spike(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
 		uint32 nbv_object = nb_cells<MeshVertex>(object);

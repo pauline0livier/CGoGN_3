@@ -510,15 +510,13 @@ private:
 			Triangle triangle1;
 			triangle1.points = {points[1], points[3], points[0]};
 			triangle1.normal = (cgogn::geometry::normal(triangle1.points[0].position, triangle1.points[1].position,
-														triangle1.points[2].position))
-								   .normalized();
+														triangle1.points[2].position)).normalized();
 			cage_triangles_.push_back(triangle1);
 
 			Triangle triangle2;
 			triangle2.points = {points[1], points[2], points[3]};
 			triangle2.normal = (cgogn::geometry::normal(triangle2.points[0].position, triangle2.points[1].position,
-														triangle2.points[2].position))
-								   .normalized();
+														triangle2.points[2].position)).normalized();
 			cage_triangles_.push_back(triangle2);
 
 			return true;
