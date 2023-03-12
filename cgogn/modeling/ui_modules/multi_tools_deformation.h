@@ -446,6 +446,20 @@ private:
 
 		gcdt->init_bind_object(object, object_vertex_position.get(), object_vertex_index.get());
 
+		if (cage_container_.size() < 0){
+			// BEWARE if local cage is outside of global cage => need to increase global cage 
+			for (auto& [name, cdt] : cage_container_)
+			{
+				modeling::Parameters<MESH>& p_cage = *parameters_[cdt->control_cage_];
+
+				std::shared_ptr<MeshAttribute<uint32>> local_cage_vertex_index =
+				get_attribute<uint32, MeshVertex>(*(cdt->control_cage_), "vertex_index");
+
+				gcdt->init_bind_local_cage(*(cdt->control_cage_), name, p_cage.vertex_position_, 
+					local_cage_vertex_index);
+			}
+		}
+
 		if (handle_container_.size() > 0)
 		{
 			for (auto& [name, hdt] : handle_container_)
@@ -523,6 +537,27 @@ private:
 									graph_provider_->emit_attribute_changed(
 										*(local_adt->control_axis_),
 										local_adt->control_axis_vertex_position_.get());
+								}
+							}
+
+							if (current_gcdt->local_cage_weights_.size() > 0)
+							{
+								for (auto& [name, mw] : current_gcdt->local_cage_weights_)
+								{
+									std::shared_ptr<modeling::CageDeformationTool<MESH>> local_cdt =
+										cage_container_[name];
+									modeling::Parameters<MESH>& p_cage =
+										*parameters_[local_cdt->control_cage_];
+
+									std::shared_ptr<MeshAttribute<uint32>> local_cage_vertex_index =
+									get_attribute<uint32, MeshVertex>(*(local_cdt->control_cage_), "vertex_index");	
+
+									current_gcdt->deform_local_cage(*(local_cdt->control_cage_), name,
+															  p_cage.vertex_position_, local_cage_vertex_index);
+
+									mesh_provider_->emit_attribute_changed(
+										*(local_cdt->control_cage_),
+										local_cdt->control_cage_vertex_position_.get());
 								}
 							}
 						}

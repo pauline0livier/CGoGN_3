@@ -274,6 +274,19 @@ public:
 		}
 	}
 
+	void bind_handle(Graph& g, const std::string& graph_name, 
+					std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
+					const std::vector<Graph::Vertex>& axis_vertices)
+	{
+		if (deformation_type_ == "MVC"){
+			bind_axis_mvc(g, graph_name, graph_vertex_position, axis_vertices); 
+		}
+
+		if (deformation_type_ == "Green"){
+			bind_axis_green(g, graph_name, graph_vertex_position, axis_vertices); 
+		}
+	}
+
 	void deform_axis(Graph& g, const std::string& graph_name, 
 				std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position, 
 				const std::vector<GraphVertex>& axis_vertices)
@@ -290,6 +303,65 @@ public:
 								axis_vertices);
 		}
 	}
+
+	void init_bind_local_cage(MESH& local_cage, const std::string& cage_name, 
+	std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+	std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		uint32 nbv_local_cage = nb_cells<Vertex>(local_cage);
+		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
+
+		MatrixWeights local_cage_weights; 
+		local_cage_weights.position_.resize(nbv_local_cage, nbv_cage);
+		local_cage_weights.position_.setZero();
+		local_cage_weights_[cage_name] = local_cage_weights;
+
+		if (deformation_type_ == "MVC")
+		{
+			bind_local_cage_mvc(local_cage, cage_name, local_cage_vertex_position, local_cage_vertex_index); 
+		}
+
+		if (deformation_type_ == "Green")
+		{
+			uint32 nbt_cage = cage_triangles_.size();
+			local_cage_weights_[cage_name].normal_.resize(nbv_local_cage, nbt_cage); 
+			local_cage_weights_[cage_name].normal_.setZero();
+
+			bind_local_cage_green(local_cage, cage_name, local_cage_vertex_position, local_cage_vertex_index);
+		}
+	}
+
+	void bind_local_cage(MESH& local_cage, const std::string& cage_name, 
+	std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+	std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		if (deformation_type_ == "MVC")
+		{
+			bind_local_cage_mvc(local_cage, cage_name, local_cage_vertex_position, local_cage_vertex_index); 
+		}
+
+		if (deformation_type_ == "Green")
+		{
+			bind_local_cage_green(local_cage, cage_name, local_cage_vertex_position, local_cage_vertex_index);
+		}
+	}
+
+	void deform_local_cage(MESH& local_cage, const std::string& cage_name, 
+	std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+	std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		 
+		if (deformation_type_ == "MVC")
+		{
+			deform_local_cage_mvc(local_cage, cage_name, local_cage_vertex_position, local_cage_vertex_index); 
+		}
+
+		if (deformation_type_ == "Green")
+		{
+			deform_local_cage_green(local_cage, cage_name, local_cage_vertex_position, local_cage_vertex_index);
+		}
+	}
+
 
 
 private:
@@ -588,7 +660,8 @@ private:
 		}
 	}
 
-		void deform_axis_mvc(Graph& g, const std::string& graph_name, std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
+	void deform_axis_mvc(Graph& g, const std::string& graph_name, 
+						std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 						 const std::vector<GraphVertex>& axis_vertices)
 	{
 		MatrixWeights axis_weights = local_axis_weights_[graph_name]; 
@@ -668,6 +741,119 @@ private:
 
 			value<Vec3>(g, graph_vertex_position, axis_vertex) = new_position + new_normal;
 		}
+	}
+
+	void bind_local_cage_mvc(MESH& local_cage, const std::string& cage_name, 
+	std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+	std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+
+		parallel_foreach_cell(local_cage, [&](Vertex v) -> bool {
+			const Vec3& local_cage_point = value<Vec3>(local_cage, local_cage_vertex_position, v);
+			const uint32& local_cage_point_index = value<uint32>(local_cage, local_cage_vertex_index, v);
+
+			compute_mvc_coordinates_on_local_cage_point(cage_name, local_cage_point, local_cage_point_index);
+
+			return true;
+		});
+
+	}
+
+	void bind_local_cage_green(MESH& local_cage, const std::string& cage_name, 
+	std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+	std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		parallel_foreach_cell(local_cage, [&](Vertex v) -> bool {
+			const Vec3& local_cage_point = value<Vec3>(local_cage, local_cage_vertex_position, v);
+			const uint32& local_cage_point_index = value<uint32>(local_cage, local_cage_vertex_index, v);
+
+			compute_green_coordinates_on_local_cage_point(cage_name, local_cage_point, local_cage_point_index);
+
+			return true;
+		});
+	}
+
+	void deform_local_cage_mvc(MESH& local_cage, const std::string& cage_name, 
+	std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+	std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		MatrixWeights local_cage_weights = local_cage_weights_[cage_name]; 
+
+		parallel_foreach_cell(local_cage, [&](Vertex v) -> bool {
+			uint32 local_cage_point_index = value<uint32>(local_cage, local_cage_vertex_index, v);
+
+			Vec3 new_position = {0.0, 0.0, 0.0};
+
+			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
+				const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cv);
+
+				uint32 cage_point_index = value<uint32>(*global_cage_, global_cage_vertex_index_, cv);
+
+				new_position += local_cage_weights.position_(local_cage_point_index, cage_point_index) * cage_point;
+
+				return true;
+			});
+
+			value<Vec3>(local_cage, local_cage_vertex_position, v) = new_position;
+			return true;
+		});
+	}
+
+	void deform_local_cage_green(MESH& local_cage, const std::string& cage_name, 
+	std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+	std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		MatrixWeights local_cage_weights = local_cage_weights_[cage_name]; 
+
+		parallel_foreach_cell(local_cage, [&](Vertex v) -> bool {
+			uint32 vidx = value<uint32>(local_cage, local_cage_vertex_index, v);
+
+			Vec3 new_position = {0.0, 0.0, 0.0};
+
+			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
+				const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cv);
+
+				uint32 cage_point_index = value<uint32>(*global_cage_, global_cage_vertex_index_, cv);
+
+				new_position += local_cage_weights.position_(vidx, cage_point_index) * cage_point;
+
+				return true;
+			});
+
+			Vec3 new_normal = {0.0, 0.0, 0.0};
+
+			const auto sqrt8 = sqrt(8);
+
+			for (std::size_t t = 0; t < cage_triangles_.size(); t++)
+			{
+
+				std::vector<Vec3> triangle_position(3);
+				for (std::size_t i = 0; i < 3; i++)
+				{
+					triangle_position[i] =
+						value<Vec3>(*global_cage_, global_cage_vertex_position_, cage_triangles_[t].vertices_[i]);
+				}
+
+				const Vec3 t_normal = cage_triangles_[t].normal_;
+				const auto t_u0 = cage_triangles_[t].edges_.first;
+				const auto t_v0 = cage_triangles_[t].edges_.second;
+
+				const auto t_u1 = triangle_position[1] - triangle_position[0];
+				const auto t_v1 = triangle_position[2] - triangle_position[1];
+
+				const auto area_face = (t_u0.cross(t_v0)).norm() * 0.5;
+				double t_sj =
+					sqrt((t_u1.squaredNorm()) * (t_v0.squaredNorm()) - 2.0 * (t_u1.dot(t_v1)) * (t_u0.dot(t_v0)) +
+						 (t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
+					(sqrt8 * area_face);
+
+				new_normal += local_cage_weights.normal_(vidx, t) * t_sj * t_normal;
+			}
+
+			value<Vec3>(local_cage, local_cage_vertex_position, v) = new_position + new_normal;
+
+			return true;
+		});
 	}
 
 
@@ -1015,6 +1201,123 @@ private:
 		return false;
 	}
 
+		bool compute_mvc_coordinates_on_local_cage_point(const std::string& cage_name, 
+						const Vec3& local_cage_point, const uint32& local_cage_point_index)
+	{
+
+		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
+
+		double epsilon = 0.00000001;
+		double sumWeights = 0.0;
+
+		Eigen::VectorXd w_global_cage_weights_;
+
+		w_global_cage_weights_.resize(nbv_cage);
+		w_global_cage_weights_.setZero();
+
+		std::vector<double> d(nbv_cage);
+		std::vector<Vec3> u(nbv_cage);
+
+		parallel_foreach_cell(*global_cage_, [&](Vertex v) -> bool {
+			const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, v);
+
+			uint32 cage_point_index = value<uint32>(*global_cage_, global_cage_vertex_index_, v);
+
+			d[cage_point_index] = (local_cage_point - cage_point).norm();
+			if (d[cage_point_index] < epsilon)
+			{
+				local_cage_weights_[cage_name].position_(local_cage_point_index, cage_point_index) = 1.0;
+				return true;
+			}
+
+			u[cage_point_index] = (cage_point - local_cage_point) / d[cage_point_index];
+
+			return true;
+		});
+
+		double l[3];
+		double theta[3];
+		double w[3];
+		double c[3];
+		double s[3];
+
+		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
+		{
+
+			std::vector<uint32> triangle_index = cage_triangles_[t].indices_; 
+
+			for (std::size_t i = 0; i < 3; i++)
+			{
+				l[i] = (u[triangle_index[(i + 1) % 3]] - u[triangle_index[(i + 2) % 3]]).norm();
+			}
+
+			for (std::size_t i = 0; i < 3; i++)
+			{
+				theta[i] = 2.0 * asin(l[i] / 2.0);
+			}
+
+			double h = (theta[0] + theta[1] + theta[2]) / 2.0;
+			if (M_PI - h < epsilon)
+			{
+				for (std::size_t i = 0; i < 3; i++)
+				{
+					w[i] = sin(theta[i]) * l[(i + 2) % 3] * l[(i + 1) % 3];
+				}
+
+				sumWeights = w[0] + w[1] + w[2];
+				w_global_cage_weights_[triangle_index[0]] = w[0] / sumWeights;
+				w_global_cage_weights_[triangle_index[1]] = w[1] / sumWeights;
+				w_global_cage_weights_[triangle_index[2]] = w[2] / sumWeights;
+
+				return true;
+			}
+
+			for (std::size_t i = 0; i < 3; i++)
+			{
+				c[i] = (2.0 * sin(h) * sin(h - theta[i])) / (sin(theta[(i + 1) % 3]) * sin(theta[(i + 2) % 3])) - 1.0;
+			}
+
+			double sign_Basis_u0u1u2 = 1;
+			Vec3 crossVec = u[triangle_index[0]].cross(u[triangle_index[1]]);
+			if (crossVec.dot(u[triangle_index[2]]) < 0.0)
+			{
+				sign_Basis_u0u1u2 = -1;
+			}
+
+			for (std::size_t i = 0; i < 3; i++)
+			{
+				s[i] = sign_Basis_u0u1u2 * sqrt(std::max<double>(0.0, 1.0 - c[i] * c[i]));
+			}
+
+			if (fabs(s[0]) < epsilon || fabs(s[1]) < epsilon || fabs(s[2]) < epsilon)
+			{
+				continue; // eta is on the same plane, outside t  ->  ignore triangle t :
+			}
+
+			for (std::size_t i = 0; i < 3; ++i)
+			{
+				w[i] = (theta[i] - c[(i + 1) % 3] * theta[(i + 2) % 3] - c[(i + 2) % 3] * theta[(i + 1) % 3]) /
+					   (2.0 * d[triangle_index[i]] * sin(theta[(i + 1) % 3]) * s[(i + 2) % 3]);
+			}
+
+			sumWeights += (w[0] + w[1] + w[2]);
+			w_global_cage_weights_[triangle_index[0]] += w[0];
+			w_global_cage_weights_[triangle_index[1]] += w[1];
+			w_global_cage_weights_[triangle_index[2]] += w[2];
+		}
+
+		parallel_foreach_cell(*global_cage_, [&](Vertex v) -> bool {
+			uint32 cage_point_index = value<uint32>(*global_cage_, global_cage_vertex_index_, v);
+
+			local_cage_weights_[cage_name].position_(local_cage_point_index, cage_point_index) =
+				w_global_cage_weights_[cage_point_index] / sumWeights;
+
+			return true;
+		});
+
+		return false;
+	}
+
 	// GREEN
 	void compute_green_coordinates_on_point(const Vec3& surface_point, const uint32& surface_point_index)
 	{
@@ -1201,6 +1504,70 @@ private:
 
 					local_axis_weights_[graph_name].position_(axis_point_index, cage_point_index) =
 						local_axis_weights_[graph_name].position_(axis_point_index, cage_point_index) + num / denom;
+				}
+			}
+		}
+	}
+
+	void compute_green_coordinates_on_local_cage_point(const std::string& cage_name, 
+						const Vec3& local_cage_point, const uint32& local_cage_point_index)
+	{
+
+		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
+		{
+			const std::vector<Vec3> triangle_position = cage_triangles_[t].positions_; 
+
+			const Vec3 t_normal = cage_triangles_[t].normal_; 
+
+			std::vector<Vec3> t_vj(3);
+			for (std::size_t l = 0; l < 3; ++l)
+			{
+				t_vj[l] = triangle_position[l] - local_cage_point;
+			}
+
+			const Vec3 t_p_ = (t_vj[0].dot(t_normal)) * t_normal;
+
+			Vec3 t_I = {0.0, 0.0, 0.0};
+			std::vector<double> t_II(3);
+			Vec3 t_s = {0.0, 0.0, 0.0};
+			std::vector<Vec3> t_N(3);
+
+			for (std::size_t l = 0; l < 3; ++l)
+			{
+				const Vec3 t_v0 = t_vj[l];
+				const Vec3 t_v1 = t_vj[(l + 1) % 3];
+
+				const auto t_vjpt = ((t_v0 - t_p_).cross((t_v1 - t_p_))).dot(t_normal);
+				t_s[l] = t_vjpt < 0 ? -1.0 : 1.0;
+
+				t_I[l] = modeling::GCTriInt2(t_p_, t_v0, t_v1);
+				t_II[l] = modeling::GCTriInt2(NULL_VECTOR, t_v1, t_v0);
+				t_N[l] = (t_v1.cross(t_v0)).normalized();
+			}
+
+			const auto t_I_ = -abs(t_s.dot(t_I));
+
+			local_cage_weights_[cage_name].normal_(local_cage_point_index, t) = -t_I_;
+
+			Vec3 t_w = t_I_ * t_normal;
+
+			for (std::size_t k = 0; k < 3; ++k)
+			{
+				t_w += (t_II[k] * t_N[k]);
+			}
+
+			if (t_w.norm() > DBL_EPSILON)
+			{
+				for (size_t l = 0; l < 3; l++)
+				{
+					const uint32 cage_point_index = cage_triangles_[t].indices_[l]; 
+
+					const Vec3 Nl = t_N[(l + 1) % 3];
+					const double num = Nl.dot(t_w);
+					const double denom = Nl.dot(t_vj[l]);
+
+					local_cage_weights_[cage_name].position_(local_cage_point_index, cage_point_index) =
+						local_cage_weights_[cage_name].position_(local_cage_point_index, cage_point_index) + num / denom;
 				}
 			}
 		}
