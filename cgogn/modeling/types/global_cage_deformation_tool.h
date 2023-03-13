@@ -29,6 +29,7 @@
 
 #include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 #include <cgogn/modeling/algos/deformation/deformation_utils.h>
+#include <cgogn/modeling/algos/deformation/deformation_definitions.h>
 
 #include <cgogn/geometry/algos/normal.h>
 #include <cgogn/geometry/types/vector_traits.h>
@@ -63,30 +64,17 @@ class GlobalCageDeformationTool
 	using GraphEdge = IncidenceGraph::Edge;
 	using GraphFace = IncidenceGraph::Face;
 
-	struct VectorWeights
-	{
-		Eigen::VectorXd position_;
-		Eigen::VectorXd normal_;
-	};
-
-	struct MatrixWeights
-	{
-		Eigen::MatrixXd position_;
-		Eigen::MatrixXd normal_;
-	};
-
-	
 
 public:
 	MESH* global_cage_;
 	std::shared_ptr<Attribute<Vec3>> global_cage_vertex_position_;
 
-	std::shared_ptr<boost::synapse::connection> cage_attribute_update_connection_;
-
 	MatrixWeights object_weights_;
 	std::unordered_map<std::string, MatrixWeights> local_cage_weights_; 
 	std::unordered_map<std::string, MatrixWeights> local_axis_weights_; 
 	std::unordered_map<std::string, VectorWeights> local_handle_weights_; 
+
+	std::shared_ptr<boost::synapse::connection> cage_attribute_update_connection_;
 
 	GlobalCageDeformationTool() : global_cage_vertex_position_(nullptr)
 	{
@@ -167,12 +155,14 @@ public:
 	{ 
 		if (deformation_type_ == "MVC")
 		{
-			update_local_area_object_mvc(object, object_vertex_position, object_vertex_index); 
+			update_local_area_object_mvc(object, object_vertex_position, 
+										object_vertex_index, influence_area); 
 		}
 
 		if (deformation_type_ == "Green")
 		{
-			update_local_area_object_green(object, object_vertex_position, object_vertex_index);
+			update_local_area_object_green(object, object_vertex_position,
+										 object_vertex_index, influence_area);
 		}
 	}
 
@@ -509,9 +499,11 @@ private:
 			Vec3 new_position = {0.0, 0.0, 0.0};
 
 			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
-				const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cv);
+				const Vec3& cage_point = 
+					value<Vec3>(*global_cage_, global_cage_vertex_position_, cv);
 
-				uint32 cage_point_idx = value<uint32>(*global_cage_, global_cage_vertex_index_, cv);
+				uint32 cage_point_idx = 
+					value<uint32>(*global_cage_, global_cage_vertex_index_, cv);
 
 				new_position += object_weights_.position_(vidx, cage_point_idx) * cage_point;
 
@@ -675,9 +667,11 @@ private:
 			Vec3 new_position = {0.0, 0.0, 0.0};
 
 			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
-				const Vec3& cage_point = value<Vec3>(*global_cage_, global_cage_vertex_position_, cv);
+				const Vec3& cage_point = 
+					value<Vec3>(*global_cage_, global_cage_vertex_position_, cv);
 
-				uint32 cage_point_index = value<uint32>(*global_cage_, global_cage_vertex_index_, cv);
+				uint32 cage_point_index = 
+					value<uint32>(*global_cage_, global_cage_vertex_index_, cv);
 
 				new_position += axis_weights.position_(axis_vertex_index, cage_point_index) * cage_point;
 
@@ -890,11 +884,7 @@ private:
 			return true;
 		});
 
-		double l[3];
-		double theta[3];
-		double w[3];
-		double c[3];
-		double s[3];
+		double l[3], theta[3], w[3], c[3], s[3];
 
 		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 		{
@@ -1006,11 +996,7 @@ private:
 			return true;
 		});
 
-		double l[3];
-		double theta[3];
-		double w[3];
-		double c[3];
-		double s[3];
+		double l[3], theta[3], w[3], c[3], s[3];
 
 		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 		{
@@ -1120,11 +1106,7 @@ private:
 			return true;
 		});
 
-		double l[3];
-		double theta[3];
-		double w[3];
-		double c[3];
-		double s[3];
+		double l[3], theta[3], w[3], c[3], s[3];
 
 		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 		{

@@ -24,8 +24,13 @@
 #ifndef CGOGN_MODELING_HANDLE_DEFORMATION_TOOL_H_
 #define CGOGN_MODELING_HANDLE_DEFORMATION_TOOL_H_
 
+#include <cgogn/core/types/cells_set.h>
 
-#include <cgogn/modeling/types/space_deformation_tool.h>
+#include <cgogn/core/functions/mesh_info.h>
+
+#include <cgogn/geometry/types/vector_traits.h>
+#include <cgogn/modeling/algos/deformation/creation_space_tool.h>
+#include <cgogn/modeling/algos/deformation/deformation_utils.h>
 #include <cgogn/geometry/algos/laplacian.h>
 
 namespace cgogn
@@ -39,7 +44,7 @@ template <typename MESH>
  * @Class Handle Deformation Tool
  * Represents the specificities of the handle tool 
 */
-class HandleDeformationTool : public SpaceDeformationTool<MESH>
+class HandleDeformationTool
 {
 	using Graph = cgogn::IncidenceGraph;
 
@@ -63,7 +68,9 @@ public:
 	Eigen::VectorXf global_cage_weights_;
 	Eigen::VectorXf global_cage_normal_weights_;
 
-	HandleDeformationTool() : SpaceDeformationTool<MESH>(),control_handle_vertex_position_(nullptr)
+	std::vector<MeshVertex> object_influence_area_; 
+
+	HandleDeformationTool(): control_handle_vertex_position_(nullptr)
 	{
 	}
 
@@ -85,6 +92,10 @@ public:
 
 		handle_normal_ = normal;
 		handle_position_ = center;
+	}
+
+	void set_deformation_type(const std::string new_type){
+		deformation_type_ = new_type; 
 	}
 
 	void set_geodesic_distance(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
@@ -158,6 +169,8 @@ private:
 	MeshVertex handle_mesh_vertex_;
 	Vec3 handle_position_; // also frame_origin
 	Vec3 handle_normal_;
+
+	std::string deformation_type_; 
 	// Eigen::Matrix3d local_frame_;
 	// Eigen::Matrix3d local_frame_inverse_;
 

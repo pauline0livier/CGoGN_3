@@ -24,7 +24,13 @@
 #ifndef CGOGN_MODELING_AXIS_DEFORMATION_TOOL_H_
 #define CGOGN_MODELING_AXIS_DEFORMATION_TOOL_H_
 
-#include <cgogn/modeling/types/space_deformation_tool.h>
+#include <cgogn/core/types/cells_set.h>
+
+#include <cgogn/core/functions/mesh_info.h>
+
+#include <cgogn/geometry/types/vector_traits.h>
+#include <cgogn/modeling/algos/deformation/creation_space_tool.h>
+#include <cgogn/modeling/algos/deformation/deformation_utils.h>
 #include <cgogn/rendering/types.h>
 
 namespace cgogn
@@ -34,7 +40,7 @@ namespace modeling
 {
 
 template <typename MESH>
-class AxisDeformationTool: public SpaceDeformationTool<MESH>
+class AxisDeformationTool
 {
 
 	using Graph = cgogn::IncidenceGraph;
@@ -60,7 +66,9 @@ public:
 	Eigen::MatrixXf global_cage_weights_;
 	Eigen::MatrixXf global_cage_normal_weights_;
 
-	AxisDeformationTool() : SpaceDeformationTool<MESH>(), control_axis_vertex_position_(nullptr)
+	std::vector<MeshVertex> object_influence_area_; 
+
+	AxisDeformationTool(): control_axis_vertex_position_(nullptr)
 	{
 	}
 
@@ -82,6 +90,10 @@ public:
 			cgogn::add_attribute<uint32, Graph::Vertex>(*control_axis_, "vertex_index");
 
 		cgogn::modeling::set_attribute_vertex_index_graph(*control_axis_, vertex_index.get());
+	}
+
+	void set_deformation_type(const std::string new_type){
+		deformation_type_ = new_type; 
 	}
 
 	void set_binding_rigid(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
@@ -162,6 +174,8 @@ private:
 	Vec3 axis_normal_;
 	Eigen::Matrix3d local_frame_;
 	Eigen::Matrix3d local_frame_inverse_;
+
+	std::string deformation_type_; 
 
 	std::vector<rendering::Transfo3d> axis_transformation_; 
 

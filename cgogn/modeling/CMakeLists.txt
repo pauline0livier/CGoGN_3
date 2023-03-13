@@ -52,9 +52,6 @@ target_sources(${PROJECT_NAME}	PRIVATE
 
 		"${CMAKE_CURRENT_LIST_DIR}/types/mesh_parameters.h"
 		"${CMAKE_CURRENT_LIST_DIR}/types/graph_parameters.h"
-		"${CMAKE_CURRENT_LIST_DIR}/types/space_deformation_tool.h"
-		"${CMAKE_CURRENT_LIST_DIR}/types/space_deformation_tool.h"
-		"${CMAKE_CURRENT_LIST_DIR}/types/space_deformation_tool.h"
 		"${CMAKE_CURRENT_LIST_DIR}/types/cage_deformation_tool.h"
 		"${CMAKE_CURRENT_LIST_DIR}/types/global_cage_deformation_tool.h"
 		"${CMAKE_CURRENT_LIST_DIR}/types/handle_deformation_tool.h"

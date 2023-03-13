@@ -30,18 +30,30 @@ namespace cgogn
 namespace modeling
 {
 
-enum class SelectionMethod: int
+enum class SelectionMethod : int
 {
 	SingleCell = 0,
 	WithinSphere,
 	ConnectedComponent
 };
 
-enum class SelectingCell: int
+enum class SelectingCell : int
 {
 	VertexSelect = 0,
 	EdgeSelect,
 	FaceSelect
+};
+
+struct VectorWeights
+{
+	Eigen::VectorXd position_;
+	Eigen::VectorXd normal_;
+};
+
+struct MatrixWeights
+{
+	Eigen::MatrixXd position_;
+	Eigen::MatrixXd normal_;
 };
 
 } // namespace modeling
