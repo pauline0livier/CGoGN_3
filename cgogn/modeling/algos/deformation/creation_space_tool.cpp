@@ -350,7 +350,8 @@ Graph::Vertex create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, G
 	Graph::Vertex nv = add_vertex(g);
 
 	value<Vec3>(g, vertex_position, nv) = center1;
-	value<Scalar>(g, vertex_radius, nv) = Scalar(5); //raptor
+	//value<Scalar>(g, vertex_radius, nv) = Scalar(5); //raptor
+	value<Scalar>(g, vertex_radius, nv) = Scalar(0.3);
 	//value<Scalar>(g, vertex_radius, nv) = Scalar(0.05);
 
 	return nv;

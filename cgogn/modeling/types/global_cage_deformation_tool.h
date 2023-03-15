@@ -138,6 +138,7 @@ public:
 	void bind_object(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position,
 					 CMap2::Attribute<uint32>* object_vertex_index)
 	{
+		object_weights_.position_.setZero();
 		if (deformation_type_ == "MVC")
 		{
 			bind_object_mvc(object, object_vertex_position, object_vertex_index); 
@@ -145,6 +146,7 @@ public:
 
 		if (deformation_type_ == "Green")
 		{
+			object_weights_.normal_.setZero();
 			bind_object_green(object, object_vertex_position, object_vertex_index);
 		}
 	}
@@ -209,11 +211,13 @@ public:
 
 	void bind_handle(const std::string& graph_name, const Vec3& handle_position)
 	{
+		local_handle_weights_[graph_name].position_.setZero();
 		if (deformation_type_ == "MVC"){
 			bind_handle_mvc(graph_name, handle_position); 
 		}
 
 		if (deformation_type_ == "Green"){
+			local_handle_weights_[graph_name].normal_.setZero();
 			bind_handle_green(graph_name, handle_position); 
 		}
 	}
@@ -264,15 +268,17 @@ public:
 		}
 	}
 
-	void bind_handle(Graph& g, const std::string& graph_name, 
+	void bind_axis(Graph& g, const std::string& graph_name, 
 					std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 					const std::vector<Graph::Vertex>& axis_vertices)
 	{
+		local_axis_weights_[graph_name].position_.setZero();
 		if (deformation_type_ == "MVC"){
 			bind_axis_mvc(g, graph_name, graph_vertex_position, axis_vertices); 
 		}
 
 		if (deformation_type_ == "Green"){
+			local_axis_weights_[graph_name].normal_.setZero();
 			bind_axis_green(g, graph_name, graph_vertex_position, axis_vertices); 
 		}
 	}

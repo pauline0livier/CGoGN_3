@@ -160,7 +160,7 @@ public:
 					modeling::GraphParameters<GRAPH>& p = *graph_parameters_[g];
 					if (p.vertex_position_.get() == attribute)
 					{
-						p.vertex_base_size_ = 6.0;
+						p.vertex_base_size_ = 0.4;//6.0; // 0.4; //
 						p.update_selected_vertices_vbo();
 					}
 
@@ -272,7 +272,7 @@ private:
 		p.vertex_position_ = vertex_position;
 		if (p.vertex_position_)
 		{
-			p.vertex_base_size_ = 5.0;
+			p.vertex_base_size_ = 0.5; // 5.0; fox
 			p.update_selected_vertices_vbo();
 		}
 
@@ -488,7 +488,6 @@ private:
 			cdt->set_center_control_cage(std::get<2>(extended_boundaries));
 
 			boost::synapse::emit<cage_added>(this, cdt);
-
 		}
 	}
 
@@ -507,7 +506,7 @@ private:
 
 		gcdt->init_bind_object(object, object_vertex_position.get(), object_vertex_index.get());
 
-		if (cage_container_.size() < 0)
+		/*if (cage_container_.size() < 0)
 		{
 			// BEWARE if local cage is outside of global cage => need to increase global cage
 			for (auto& [name, cdt] : cage_container_)
@@ -520,7 +519,7 @@ private:
 				gcdt->init_bind_local_cage(*(cdt->control_cage_), name, p_cage.vertex_position_,
 										   local_cage_vertex_index);
 			}
-		}
+		}*/
 
 		if (handle_container_.size() > 0)
 		{
@@ -600,7 +599,7 @@ private:
 								}
 							}
 
-							if (current_gcdt->local_cage_weights_.size() > 0)
+							/*if (current_gcdt->local_cage_weights_.size() > 0)
 							{
 								for (auto& [name, mw] : current_gcdt->local_cage_weights_)
 								{
@@ -617,7 +616,7 @@ private:
 									mesh_provider_->emit_attribute_changed(
 										*(local_cdt->control_cage_), local_cdt->control_cage_vertex_position_.get());
 								}
-							}
+							}*/
 						}
 					}
 				});
@@ -654,13 +653,12 @@ private:
 		mesh_provider_->emit_connectivity_changed(*i_cage);
 		mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
 
-		//View* v1 = app_.current_view();
+		// View* v1 = app_.current_view();
 
-		//surface_render_->set_vertex_position(*v1, *i_cage, i_cage_vertex_position);
-		//surface_render_->set_render_faces(*v1, *i_cage, false);
+		// surface_render_->set_vertex_position(*v1, *i_cage, i_cage_vertex_position);
+		// surface_render_->set_render_faces(*v1, *i_cage, false);
 
-		
-		// end test 
+		// end test
 
 		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
 			get_attribute<uint32, MeshVertex>(object, "vertex_index");
@@ -676,10 +674,9 @@ private:
 							cage_container_[p_cage.name_];
 
 						std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
-								get_attribute<uint32, MeshVertex>(object, "vertex_index");
+							get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
-						current_cdt->deform_object(object, object_vertex_position.get(),
-														object_vertex_index.get());
+						current_cdt->deform_object(object, object_vertex_position.get(), object_vertex_index.get());
 
 						mesh_provider_->emit_attribute_changed(object, object_vertex_position.get());
 					}
@@ -712,29 +709,15 @@ private:
 			hdt->set_attenuation_round(object, object_vertex_position);
 		}
 
-		/*if (global_cage_container_.size() > 0)
+		if (global_cage_container_.size() > 0)
 		{
 			for (auto& [name, gcdt] : global_cage_container_)
 			{
-				if (gcdt->deformation_type_ == "MVC"){
-					Eigen::VectorXf weights =
-					gcdt->bind_mvc_handle(*(hdt->control_handle_),
-						p_handle.vertex_position_, hdt->get_handle_vertex());
+				Vec3 handle_position = hdt->get_handle_position(); 
 
-					hdt->global_cage_weights_ = weights;
-				}
-
-				if (gcdt->deformation_type_ == "Green"){
-					std::pair<Eigen::VectorXf, Eigen::VectorXf> weights =
-						gcdt->bind_green_handle(*(hdt->control_handle_),
-						p_handle.vertex_position_, hdt->get_handle_vertex());
-
-					hdt->global_cage_weights_ = weights.first;
-					hdt->global_cage_normal_weights_ = weights.second;
-				}
-
+				gcdt->init_bind_handle(p_handle.name_, handle_position);
 			}
-		}*/
+		}
 
 		hdt->handle_attribute_update_connection_ =
 			boost::synapse::connect<typename GraphProvider<GRAPH>::template attribute_changed_t<Vec3>>(
@@ -760,7 +743,7 @@ private:
 							Vec3 e_bb_min = std::get<0>(extended_bounding_box);
 							Vec3 e_bb_max = std::get<1>(extended_bounding_box);
 
-							/*if (global_cage_container_.size() > 0)
+							if (global_cage_container_.size() > 0)
 							{
 								for (auto& [name, gcdt] : global_cage_container_)
 								{
@@ -775,28 +758,52 @@ private:
 											*global_cage, gcdt->global_cage_vertex_position_.get());
 
 										// update weights vertices
-										gcdt->bind_mvc_object(object, object_vertex_position.get());
+										gcdt->bind_object(object, object_vertex_position.get(),
+														  object_vertex_index.get());
 
-										if (handle_container_.size() > 0)
+										// update weights spatial tools
+										if (gcdt->local_handle_weights_.size() > 0)
 										{
-											for (auto& [name, hdt] : handle_container_)
+											for (auto& [name_handle, vw] : gcdt->local_handle_weights_)
 											{
+												std::shared_ptr<modeling::HandleDeformationTool<MESH>> local_hdt =
+													handle_container_[name_handle];
 												modeling::GraphParameters<GRAPH>& p_handle =
-													*graph_parameters_[hdt->control_handle_];
+													*graph_parameters_[local_hdt->control_handle_];
 
-												GraphVertex handle_vertex = hdt->get_handle_vertex();
+												Vec3 handle_position = local_hdt->get_handle_position(); 
 
-												Eigen::VectorXf weights = gcdt->bind_mvc_handle(
-													*(hdt->control_handle_), p_handle.vertex_position_, handle_vertex);
+												gcdt->bind_handle(p_handle.name_, handle_position);
 
-												hdt->global_cage_weights_ = weights;
+												graph_provider_->emit_attribute_changed(
+													*(local_hdt->control_handle_),
+													local_hdt->control_handle_vertex_position_.get());
 											}
 										}
 
-										// update weights spatial tools
+										if (gcdt->local_axis_weights_.size() > 0)
+										{
+											for (auto& [name_axis, mw] : gcdt->local_axis_weights_)
+											{
+												std::shared_ptr<modeling::AxisDeformationTool<MESH>> local_adt =
+													axis_container_[name_axis];
+												modeling::GraphParameters<GRAPH>& p_axis =
+													*graph_parameters_[local_adt->control_axis_];
+
+												std::vector<GraphVertex> axis_vertices = local_adt->get_axis_skeleton();
+
+												gcdt->bind_axis(*(local_adt->control_axis_), p_axis.name_,
+																p_axis.vertex_position_, axis_vertices);
+
+												graph_provider_->emit_attribute_changed(
+													*(local_adt->control_axis_),
+													local_adt->control_axis_vertex_position_.get());
+											}
+										}
+
 									}
 								}
-							}*/
+							}
 						}
 					}
 				});
@@ -1194,8 +1201,8 @@ protected:
 								return true;
 							});
 
-							model_p.selected_vertices_set_->clear();
-							mesh_provider_->emit_cells_set_changed(*model_, model_p.selected_vertices_set_);
+							//model_p.selected_vertices_set_->clear();
+							//mesh_provider_->emit_cells_set_changed(*model_, model_p.selected_vertices_set_);
 						}
 
 						model_p.object_update_ = false;
@@ -1561,7 +1568,7 @@ protected:
 
 						if (selected_cage_)
 						{
-
+							selected_graph_ = nullptr;
 							modeling::Parameters<MESH>& old_p = *parameters_[selected_mesh_];
 							old_p.selected_vertices_set_ = nullptr;
 
@@ -1632,7 +1639,7 @@ protected:
 
 						if (selected_handle_)
 						{
-
+							selected_mesh_ = nullptr;
 							selected_graph_ = selected_handle_;
 							modeling::GraphParameters<GRAPH>& handle_p = *graph_parameters_[selected_graph_];
 
@@ -1706,7 +1713,7 @@ protected:
 						{
 							/*modeling::Parameters<MESH>& old_p = *parameters_[selected_mesh_];
 							old_p.selected_vertices_set_ = nullptr;*/
-
+							selected_mesh_ = nullptr;
 							selected_graph_ = selected_axis_;
 							modeling::GraphParameters<GRAPH>& axis_p = *graph_parameters_[selected_graph_];
 

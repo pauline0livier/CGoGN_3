@@ -118,7 +118,7 @@ public:
 		attenuation_.resize(nbv_object);
 		attenuation_.setZero();
 
-		compute_attenuation(object, vertex_position);
+		compute_attenuation_spike(object, vertex_position);
 	}
 
 	void set_attenuation_round(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
@@ -128,7 +128,7 @@ public:
 		attenuation_.resize(nbv_object);
 		attenuation_.setZero();
 
-		compute_attenuation(object, vertex_position);
+		compute_attenuation_round(object, vertex_position);
 	}
 
 	void deform_object(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position, CMap2::Attribute<uint32>* object_vertex_index )
@@ -174,7 +174,60 @@ private:
 	// Eigen::Matrix3d local_frame_;
 	// Eigen::Matrix3d local_frame_inverse_;
 
-	void compute_attenuation(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
+	void compute_attenuation_round(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
+	{
+		std::shared_ptr<Attribute<uint32>> object_vertex_index =
+			get_attribute<uint32, MeshVertex>(object, "vertex_index");
+
+		std::shared_ptr<Attribute<Scalar>> vertex_geodesic_distance =
+			cgogn::get_attribute<Scalar, MeshVertex>(object, "geodesic_distance");
+
+		// float h = 0.0f;
+		Scalar max_dist = 0.0;
+		std::vector<Vec2> attenuation_points;
+
+		const std::size_t influence_area_length = this->object_influence_area_.size(); 
+
+		for (std::size_t i = 0; i < influence_area_length; i++)
+		{
+			MeshVertex v = this->object_influence_area_[i]; 
+			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
+
+			Vec3 surface_point = value<Vec3>(object, vertex_position, v);
+
+			Vec3 point_to_handle = (surface_point - handle_position_);
+			// double i_dist = point_to_handle.squaredNorm();
+			// double i_dist = point_to_handle.norm();
+			Scalar i_dist = value<Scalar>(object, vertex_geodesic_distance, v);
+			// this->cage_influence_distance(surface_point_idx, nbf_cage, nbv_cage);
+
+			if (i_dist > max_dist)
+			{
+				max_dist = i_dist;
+			}
+
+			// this->attenuation_(surface_point_idx) = (float)sin(0.5*M_PI * (i_dist ));
+			attenuation_(surface_point_idx) = i_dist;
+			
+		}
+
+		for (std::size_t i = 0; i < influence_area_length; i++)
+		{
+			MeshVertex v = this->object_influence_area_[i]; 
+			uint32 surface_point_idx = value<uint32>(object, object_vertex_index, v);
+
+			// attenuation_(surface_point_idx) = 1.0 - pow((attenuation_(surface_point_idx) / max_dist),2);
+
+			// attenuation_(surface_point_idx) = pow(1.0 - (attenuation_(surface_point_idx) / max_dist),5);
+
+			//attenuation_(surface_point_idx) = 1.0 - (attenuation_(surface_point_idx) / max_dist);
+			//attenuation_[surface_point_idx] = exp(-(attenuation_[surface_point_idx]*attenuation_[surface_point_idx]) / (max_dist*max_dist));
+			
+			attenuation_[surface_point_idx] = exp(-attenuation_[surface_point_idx] / max_dist);
+		}
+	}
+
+	void compute_attenuation_spike(MESH& object, const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
 			get_attribute<uint32, MeshVertex>(object, "vertex_index");
@@ -221,6 +274,8 @@ private:
 			// attenuation_(surface_point_idx) = pow(1.0 - (attenuation_(surface_point_idx) / max_dist),5);
 
 			attenuation_(surface_point_idx) = 1.0 - (attenuation_(surface_point_idx) / max_dist);
+			//attenuation_[surface_point_idx] = exp(-(attenuation_[surface_point_idx]*attenuation_[surface_point_idx]) / max_dist);
+			//attenuation_[surface_point_idx] = exp(-sqrt(attenuation_[surface_point_idx]/max_dist)); 
 			
 		}
 	}

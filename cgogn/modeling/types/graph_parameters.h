@@ -97,7 +97,8 @@ public:
 
 			std::vector<Vertex> picked;
 
-			geometry::picking_sphere(*graph_, vertex_position_.get(), 5, A, B, picked);
+			//geometry::picking_sphere(*graph_, vertex_position_.get(), 5, A, B, picked);
+			geometry::picking_sphere(*graph_, vertex_position_.get(), 1.0, A, B, picked);
 			if (!picked.empty())
 			{
 				switch (button)
