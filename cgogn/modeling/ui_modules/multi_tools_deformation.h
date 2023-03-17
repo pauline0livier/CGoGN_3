@@ -635,9 +635,6 @@ private:
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 
-		/*cdt->object_influence_area_ = influence_set_;
-		influence_set_.clear();*/
-
 		// test with fixed influence area
 		std::string cage_name = "influence_cage";
 		MESH* i_cage = mesh_provider_->add_mesh(cage_name);
@@ -652,11 +649,6 @@ private:
 
 		mesh_provider_->emit_connectivity_changed(*i_cage);
 		mesh_provider_->emit_attribute_changed(*i_cage, i_cage_vertex_position.get());
-
-		// View* v1 = app_.current_view();
-
-		// surface_render_->set_vertex_position(*v1, *i_cage, i_cage_vertex_position);
-		// surface_render_->set_render_faces(*v1, *i_cage, false);
 
 		// end test
 
@@ -1080,10 +1072,9 @@ protected:
 			{
 				ImGui::Separator();
 				ImGui::Separator();
-				ImGui::Text("Create tool");
+				ImGui::Text("Create one tool");
 				ImGui::Separator();
 
-				ImGui::Separator();
 				ImGui::Text("Global");
 				if (ImGui::Button("Create global cage"))
 				{
@@ -1540,7 +1531,7 @@ protected:
 
 				ImGui::Separator();
 				ImGui::Separator();
-				ImGui::Text("Deform Tool");
+				ImGui::Text("Deform one tool");
 
 				ImGui::RadioButton("Deform Axis", reinterpret_cast<int*>(&deformed_tool_), Axis);
 				ImGui::SameLine();
@@ -1764,6 +1755,10 @@ protected:
 						}
 					}
 				}
+
+				ImGui::Separator();
+				ImGui::Separator();
+				ImGui::Text("Deform multiple tools");
 
 				// mesh_provider_->mesh_data(m).outlined_until_ = App::frame_time_ + 1.0;
 			}
