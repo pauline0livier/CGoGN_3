@@ -57,6 +57,13 @@ class CageDeformationTool
 	using Vec2 = geometry::Vec2;
 	using Vec3 = geometry::Vec3;
 
+	/**
+	 * point structure
+	 * point can be on the local cage
+	 * 	if it is the case: 
+	 * 		- inside_control_cage = true
+	 * 		- control_cage_index defined
+	*/
 	struct Point
 	{
 		Vec3 position;
@@ -64,6 +71,10 @@ class CageDeformationTool
 		bool inside_control_cage;
 	};
 
+	/**
+	 * triangle structure
+	 * virtual_cage_indices for virtual cubes 
+	*/
 	struct Triangle
 	{
 		std::vector<Point> points;
@@ -72,6 +83,13 @@ class CageDeformationTool
 		std::pair<Point, Point> edges;
 	};
 
+	/**
+	 * virtual cube structure 
+	 * can contain point belonging 
+	 * to the control cage 
+	 * Constraint: not all points belong to the local cage
+	 * 
+	*/
 	struct Virtual_cube
 	{
 		std::vector<Triangle> triangles; 
@@ -79,6 +97,16 @@ class CageDeformationTool
 		std::vector<uint32_t> virtual_cage_indices;
 	};
 
+	/**
+	 * delimit the local cage in terms of plane intersections
+	 * Each local_direction_control_planes is specific to a direction
+	 * line equation a*x + b*y + c*z = d
+	 * d_min and d_max for the extrema heights 
+	 * d_gap = d_max - d_min, gap between the extrema values
+	 * triangles_d_min and triangles_d_max represent the square faces 
+	 * shift_after_d_max = d_max + d_gap, shift_before_d_min = d_min - d_gap
+	 * 	that is the position of the next virtual cube planes along this direction
+	*/
 	struct Local_direction_control_planes
 	{
 		double d_min;
@@ -93,6 +121,15 @@ class CageDeformationTool
 		Vec3 shift_before_d_min;
 	};
 
+	/**
+	 * Fixed_data structure 
+	 * for a point p in the influence area 
+	 *  if p is inside a virtual cube 
+	 * 	then the deformation contribution 
+	 * 	of the virtual points is a constant (since the points are fixed)
+	 * 	position_ encodes the constant on the position
+	 * 	normal_ the constant on the normal (used for Green coordinates)
+	*/
 	struct Fixed_data
 	{
 		Eigen::MatrixXd position_; 
@@ -126,6 +163,12 @@ public:
 	{
 	}
 
+	/**
+	 * create local cage (or control cage)
+	 * initialize the triangles set of this cage 
+	 * initialize the local_direction_control_planes of this local cage
+	 * generate the virtual cubes
+	*/
 	void create_space_tool(MESH* m, 
 					CMap2::Attribute<Vec3>* vertex_position, 
 					const Vec3& bb_min, const Vec3& bb_max,
@@ -156,11 +199,21 @@ public:
 		init_virtual_cubes();
 	}
 
+	/**
+	 * set the deformation_type
+	 * so far only MVC
+	*/
 	void set_deformation_type(const std::string& new_type)
 	{
 		deformation_type_ = new_type;
 	}
 
+	/**
+	 * set influence_cage and object influence area 
+	 * default influence area 
+	 * defined as the vertices of the object 
+	 * inside an influence cage 3x the size of the control cage
+	*/
 	void set_influence_cage(MESH& object, const CMap2::Attribute<Vec3>* object_vertex_position, MESH* m,
 							CMap2::Attribute<Vec3>* vertex_position)
 	{
@@ -196,11 +249,18 @@ public:
 		});
 	}
 
+	/**
+	 * set the center of the control cage
+	*/
 	void set_center_control_cage(Vec3& center)
 	{
 		control_cage_center_ = center;
 	}
 
+	/**
+	 * initialize the binding of the object 
+	 * so far only MVC deformation type
+	*/
 	void init_bind_object(MESH& object, 
 			const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
 			const std::shared_ptr<Attribute<uint32>>& object_vertex_index)
@@ -225,6 +285,9 @@ public:
 		}
 	}
 
+	/**
+	 * update the binding of the object
+	*/
 	void bind_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
 					 const std::shared_ptr<Attribute<uint32>>& object_vertex_index)
 	{
@@ -235,6 +298,9 @@ public:
 		}
 	}
 
+	/**
+	 * deform the object following the deformation type 
+	*/
 	void deform_object(MESH& object, CMap2::Attribute<Vec3>* 
 						object_vertex_position,
 					   CMap2::Attribute<uint32>* object_vertex_index)
@@ -272,6 +338,10 @@ private:
 
 	std::string deformation_type_;
 
+	/**
+	 * initialize the set of triangles 
+	 * from the square faces of the control cage
+	*/
 	void init_triangles()
 	{
 
@@ -316,10 +386,16 @@ private:
 	}
 
 	/**
-	 * Delimit the control cage area in terms of planes
-	 * Plane of equation ax + by + cz = d
-	 * Assign each face (or pair of triangles) to its corresponding direction
+	 * 
+	 * 
+	 * 
 	 */
+	/**
+	 * initialize the control cage planes 
+	 * delimit the control cage area in terms of planes
+	 * Plane of equation ax + by + cz = d
+	 * Create the three local direction control planes 
+	*/
 	void init_control_cage_plane()
 	{
 		const Vec3 x_dir = {1.0, 0.0, 0.0}, 
@@ -411,6 +487,9 @@ private:
 		local_z_direction_control_planes_.triangles_d_max = face_z_max;
 	}
 
+	/**
+	 * initialize the virtual cubes 
+	*/
 	void init_virtual_cubes()
 	{
 
@@ -421,6 +500,10 @@ private:
 		init_vertex_adjacent_virtual_cubes();
 	}
 
+	/**
+	 * initialize the virtual cubes 
+	 * that share a face with the control cage 
+	*/
 	void init_face_adjacent_virtual_cubes()
 	{
 		Virtual_cube face_adjacent0 = 
@@ -461,7 +544,10 @@ private:
 		face_adjacent_virtual_cube_.push_back(face_adjacent5);
 	}
 
-	// One common edge with control cage
+	/**
+	 * initialize the virtual cubes 
+	 * that share an edge with the control cage 
+	*/
 	void init_edge_adjacent_virtual_cubes()
 	{
 		const Vec3 shift_x_min = 
@@ -622,6 +708,10 @@ private:
 		edge_adjacent_virtual_cube_.push_back(edge_adjacent11);
 	}
 
+	/**
+	 * initialize the virtual cubes 
+	 * that share a vertex with the control cage 
+	*/
 	void init_vertex_adjacent_virtual_cubes()
 	{
 		const Vec3 shift_x_min = 
@@ -752,6 +842,12 @@ private:
 		vertex_adjacent_virtual_cube_.push_back(vertex_adjacent7);
 	}
 
+	/**
+	 * compute a virtual cube 
+	 * from a face and a shiftVector 
+	 * shifted the points of the face to create the opposite face
+	 * link the set of points to create the virtual cube from it 
+	*/
 	Virtual_cube get_virtual_cube_triangles(
 								const std::pair<Triangle, Triangle> face, 
 								const Vec3& shift_vector)
@@ -854,6 +950,19 @@ private:
 		return new_virtual_cube;
 	}
 
+	/**
+	 * find the virtual cube that contains the target point
+	 * point defined by its height on the three axis 
+	 * @param {double} d_x target point height on the x-direction
+	 * @param {double} d_y target point height on the y-direction 
+	 * @param {double} d_z target point height on the z-direction
+	 * @param {bool} valid_x_dir 
+	 * 				target point inside the plane boundaries x-direction
+	 * @param {bool} valid_y_dir 
+	 * 				target point inside the plane boundaries y-direction
+	 * @param {bool} valid_z_dir 
+	 * 				target point inside the plane boundaries z-direction
+	*/
 	Virtual_cube find_virtual_cube_target(const double& d_x, 
 									const double& d_y, const double& d_z, 
 									const bool& valid_x_dir, 
@@ -1029,6 +1138,13 @@ private:
 		}
 	}
 
+	/**
+	 * bind influence area of object with MVC deformation type 
+	 * for each point of the influence area
+	 * 	determine if inside control cage -> classic MVC binding
+	 * 				otherwise, need to find corresponding virtual cube 
+	 * 							compute MVC inside the virtual cube 
+	*/
 	void bind_object_mvc(MESH& object, 
 			const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
 			const std::shared_ptr<Attribute<uint32>>& object_vertex_index)
@@ -1084,6 +1200,11 @@ private:
 		}
 	}
 
+	/**
+	 * deform the influence area of the object with MVC deformation type
+	 * rely object_fixed_data to handle case of point inside virtual cube 
+	 * 
+	*/
 	void deform_object_mvc(MESH& object, 
 						CMap2::Attribute<Vec3>* object_vertex_position,
 						CMap2::Attribute<uint32>* object_vertex_index)
@@ -1122,6 +1243,11 @@ private:
 		}
 	}
 
+	/**
+	 * compute MVC on point inside the cage 
+	 * state-of-the-art method 
+	 * [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
+	*/
 	bool compute_mvc_on_point_inside_cage(const Vec3& surface_point, 
 										const uint32& surface_point_index)
 	{
@@ -1250,6 +1376,13 @@ private:
 		return false;
 	}
 
+	/**
+	 * compute MVC on point outside cage 
+	 * 	that is point inside a virtual cube 
+	 * compute the classical mvc for the points of the virtual cube 
+	 * 	that belongs to the local cage 
+	 * 	set the other fixed part inside object_fixed_data
+	*/
 	bool compute_mvc_on_point_outside_cage(const Vec3& surface_point, 
 								const uint32& surface_point_index,
 								const Virtual_cube virtual_cube_target, 
@@ -1424,39 +1557,64 @@ private:
 		return false;
 	}
 
-
+	/**
+	 * check point inside influence cage 
+	 * use the local_direction_control_plane structure 
+	 * to check if a point of the object (surface_point) 
+	 * is between the planes of the influence cage 
+	*/
 	bool check_point_inside_influence_cage(const Vec3& surface_point)
 	{
-		const double d_x = surface_point.dot(local_x_direction_control_planes_.direction),
-					 d_y = surface_point.dot(local_y_direction_control_planes_.direction),
-					 d_z = surface_point.dot(local_z_direction_control_planes_.direction);
+		const double d_x = surface_point
+						.dot(local_x_direction_control_planes_.direction),
+					 d_y = surface_point
+					 	.dot(local_y_direction_control_planes_.direction),
+					 d_z = surface_point
+					 	.dot(local_z_direction_control_planes_.direction);
 
-		const double influence_cage_d_x_min =
-			local_x_direction_control_planes_.d_min - local_x_direction_control_planes_.d_gap;
+		const double influence_cage_d_x_min = 
+			local_x_direction_control_planes_.d_min 
+				- local_x_direction_control_planes_.d_gap;
 		const double influence_cage_d_x_max =
-			local_x_direction_control_planes_.d_max + local_x_direction_control_planes_.d_gap;
+			local_x_direction_control_planes_.d_max 
+				+ local_x_direction_control_planes_.d_gap;
 
 		const double influence_cage_d_y_min =
-			local_y_direction_control_planes_.d_min - local_y_direction_control_planes_.d_gap;
+			local_y_direction_control_planes_.d_min 
+				- local_y_direction_control_planes_.d_gap;
 		const double influence_cage_d_y_max =
-			local_y_direction_control_planes_.d_max + local_y_direction_control_planes_.d_gap;
+			local_y_direction_control_planes_.d_max 
+				+ local_y_direction_control_planes_.d_gap;
 
 		const double influence_cage_d_z_min =
-			local_z_direction_control_planes_.d_min - local_z_direction_control_planes_.d_gap;
+			local_z_direction_control_planes_.d_min 
+				- local_z_direction_control_planes_.d_gap;
 		const double influence_cage_d_z_max =
-			local_z_direction_control_planes_.d_max + local_z_direction_control_planes_.d_gap;
+			local_z_direction_control_planes_.d_max 
+				+ local_z_direction_control_planes_.d_gap;
 
-		const bool valid_x_dir = (d_x <= influence_cage_d_x_max && d_x >= influence_cage_d_x_min),
+		const bool valid_x_dir = 
+					(d_x <= influence_cage_d_x_max && 
+						d_x >= influence_cage_d_x_min),
 
-				   valid_y_dir = (d_y <= influence_cage_d_y_max && d_y >= influence_cage_d_y_min),
+				   valid_y_dir = 
+				   (d_y <= influence_cage_d_y_max && 
+				   		d_y >= influence_cage_d_y_min),
 
-				   valid_z_dir = (d_z <= influence_cage_d_z_max && d_z >= influence_cage_d_z_min);
+				   valid_z_dir = 
+				   (d_z <= influence_cage_d_z_max && 
+				   		d_z >= influence_cage_d_z_min);
 
 		return (valid_x_dir && valid_y_dir && valid_z_dir);
 	}
 
-	std::vector<Point> find_intersection_points_face(const std::pair<Triangle, Triangle>& face1,
-													 const std::pair<Triangle, Triangle>& face2)
+	/**
+	 * find intersection points between two faces  
+	 * @returns the edge common to the two provided faces 
+	*/
+	std::vector<Point> find_intersection_points_face(
+			const std::pair<Triangle, Triangle>& face1,
+			const std::pair<Triangle, Triangle>& face2)
 	{
 
 		std::vector<Point> intersect_points;
@@ -1481,7 +1639,9 @@ private:
 			{
 				Point target_point_face2 = points_face_2[j];
 
-				const double distance_p1_p2 = (target_point_face1.position - target_point_face2.position).norm();
+				const double distance_p1_p2 = 
+					(target_point_face1.position - target_point_face2.position)
+					.norm();
 				if (distance_p1_p2 < epsilon)
 				{
 					intersect_points.push_back(target_point_face1);
@@ -1493,8 +1653,13 @@ private:
 		return intersect_points;
 	}
 
-	Point find_intersection_point(const std::pair<Triangle, Triangle> face1, const std::pair<Triangle, Triangle> face2,
-								  const std::pair<Triangle, Triangle> face3)
+	/**
+	 * find intersection point between three faces  
+	 * @returns the common point to the three provided faces 
+	*/
+	Point find_intersection_point(const std::pair<Triangle, Triangle> face1, 
+								const std::pair<Triangle, Triangle> face2,
+								const std::pair<Triangle, Triangle> face3)
 	{
 		Point intersection_point;
 
@@ -1524,14 +1689,19 @@ private:
 			for (std::size_t j = 0; j < 4; j++)
 			{
 				Point target_point_face2 = points_face_2[j];
-				const double distance_p1_p2 = (target_point_face1.position - target_point_face2.position).norm();
+				const double distance_p1_p2 = 
+					(target_point_face1.position 
+						- target_point_face2.position)
+					.norm();
 				if (distance_p1_p2 < epsilon)
 				{
 					for (std::size_t k = 0; k < 4; k++)
 					{
 						Point target_point_face3 = points_face_3[k];
 						const double distance_p1_p3 =
-							(target_point_face1.position - target_point_face3.position).norm();
+							(target_point_face1.position 
+								- target_point_face3.position)
+							.norm();
 						if (distance_p1_p3 < epsilon)
 						{
 							return target_point_face1;
@@ -1543,11 +1713,17 @@ private:
 
 		return intersection_point;
 	}
-
-	std::pair<Triangle, Triangle> get_face_from_intersecting_edge(const std::vector<Point>& intersect_points,
-																  const Vec3& shiftVector)
+ 
+	/**
+	 * get face from intersecting edge
+	 * create new face composed of the intersecting edge 
+	 * and this edge shifted by shiftVector
+	*/
+	std::pair<Triangle, Triangle> get_face_from_intersecting_edge(
+									const std::vector<Point>& intersect_points,
+									const Vec3& shiftVector)
 	{
-		// create new face composed of the intersecting edge and this edge shifted by y
+		
 		const Point face_point0 = intersect_points[0];
 		const Point face_point1 = intersect_points[1];
 
@@ -1566,17 +1742,27 @@ private:
 		return std::make_pair(local_triangle1, local_triangle2);
 	}
 
-	std::pair<Triangle, Triangle> get_face_from_intersecting_vertex(const Point& intersection_point,
-																	const Vec3& shiftVector1, const Vec3& shiftVector2)
+	
+	/**
+	 * get face from intersecting vertex
+	 * Create new face composed of the intersection point 
+	 * and the shift of this point wiht the two provided directions 
+	 * shiftVector1 and shiftVector2
+	 * 
+	*/
+	std::pair<Triangle, Triangle> get_face_from_intersecting_vertex(
+											const Point& intersection_point,
+											const Vec3& shiftVector1, 
+											const Vec3& shiftVector2)
 	{
-		// create new face composed of the intersection vertex and shifted in two directions
 		const Point face_point0 = intersection_point;
 
 		Point face_point1, face_point2, face_point3;
 		face_point1.position = face_point0.position + shiftVector1;
 		face_point1.inside_control_cage = false;
 
-		face_point2.position = (face_point1.position + shiftVector1) + shiftVector2;
+		face_point2.position = 
+						(face_point1.position + shiftVector1) + shiftVector2;
 		face_point2.inside_control_cage = false;
 
 		face_point3.position = face_point0.position + shiftVector2;
