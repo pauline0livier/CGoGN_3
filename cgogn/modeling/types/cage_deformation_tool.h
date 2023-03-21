@@ -95,8 +95,8 @@ class CageDeformationTool
 
 	struct Fixed_data
 	{
-		Eigen::Vector<Vec3, Eigen::Dynamic> position_; 
-		Eigen::Vector<Vec3, Eigen::Dynamic> normal_;
+		Eigen::MatrixXd position_; 
+		Eigen::MatrixXd normal_;
 	}; 
 
 public:
@@ -212,9 +212,12 @@ public:
 		object_weights_.position_.resize(nbv_object, nbv_cage);
 		object_weights_.position_.setZero();
 
-		object_fixed_data_.position_.resize(nbv_object);
+		object_fixed_data_.position_.resize(nbv_object, 3);
 		for (std::size_t i = 0; i < nbv_object; i++){
-			object_fixed_data_.position_[i] = Vec3(); 
+			for (std::size_t j = 0; j < 3; j++){
+				object_fixed_data_.position_(i,j) = 0.0; 
+			}
+
 		}
 
 		if (deformation_type_ == "MVC")
@@ -228,9 +231,11 @@ public:
 			object_weights_.normal_.resize(nbv_object, nbt_cage);
 			object_weights_.normal_.setZero();
 
-			object_fixed_data_.normal_.resize(nbv_object);
+			object_fixed_data_.normal_.resize(nbv_object, 3);
 			for (std::size_t i = 0; i < nbv_object; i++){
-				object_fixed_data_.normal_[i] = Vec3(); 
+				for (std::size_t j = 0; j < 3; j++){
+					object_fixed_data_.normal_(i,j) = 0.0; 
+				} 
 			}
 
 			bind_object_green(object, object_vertex_position, object_vertex_index);
@@ -986,7 +991,7 @@ private:
 			Vertex v = object_influence_area_[i];
 			uint32 object_point_index = value<uint32>(object, object_vertex_index, v);
 
-			Vec3 new_position = object_fixed_data_.position_[object_point_index];
+			Vec3 new_position = {object_fixed_data_.position_(object_point_index,0), object_fixed_data_.position_(object_point_index,1), object_fixed_data_.position_(object_point_index,2)};
 
 			foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
 				const Vec3& cage_point = value<Vec3>(*control_cage_, control_cage_vertex_position_, cv);
@@ -1188,7 +1193,9 @@ private:
 				}
 				else
 				{
-					object_fixed_data_.position_[surface_point_index] += cage_point.position;
+					object_fixed_data_.position_(surface_point_index,0) += cage_point.position[0];
+					object_fixed_data_.position_(surface_point_index,0) += cage_point.position[1];
+					object_fixed_data_.position_(surface_point_index,0) += cage_point.position[2];
 				}
 				return true;
 			}
@@ -1279,7 +1286,11 @@ private:
 			}
 			else
 			{
-				object_fixed_data_.position_[surface_point_index] += virtual_cage_coords_[p] * target_point.position;
+				object_fixed_data_.position_(surface_point_index,0) += virtual_cage_coords_[p] * target_point.position[0];
+
+				object_fixed_data_.position_(surface_point_index,1) += virtual_cage_coords_[p] * target_point.position[1];
+
+				object_fixed_data_.position_(surface_point_index,2) += virtual_cage_coords_[p] * target_point.position[2];
 					
 			}
 		}
