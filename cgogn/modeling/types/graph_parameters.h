@@ -42,6 +42,9 @@ namespace modeling
 
 template <typename GRAPH>
 
+/**
+ * @Class graph parameters 
+*/
 class GraphParameters
 {
 	template <typename T>
@@ -52,12 +55,17 @@ class GraphParameters
 	using Vec3 = geometry::Vec3;
 
 public:
+
 	GraphParameters()
-		: vertex_position_(nullptr), vertex_scale_factor_(1.0), sphere_scale_factor_(10.0),
-		  selected_vertices_set_(nullptr), object_update_(false), selecting_cell_(SelectingCell::VertexSelect),
-		  selection_method_(SelectionMethod::SingleCell), dragging_handle_(false), dragging_axis_(false)
+		: vertex_position_(nullptr), vertex_scale_factor_(1.0), 
+			sphere_scale_factor_(10.0), selected_vertices_set_(nullptr), 
+			object_update_(false), 
+			selecting_cell_(SelectingCell::VertexSelect),
+		  selection_method_(SelectionMethod::SingleCell), 
+		  dragging_handle_(false), dragging_axis_(false)
 	{
-		param_point_sprite_ = rendering::ShaderPointSprite::generate_param();
+		param_point_sprite_ = 
+			rendering::ShaderPointSprite::generate_param();
 		param_point_sprite_->color_ = rendering::GLColor(1, 0, 0, 0.65f);
 		param_point_sprite_->set_vbos({&selected_vertices_vbo_});
 
@@ -70,22 +78,35 @@ public:
 	{
 	}
 
-	// CGOGN_NOT_COPYABLE_NOR_MOVABLE(GraphParameters);
+	
 	GraphParameters(GraphParameters&&) = default;
 	GraphParameters& operator=(GraphParameters&&) = default;
 
+	/**
+	 * update selected vertices vbo 
+	 * selected vertices turns into red
+	*/
 	void update_selected_vertices_vbo()
 	{
 		if (selected_vertices_set_)
 		{
 			std::vector<Vec3> selected_vertices_position;
-			selected_vertices_position.reserve(selected_vertices_set_->size());
+			selected_vertices_position
+				.reserve(selected_vertices_set_->size());
+
 			selected_vertices_set_->foreach_cell(
-				[&](Vertex v) { selected_vertices_position.push_back(value<Vec3>(*graph_, vertex_position_, v)); });
+				[&](Vertex v) { 
+				selected_vertices_position
+						.push_back(value<Vec3>(*graph_, vertex_position_, v)); 
+				});
 			rendering::update_vbo(selected_vertices_position, &selected_vertices_vbo_);
 		}
 	}
 
+	/**
+	 * select vertices set 
+	 * use picking sphere to raycast on a sphere
+	*/
 	void select_vertices_set(ui::View* view, const int32& button, const int32& x, const int32& y)
 	{
 		if (selected_vertices_set_)
@@ -97,8 +118,8 @@ public:
 
 			std::vector<Vertex> picked;
 
-			//geometry::picking_sphere(*graph_, vertex_position_.get(), 5, A, B, picked);
-			geometry::picking_sphere(*graph_, vertex_position_.get(), 1.0, A, B, picked);
+			geometry::picking_sphere(*graph_, 
+								vertex_position_.get(), 5.0, A, B, picked);
 			if (!picked.empty())
 			{
 				switch (button)
@@ -114,45 +135,68 @@ public:
 		}
 	}
 
+	/**
+	 * h key pressed 
+	 * to displace handle type graph 
+	*/
 	void key_pressed_H_event(ui::View* view)
 	{
-		if (vertex_position_ && selected_vertices_set_ && selected_vertices_set_->size() > 0)
+		if (vertex_position_ && selected_vertices_set_ && 
+								selected_vertices_set_->size() > 0)
 		{
 			drag_z_ = 0.0;
 			selected_vertices_set_->foreach_cell([&](Vertex v) {
 				const Vec3& pos = value<Vec3>(*graph_, vertex_position_, v);
 				rendering::GLVec4d vec(pos[0], pos[1], pos[2], 1.0);
-				vec = view->projection_matrix_d() * view->modelview_matrix_d() * vec;
+
+				vec = 
+					view->projection_matrix_d() * 
+						view->modelview_matrix_d() * vec;
 				vec /= vec[3];
 				drag_z_ += (1.0 + vec[2]) / 2.0;
 			});
 			drag_z_ /= selected_vertices_set_->size();
-			previous_drag_pos_ = view->unproject(view->previous_mouse_x(), view->previous_mouse_y(), drag_z_);
+			previous_drag_pos_ = 
+				view->unproject(view->previous_mouse_x(), 
+								view->previous_mouse_y(), drag_z_);
 			dragging_handle_ = true;
 		}
 	}
 
+	/**
+	 * a or q key pressed 
+	 * to displace handle type axis 
+	*/
 	void key_pressed_A_event(ui::View* view)
 	{
-		if (vertex_position_ && selected_vertices_set_ && selected_vertices_set_->size() > 0)
+		if (vertex_position_ && selected_vertices_set_ && 
+									selected_vertices_set_->size() > 0)
 		{
 			if (selected_vertices_set_->size() == 1)
 			{
 				selected_vertices_set_->foreach_cell([&](Vertex v) {
 					if (v.index_ == 0 || v.index_ == 2)
 					{
-						std::vector<Edge>& edges = (*graph_->vertex_incident_edges_)[v.index_];
+						std::vector<Edge>& edges = 
+								(*graph_->vertex_incident_edges_)[v.index_];
 
 						Edge e0 = edges[0];
-						if ((*graph_->edge_incident_vertices_)[e0.index_].first == v)
+						if ((*graph_->edge_incident_vertices_)[e0.index_]
+																.first == v)
 						{
-							Vertex v1 = (*graph_->edge_incident_vertices_)[e0.index_].second;
-							rotation_center_ = value<Vec3>(*graph_, vertex_position_, v1);
+							Vertex v1 = 
+								(*graph_->edge_incident_vertices_)[e0.index_]
+												.second;
+							rotation_center_ = 
+								value<Vec3>(*graph_, vertex_position_, v1);
 						}
 						else
 						{
-							Vertex v1 = (*graph_->edge_incident_vertices_)[e0.index_].first;
-							rotation_center_ = value<Vec3>(*graph_, vertex_position_, v1);
+							Vertex v1 = 
+								(*graph_->edge_incident_vertices_)[e0.index_]
+									.first;
+							rotation_center_ = 
+								value<Vec3>(*graph_, vertex_position_, v1);
 						}
 					}
 				});
@@ -163,46 +207,65 @@ public:
 				selected_vertices_set_->foreach_cell([&](Vertex v) {
 					if (v.index_ == 0 || v.index_ == 2)
 					{
-						std::vector<Edge>& edges = (*graph_->vertex_incident_edges_)[v.index_];
+						std::vector<Edge>& edges = 
+							(*graph_->vertex_incident_edges_)[v.index_];
 						Edge e0 = edges[0];
 						Vertex v1;
 						Vertex target_vertex; 
-						if ((*graph_->edge_incident_vertices_)[e0.index_].first == v)
+						if ((*graph_->edge_incident_vertices_)[e0.index_]
+															.first == v)
 						{
-							v1 = (*graph_->edge_incident_vertices_)[e0.index_].second;
+							v1 = (*graph_->edge_incident_vertices_)
+													[e0.index_].second;
 						}
 						else
 						{
-							v1 = (*graph_->edge_incident_vertices_)[e0.index_].first;
+							v1 = (*graph_->edge_incident_vertices_)
+														[e0.index_].first;
 						}
 
-						std::vector<Edge>& edges1 = (*graph_->vertex_incident_edges_)[v1.index_];
+						std::vector<Edge>& edges1 = 
+							(*graph_->vertex_incident_edges_)[v1.index_];
+
 						Edge e1_0 = edges1[0];
-						if ((*graph_->edge_incident_vertices_)[e1_0.index_].first == v ||
-							(*graph_->edge_incident_vertices_)[e1_0.index_].second == v)
+						if ((*graph_->edge_incident_vertices_)
+							[e1_0.index_].first == v ||
+							(*graph_->edge_incident_vertices_)
+							[e1_0.index_].second == v)
 						{
 							Edge e1_1 = edges1[1];
-							if ((*graph_->edge_incident_vertices_)[e1_1.index_].first == v1)
+							if ((*graph_->edge_incident_vertices_)
+													[e1_1.index_].first == v1)
 							{
-								target_vertex = (*graph_->edge_incident_vertices_)[e1_1.index_].second;
+								target_vertex = 
+									(*graph_->edge_incident_vertices_)
+													[e1_1.index_].second;
 							}
 							else
 							{
-								target_vertex = (*graph_->edge_incident_vertices_)[e1_1.index_].first;
+								target_vertex = 
+									(*graph_->edge_incident_vertices_)
+													[e1_1.index_].first;
 							}
 						}
 						else
 						{
-							if ((*graph_->edge_incident_vertices_)[e1_0.index_].first == v1)
+							if ((*graph_->edge_incident_vertices_)
+											[e1_0.index_].first == v1)
 							{
-								target_vertex = (*graph_->edge_incident_vertices_)[e1_0.index_].second;
+								target_vertex = 
+									(*graph_->edge_incident_vertices_)
+												[e1_0.index_].second;
 							}
 							else
 							{
-								target_vertex = (*graph_->edge_incident_vertices_)[e1_0.index_].first;
+								target_vertex = 
+									(*graph_->edge_incident_vertices_)
+										[e1_0.index_].first;
 							}
 						}
-						rotation_center_ = value<Vec3>(*graph_, vertex_position_, target_vertex);
+						rotation_center_ = 
+						value<Vec3>(*graph_, vertex_position_, target_vertex);
 					}
 						
 				});
@@ -212,12 +275,20 @@ public:
 		}
 	}
 
+	/**
+	 * key released 
+	 * reset dragging parameter
+	*/
 	void key_release_handle_event(ui::View* view)
 	{
 		if (dragging_handle_)
 			dragging_handle_ = false;
 	}
 
+	/**
+	 * key released 
+	 * reset dragging parameter
+	*/
 	void key_release_axis_event(ui::View* view)
 	{
 		if (dragging_axis_){
@@ -228,6 +299,11 @@ public:
 			
 	}
 
+	/**
+	 * mouse displacement 
+	 * handle displaces along normal 
+	 * axis rotate around defined center and axis of rotation
+	*/
 	void mouse_displacement(ui::View* view, const int32& x, const int32& y)
 	{
 		if (dragging_handle_)
@@ -237,8 +313,9 @@ public:
 
 			Vec3 t_bis = t.dot(normal_) * normal_;
 
-			selected_vertices_set_->foreach_cell([&](Vertex v) { value<Vec3>(*graph_, vertex_position_, v) += t_bis; });
-			// as_rigid_as_possible(*selected_mesh_);
+			selected_vertices_set_->foreach_cell([&](Vertex v) { 
+				value<Vec3>(*graph_, vertex_position_, v) += t_bis; });
+			
 			previous_drag_pos_ = drag_pos + t_bis;
 		}
 
@@ -262,16 +339,22 @@ public:
 				}
 				
 
-				rendering::Transfo3d inv_camera = view->camera().frame_.inverse();
-				rendering::Transfo3d sm(Eigen::AngleAxisd(sign * 1.0 * spinning_speed, normal_)); // 2.0
-				rendering::Transfo3d rot((inv_camera * sm * view->camera().frame_).linear());
+				rendering::Transfo3d inv_camera = 
+									view->camera().frame_.inverse();
+				rendering::Transfo3d 
+				sm(Eigen::AngleAxisd(sign * 1.0 * spinning_speed, normal_)); // 2.0
+				rendering::Transfo3d 
+					rot((inv_camera * sm * view->camera().frame_).linear());
 
 				rendering::Transfo3d M =
-					Eigen::Translation3d(rotation_center_) * rot * Eigen::Translation3d(-rotation_center_);
+					Eigen::Translation3d(rotation_center_) * rot 
+						* Eigen::Translation3d(-rotation_center_);
 
 				if (selected_vertices_set_->size() == 1){
 					selected_vertices_set_->foreach_cell([&](Vertex v) {
-					Vec3& axis_vertex_position = value<Vec3>(*graph_, vertex_position_, v);
+					Vec3& axis_vertex_position = 
+						value<Vec3>(*graph_, vertex_position_, v);
+
 					axis_vertex_position = M * axis_vertex_position;
 					if (v.index_ == 0)
 					{
@@ -281,14 +364,12 @@ public:
 					{
 						transformations_[1] = M;
 					}
-					else
-					{
-						std::cout << "need to deal with this case later" << std::endl;
-					}
+					
 				});
 				} else if (selected_vertices_set_->size() == 2){
 					selected_vertices_set_->foreach_cell([&](Vertex v) {
-						Vec3& axis_vertex_position = value<Vec3>(*graph_, vertex_position_, v);
+						Vec3& axis_vertex_position = 
+							value<Vec3>(*graph_, vertex_position_, v);
 						axis_vertex_position = M * axis_vertex_position;
 					}); 
 
@@ -300,15 +381,21 @@ public:
 		}
 	}
 
+	/**
+	 * local draw 
+	*/
 	void local_draw(ui::View* view)
 	{
 		const rendering::GLMat4& proj_matrix = view->projection_matrix();
 		const rendering::GLMat4& view_matrix = view->modelview_matrix();
 
-		if (selecting_cell_ == modeling::SelectingCell::VertexSelect && selected_vertices_set_ &&
-			selected_vertices_set_->size() > 0 && param_point_sprite_->attributes_initialized())
+		if (selecting_cell_ == modeling::SelectingCell::VertexSelect && 
+								selected_vertices_set_ &&
+							selected_vertices_set_->size() > 0 && 
+				param_point_sprite_->attributes_initialized())
 		{
-			param_point_sprite_->point_size_ = vertex_base_size_ * vertex_scale_factor_;
+			param_point_sprite_->point_size_ = 
+				vertex_base_size_ * vertex_scale_factor_;
 			param_point_sprite_->bind(proj_matrix, view_matrix);
 			glDrawArrays(GL_POINTS, 0, selected_vertices_set_->size());
 			param_point_sprite_->release();
@@ -320,7 +407,8 @@ public:
 
 	std::shared_ptr<Attribute<Vec3>> vertex_position_;
 
-	std::unique_ptr<rendering::ShaderPointSprite::Param> param_point_sprite_;
+	std::unique_ptr<rendering::ShaderPointSprite::Param> 
+													param_point_sprite_;
 	std::unique_ptr<rendering::ShaderFlat::Param> param_flat_;
 
 	float32 vertex_scale_factor_;
