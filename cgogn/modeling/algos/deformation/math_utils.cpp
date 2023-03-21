@@ -182,7 +182,7 @@ std::pair<Vec3, Vec3> get_border_values_in_array_Vec3(
  * closest vertex in set from target position 
  * search for closest distance between vertex position and target one
  * useful to position handle at the user's chosen position
- * @returns {CMap2::Vertex}
+ * @returns {CMap2::Vertex} closest vertex
 */
 CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m, 
 						const CMap2::Attribute<Vec3>* vertex_position,
