@@ -32,7 +32,7 @@
 #include <cgogn/rendering/ui_modules/surface_render.h>
 #include <cgogn/rendering/ui_modules/graph_render.h>
 
-#include <cgogn/modeling/ui_modules/multi_tools_deformation.h>
+#include <cgogn/modeling/ui_modules/multi_tools_deformation_module.h>
 
 #include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 
@@ -59,16 +59,14 @@ int main(int argc, char** argv)
 	std::string filename;
 	 
 	if (argc < 2)
-		filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/low-poly-fox-by-pixelmannen.obj");
-		//filename = std::string(DEFAULT_MESH_PATH) + std::string("off/raptor.off"); 
-		//filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/sphere.obj"); 
+		filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/low-poly-fox-by-pixelmannen.obj"); 
 	else
 		filename = std::string(argv[1]);
 
 	cgogn::thread_start();
 
 	cgogn::ui::App app;
-	app.set_window_title("Deformation Local Cage");
+	app.set_window_title("Deformation Multi tools");
 	app.set_window_size(1000, 800);
 
 	cgogn::ui::MeshProvider<Mesh> mp(app);

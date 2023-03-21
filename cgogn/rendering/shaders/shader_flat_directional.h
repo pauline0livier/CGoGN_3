@@ -21,8 +21,8 @@
  *                                                                              *
  *******************************************************************************/
 
-#ifndef CGOGN_RENDERING_SHADERS_FLAT_PO_H_
-#define CGOGN_RENDERING_SHADERS_FLAT_PO_H_
+#ifndef CGOGN_RENDERING_SHADERS_FLAT_DIRECTIONAL_H_
+#define CGOGN_RENDERING_SHADERS_FLAT_DIRECTIONAL_H_
 
 #include <cgogn/rendering/cgogn_rendering_export.h>
 #include <cgogn/rendering/shader_program.h>
@@ -33,9 +33,9 @@ namespace cgogn
 namespace rendering
 {
 
-DECLARE_SHADER_CLASS(FlatPO, false, CGOGN_STR(FlatPO))
+DECLARE_SHADER_CLASS(FlatDirectional, false, CGOGN_STR(FlatDirectional))
 
-class CGOGN_RENDERING_EXPORT ShaderParamFlatPO : public ShaderParam
+class CGOGN_RENDERING_EXPORT ShaderParamFlatDirectional : public ShaderParam
 {
 
 	void set_uniforms() override;
@@ -50,15 +50,15 @@ public:
 	bool double_side_;
 	bool ghost_mode_;
 
-	using ShaderType = ShaderFlatPO;
+	using ShaderType = ShaderFlatDirectional;
 
-	ShaderParamFlatPO(ShaderType* sh)
+	ShaderParamFlatDirectional(ShaderType* sh)
 		: ShaderParam(sh), ambient_color_(0.05f, 0.05f, 0.05f, 1), diffuse_color_(0.05f, 0.05f, 0.05f, 1), specular_color_(0.05f, 0.05f, 0.05f, 1),
 		shininess_(40.0), alpha_(1.0), light_position_(10, 100, 1000), ghost_mode_(false)
 	{
 	}
 
-	inline ~ShaderParamFlatPO() override
+	inline ~ShaderParamFlatDirectional() override
 	{
 	}
 };

@@ -35,7 +35,7 @@
 #include <cgogn/rendering/shaders/outliner.h>
 #include <cgogn/rendering/shaders/shader_bold_line.h>
 #include <cgogn/rendering/shaders/shader_flat.h>
-#include <cgogn/rendering/shaders/shader_flatPO.h>
+#include <cgogn/rendering/shaders/shader_flat_directional.h>
 #include <cgogn/rendering/shaders/shader_flat_color_per_face.h>
 #include <cgogn/rendering/shaders/shader_flat_color_per_vertex.h>
 #include <cgogn/rendering/shaders/shader_flat_scalar_per_face.h>
@@ -121,7 +121,7 @@ class SurfaceRender : public ViewModule
 			param_flat_->front_color_ = {0.5f, 0.1f, 0.9f, 1.0f}; //main color
 			param_flat_->back_color_ = {0.1f, 0.9f, 0.9f, 1.0f};
 
-			param_flatPO_ = rendering::ShaderFlatPO::generate_param();
+			param_flatPO_ = rendering::ShaderFlatDirectional::generate_param();
 			param_flatPO_->ambient_color_ = {0.7f, 0.0f, 0.0f, 1.0f}; 
 			param_flatPO_->diffuse_color_ = {1.0f, 1.0f, 1.0f, 1.0f}; 
 			param_flatPO_->specular_color_ = {0.089804f, 0.089804f, 0.89804f, 1.0f}; 
@@ -177,7 +177,7 @@ class SurfaceRender : public ViewModule
 		std::unique_ptr<rendering::ShaderBoldLine::Param> param_bold_line_;
 		std::unique_ptr<rendering::ShaderBoldLineColor::Param> param_bold_line_color_;
 		std::unique_ptr<rendering::ShaderFlat::Param> param_flat_;
-		std::unique_ptr<rendering::ShaderFlatPO::Param> param_flatPO_;
+		std::unique_ptr<rendering::ShaderFlatDirectional::Param> param_flatPO_;
 		std::unique_ptr<rendering::ShaderFlatColorPerVertex::Param> param_flat_color_per_vertex_;
 		std::unique_ptr<rendering::ShaderFlatScalarPerVertex::Param> param_flat_scalar_per_vertex_;
 		std::unique_ptr<rendering::ShaderFlatColorPerFace::Param> param_flat_color_per_face_;

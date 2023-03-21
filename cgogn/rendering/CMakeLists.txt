@@ -58,8 +58,8 @@ target_sources(${PROJECT_NAME}
 
 		"${CMAKE_CURRENT_LIST_DIR}/shaders/shader_flat.h"
 		"${CMAKE_CURRENT_LIST_DIR}/shaders/shader_flat.cpp"
-		"${CMAKE_CURRENT_LIST_DIR}/shaders/shader_flatPO.h"
-		"${CMAKE_CURRENT_LIST_DIR}/shaders/shader_flatPO.cpp"
+		"${CMAKE_CURRENT_LIST_DIR}/shaders/shader_flat_directional.h"
+		"${CMAKE_CURRENT_LIST_DIR}/shaders/shader_flat_directional.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/shaders/shader_flat_color_per_vertex.h"
 		"${CMAKE_CURRENT_LIST_DIR}/shaders/shader_flat_color_per_vertex.cpp"
 		"${CMAKE_CURRENT_LIST_DIR}/shaders/shader_flat_scalar_per_vertex.h"

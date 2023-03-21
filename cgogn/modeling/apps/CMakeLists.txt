@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 
 project(cgogn_rendering_examples
-    LANGUAGES CXX
+	LANGUAGES CXX
 )
 
 find_package(cgogn_core REQUIRED)
@@ -41,28 +41,8 @@ target_link_libraries(deformation
 	${CMAKE_DL_LIBS}
 )
 
-add_executable(def_global_cage_PO def_global_cage_PO.cpp)
-target_link_libraries(def_global_cage_PO
-	cgogn::core
-	cgogn::ui
-	cgogn::io
-	cgogn::rendering
-	cgogn::modeling
-	${CMAKE_DL_LIBS}
-)
-
-add_executable(def_local_tool_PO def_local_tool_PO.cpp)
-target_link_libraries(def_local_tool_PO
-	cgogn::core
-	cgogn::ui
-	cgogn::io
-	cgogn::rendering
-	cgogn::modeling
-	${CMAKE_DL_LIBS}
-)
-
-add_executable(def_local_tool_PO_update def_local_tool_PO_update.cpp)
-target_link_libraries(def_local_tool_PO_update
+add_executable(multi_tools_deformation multi_tools_deformation.cpp)
+target_link_libraries(multi_tools_deformation
 	cgogn::core
 	cgogn::ui
 	cgogn::io
@@ -106,15 +86,7 @@ if(APPLE)
 		${CORE_FOUNDATION}
 		${CARBON}
 	)
-	target_link_libraries(def_global_cage_PO
-		${CORE_FOUNDATION}
-		${CARBON}
-	)
-	target_link_libraries(def_local_tool_PO
-		${CORE_FOUNDATION}
-		${CARBON}
-	)
-	target_link_libraries(def_local_tool_PO_update
+	target_link_libraries(multi_tools_deformation
 		${CORE_FOUNDATION}
 		${CARBON}
 	)
@@ -128,5 +100,4 @@ if(APPLE)
 	)
 endif()
 
-set_target_properties(def_global_cage_PO PROPERTIES FOLDER pauline)
-set_target_properties(def_local_tool_PO PROPERTIES FOLDER pauline)
+set_target_properties(multi_tools_deformation PROPERTIES FOLDER pauline)

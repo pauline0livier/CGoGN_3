@@ -57,12 +57,8 @@ target_sources(${PROJECT_NAME}	PRIVATE
 		"${CMAKE_CURRENT_LIST_DIR}/types/handle_deformation_tool.h"
 		"${CMAKE_CURRENT_LIST_DIR}/types/axis_deformation_tool.h"
 
-		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/cage_deformation.h"
-		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/space_deformation.h"
-		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/graph_deformation.h"
-		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/surface_modeling.h"
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/surface_deformation.h"
-		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/multi_tools_deformation.h"
+		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/multi_tools_deformation_module.h"
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/skeleton_extractor_module.h"
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/tubular_mesh_module.h"
 		"${CMAKE_CURRENT_LIST_DIR}/ui_modules/volume_deformation.h"
