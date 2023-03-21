@@ -257,8 +257,6 @@ public:
 
 	std::shared_ptr<Attribute<Vec3>> vertex_position_;
 
-	std::vector<Vec3> init_position_;
-
 	std::shared_ptr<boost::synapse::connection> cells_set_connection_;
 
 	bool object_update_;

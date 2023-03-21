@@ -40,35 +40,76 @@ using Scalar = geometry::Scalar;
 
 using Graph = cgogn::IncidenceGraph;
 
-// MESH 
-std::vector<CMap2::Vertex> create_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max); 
+/**
+ * set CMap2 m as a box of size bb_min and bb_max
+ */ 
+std::vector<CMap2::Vertex> create_bounding_box(CMap2& m, 
+                                        CMap2::Attribute<Vec3>* vertex_position, 
+                                        const Vec3& bb_min, const Vec3& bb_max); 
 
-void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const std::vector<CMap2::Vertex>& vertices, const Vec3& bb_min, const Vec3& bb_max); 
+/**
+ * update CMap2 m representing a box with new size bb_min bb_max
+*/
+void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, 
+                                    const std::vector<CMap2::Vertex>& vertices, 
+                                    const Vec3& bb_min, const Vec3& bb_max); 
 
-void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, const Vec3& bb_min, const Vec3& bb_max, const Vec3& center, const Vec3& normal); 
+/**
+ * create box with specified center, normal and dimensions 
+*/
+void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, 
+                                    const Vec3& bb_min, const Vec3& bb_max, 
+                                    const Vec3& center, const Vec3& normal); 
+/**
+ * set attribute vertex index for CMap2
+*/
+void set_attribute_vertex_index(CMap2& cage, 
+                                    CMap2::Attribute<uint32>* position_indices);
 
-void create_handle_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* local_vertex_position, const Vec3& handle_position, const double& radius, const Eigen::Matrix3d& frame_inverse, const float& local_min_depth, const float& local_max_depth); 
+/**
+ * set attribute vertex index for IncidenceGraph
+*/
+void set_attribute_vertex_index_graph(IncidenceGraph& graph, 
+                            IncidenceGraph::Attribute<uint32>* position_indices); 
 
-void create_axis_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* local_vertex_position, Graph::Attribute<uint32>* skeleton_vertex, const std::vector<Vec3>& vertex_coords, const std::vector<Vec3>& local_vertex_coords);
+/**
+ * set attribute marked_vertices for CMap2
+*/
+void set_attribute_marked_vertices(CMap2& cage, 
+                            CMap2::Attribute<bool>* marked_vertices); 
 
-void set_attribute_vertex_index(CMap2& cage, CMap2::Attribute<uint32>* position_indices);
+/**
+ * set attribute face index for CMap2
+*/
+void set_attribute_face_index(CMap2& cage, 
+                                        CMap2::Attribute<uint32>* face_indices); 
 
-void set_attribute_vertex_index_graph(IncidenceGraph& graph, IncidenceGraph::Attribute<uint32>* position_indices); 
+/**
+ * set attribute face normal for CMap2
+*/
+void set_attribute_face_normal(CMap2& cage, 
+                                        CMap2::Attribute<Vec3>* vertex_position, 
+                                        CMap2::Attribute<Vec3>* face_normal); 
+/**
+ * set attribute fixed position for CMap2
+*/
+void set_attribute_fixed_position(CMap2& object, 
+                                CMap2::Attribute<Vec3>* object_fixed_position); 
 
-void set_attribute_marked_vertices(CMap2& cage, CMap2::Attribute<bool>* marked_vertices); 
+/**
+ * set Graph g as handle with provided properties 
+*/
+Graph::Vertex create_handle(Graph& g, 
+                Graph::Attribute<Vec3>* vertex_position, 
+                Graph::Attribute<Scalar>* vertex_radius, const Vec3& center); 
 
-void set_attribute_face_index(CMap2& cage, CMap2::Attribute<uint32>* face_indices); 
-
-void set_attribute_face_normal(CMap2& cage, CMap2::Attribute<Vec3>* vertex_position, CMap2::Attribute<Vec3>* face_normal); 
-
-void set_attribute_fixed_position(CMap2& object, CMap2::Attribute<Vec3>* object_fixed_position); 
-
-// GRAPH
-Graph::Vertex create_handle(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const Vec3& center); 
-
-std::vector<Graph::Vertex> create_axis(Graph& g, Graph::Attribute<Vec3>* vertex_position, Graph::Attribute<Scalar>* vertex_radius, const std::vector<Vec3>& vertices_positions); 
-
-void set_graph_attribute_position_indices(Graph& g, Graph::Attribute<uint32>* position_indices); 
+/**
+ * set Graph g as axis with provided properties
+*/
+std::vector<Graph::Vertex> create_axis(Graph& g, 
+                Graph::Attribute<Vec3>* vertex_position, 
+                Graph::Attribute<Scalar>* vertex_radius, 
+                const std::vector<Vec3>& vertices_positions); 
 
 } // namespace modeling
 
