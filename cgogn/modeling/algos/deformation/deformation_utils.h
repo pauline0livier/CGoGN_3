@@ -38,26 +38,37 @@ using Scalar = geometry::Scalar;
 
 using Graph = cgogn::IncidenceGraph;
 
-// https://github.com/blaisebundle/green_cage_deformer/blob/master/src/green_cage_deformer.cc
 namespace
 {
 extern const Vec3 NULL_VECTOR(0.0, 0.0, 0);
 extern constexpr auto TOLERANCE = 1e-6;
 } // namespace
 
+/**
+ * specific function for Green-based deformation of cage 
+ * taken from paper [Green Coordinates, Lipman et al. 2008]
+*/
+const double GCTriInt(const Vec3& p, const Vec3& v1, 
+						const Vec3& v2, const Vec3& nu); 
 
-float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage, const Vec3& cage_point,
-					  CMap2::Attribute<Vec3>* cage_position); 
-
-const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3& nu); 
-
+/**
+ * adaptation of the function above without parameter nu 
+*/
 const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2); 
-     
-Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>& eigen_values, const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors); 
+    
+/**
+ * compute gradient divergence of the vertices
+ * useful for the geodesic distance
+*/
+Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, 
+						const CMap2::Attribute<Vec3>* face_gradient, 
+						const CMap2::Attribute<Vec3>* vertex_position); 
 
-Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::Attribute<Vec3>* face_gradient, const CMap2::Attribute<Vec3>* vertex_position); 
-
-std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, const Vec3& B, const Vec3& C, const Vec3& object_point); 
+/**
+ * Compute weights between 2 bones (A-B and B-C) and a point 
+*/
+std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, 
+						const Vec3& B, const Vec3& C, const Vec3& object_point); 
 
 } // namespace modeling
 

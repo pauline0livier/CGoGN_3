@@ -32,58 +32,8 @@ namespace cgogn
 namespace modeling
 {
 
-///////////
-// CAGE //
-///////////
-
-float compute_mvc(const Vec3& surface_point, Dart vertex, CMap2& cage, const Vec3& cage_point,
-				  CMap2::Attribute<Vec3>* cage_position)
-{
-
-	double r = (cage_point - surface_point).norm();
-
-	if (r == 0)
-	{
-		std::cerr << "Alert" << std::endl;
-	}
-
-	double sumU(0.);
-
-	Dart it = vertex;
-
-	do
-	{
-		Vec3 vi = value<Vec3>(cage, cage_position, CMap2::Vertex(it));
-		Vec3 vj = value<Vec3>(cage, cage_position, CMap2::Vertex(phi1(cage, it)));
-		Vec3 vk = value<Vec3>(cage, cage_position, CMap2::Vertex(phi_1(cage, it)));
-
-		Vec3 ei = (vi - surface_point).normalized();
-		Vec3 ej = (vj - surface_point).normalized();
-		Vec3 ek = (vk - surface_point).normalized();
-
-		double Bjk = getAngleBetweenUnitVectors(ej, ek);
-		double Bij = getAngleBetweenUnitVectors(ei, ej);
-		double Bki = getAngleBetweenUnitVectors(ek, ei);
-
-		Vec3 eiej = ei.cross(ej);
-		Vec3 ejek = ej.cross(ek);
-		Vec3 ekei = ek.cross(ei);
-
-		Vec3 nij = eiej.normalized();
-		Vec3 njk = ejek.normalized();
-		Vec3 nki = ekei.normalized();
-
-		double ui = (Bjk + (Bij * (nij.dot(njk))) + (Bki * (nki.dot(njk)))) / (2.f * ei.dot(njk));
-
-		sumU += ui;
-
-		it = phi<2, 1>(cage, it);
-	} while (it != vertex);
-
-	return (1.0f / r) * sumU;
-}
-
-const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3& nu)
+const double GCTriInt(const Vec3& p, const Vec3& v1, 
+						const Vec3& v2, const Vec3& nu)
 {
 	const Vec3 v2_v1 = v2 - v1;
 	const Vec3 p_v1 = p - v1;
@@ -92,10 +42,13 @@ const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3&
 
 	const Vec3 p_nu = p - nu;
 
-	const double alpha = std::acos((v2_v1.dot(p_v1)) / (v2_v1.norm() * p_v1.norm()));
-	const double beta = std::acos((v1_p.dot(v2_p)) / (v1_p.norm() * v2_p.norm()));
+	const double alpha = 
+		std::acos((v2_v1.dot(p_v1)) / (v2_v1.norm() * p_v1.norm()));
+	const double beta = 
+		std::acos((v1_p.dot(v2_p)) / (v1_p.norm() * v2_p.norm()));
 
-	const double lambda = p_v1.squaredNorm() * std::sin(alpha) * std::sin(alpha);
+	const double lambda = 
+		p_v1.squaredNorm() * std::sin(alpha) * std::sin(alpha);
 
 	const double c = p_nu.squaredNorm();
 
@@ -114,11 +67,13 @@ const double GCTriInt(const Vec3& p, const Vec3& v1, const Vec3& v2, const Vec3&
 
 		const auto sign = S < 0 ? -1.0 : 1.0;
 
-		const auto tan_part = 2 * sqrt_c * std::atan2(sqrt_c * C, sqrt(lambda + SS * c));
+		const auto tan_part = 
+			2 * sqrt_c * std::atan2(sqrt_c * C, sqrt(lambda + SS * c));
 
 		const auto log_part =
 			log((2 * sqrt_lambda * SS / (std::pow(1.0 - C, 2)) *
-				 (1.0 - ((2 * c * C) / ((c * (1 + C) + lambda + sqrt((lambda * lambda) + (lambda * c * SS))))))));
+			(1.0 - ((2 * c * C) / ((c * (1 + C) + lambda + 
+				sqrt((lambda * lambda) + (lambda * c * SS))))))));
 
 		I[i] = (-sign * 0.5) * (tan_part + (sqrt_lambda * log_part));
 	}
@@ -135,14 +90,17 @@ const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2)
 	const auto v2_p = v2 - p;
 
 	const auto alpha =
-		std::acos(std::min(std::max(((v2_v1).dot((p_v1))) / ((v2_v1).norm() * (p_v1).norm()), -1.0), 1.0));
+		std::acos(std::min(std::max(
+				((v2_v1).dot((p_v1))) / ((v2_v1).norm() * (p_v1).norm()), -1.0),
+					 1.0));
 	if (abs(alpha - M_PI) < TOLERANCE || abs(alpha) < TOLERANCE)
 	{
 		return 0.0;
 	}
 
 	const auto beta =
-		std::acos(std::min(std::max((((v1_p).dot((v2_p)))) / ((v1_p).norm() * (v2_p).norm()), -1.0), 1.0));
+		std::acos(std::min(std::max(
+			(((v1_p).dot((v2_p)))) / ((v1_p).norm() * (v2_p).norm()), -1.0), 1.0));
 	const auto lambda = p_v1.squaredNorm() * std::sin(alpha) * std::sin(alpha);
 	const auto c = p.squaredNorm();
 
@@ -160,10 +118,12 @@ const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2)
 
 		const auto SS = S * S;
 		const auto half_sign = (-sign * 0.5);
-		const auto tan_part = (2 * sqrt_c * std::atan2((sqrt_c * C), sqrt(lambda + (SS * c))));
+		const auto tan_part = 
+			(2 * sqrt_c * std::atan2((sqrt_c * C), sqrt(lambda + (SS * c))));
 		const auto log_part =
 			log(((2 * sqrt_lambda * SS) / std::pow(1.0 - C, 2)) *
-				(1.0 - ((2 * c * C) / ((c * (1 + C) + lambda + sqrt((lambda * lambda) + (lambda * c * SS)))))));
+				(1.0 - ((2 * c * C) / ((c * (1 + C) + lambda + 
+				sqrt((lambda * lambda) + (lambda * c * SS)))))));
 
 		I[i] = half_sign * (tan_part + (sqrt_lambda * log_part));
 	}
@@ -171,8 +131,10 @@ const double GCTriInt2(const Vec3& p, const Vec3& v1, const Vec3& v2)
 	return (-1.0 / (4.0 * M_PI))* abs(I[0] - I[1] - sqrt_c * beta);
 }
 
-Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::Attribute<Vec3>* face_gradient,
-								  const CMap2::Attribute<Vec3>* vertex_position)
+
+Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, 
+			const CMap2::Attribute<Vec3>* face_gradient,
+			const CMap2::Attribute<Vec3>* vertex_position)
 {
 	Scalar div = 0.0;
 	std::vector<CMap2::Edge> edges = incident_edges(m, v);
@@ -186,8 +148,10 @@ Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::
 		const Vec3& X = value<Vec3>(m, face_gradient, f);
 
 		const Vec3& p0 = value<Vec3>(m, vertex_position, v);
-		const Vec3& p1 = value<Vec3>(m, vertex_position, CMap2::Vertex(phi1(m, e1.dart)));
-		const Vec3& p2 = value<Vec3>(m, vertex_position, CMap2::Vertex(phi1(m, e2.dart)));
+		const Vec3& p1 = 
+			value<Vec3>(m, vertex_position, CMap2::Vertex(phi1(m, e1.dart)));
+		const Vec3& p2 = 
+			value<Vec3>(m, vertex_position, CMap2::Vertex(phi1(m, e2.dart)));
 
 		Vec3 vecR = p0 - p2;
 		Vec3 vecL = p1 - p2;
@@ -202,7 +166,25 @@ Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v, const CMap2::
 	return div / 2.0;
 }
 
-std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, const Vec3& B, const Vec3& C, const Vec3& object_point) {
+/**
+ * compute axis-related weights of object_point
+ * between 2 bones (A-B and B-C)
+ * compute projection of object_point on AB to see 
+ * if it is projecting on the segment or not
+ * if not the case check for BC 
+ * if target is inside a bone (distance of projection to an extremity > 0.2)
+ * 	full deformation of this bone 
+ * if on B half contribution of each bone
+ * otherwise introduce virtual joint before A and after C
+ * to compensate for the local property of the axis 
+ * if on virtual bone : part of the deformation = identity 
+ * @param {Vec3} A
+ * @param {Vec3} B
+ * @param {Vec3} C
+ * @param {Vec3} object_point
+*/
+std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, 
+						const Vec3& B, const Vec3& C, const Vec3& object_point) {
 
 	Eigen::Vector2d weights;  
 
@@ -252,59 +234,17 @@ std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, co
 					weights[1] = 1.0; 
 				}
 			} else if (resBC >= 1.0){
-				/*const double delta = resBC - 1.0; 
-				if (delta > 0.2){
-					weights[0] = 0.5; 
-					weights[1] = 0.5; 
-					fixed_point[0] = true; 
-					fixed_point[1] = true;  
-				} else {
-					const double local_value = (delta*0.5)/0.2; 
-					weights[0] = 1.0 - local_value; 
-					weights[1] = local_value; 
-					fixed_point[0] = true; 
-				}*/
 				weights[0] = 0.0; 
 				weights[1] = 1.0;
 			} else {
-				//const double resAC = projection_on_segment(A, C, object_point);
 				weights[0] = 0.5; 
 				weights[1] = 0.5; 
 			}
 		}
 	} 
-	//std::cout << "weights " << weights[0] << " "<< weights[1] << std::endl; 
 	return std::make_pair(weights, fixed_point); 
 }
 
 } // namespace modeling
 
 } // namespace cgogn
-
-
-/*
-
-Eigen::Matrix3f covariance_matrix;
-		// inspired from https://gist.github.com/atandrau/847214/882418ab34737699a6b1394d3a28c66e2cc0856f
-		for (int i = 0; i < 3; i++)
-			for (int j = 0; j < 3; j++)
-			{
-				covariance_matrix(i, j) = 0.0;
-				control_set->foreach_cell([&](MeshVertex v) {
-					const Vec3& pos = value<Vec3>(m, vertex_position, v);
-					covariance_matrix(i, j) += (center[i] - pos[i]) * (center[j] - pos[j]);
-				});
-
-				covariance_matrix(i, j) /= control_set->size() - 1;
-			}
-
-		Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>> eigen_solver(
-			covariance_matrix);
-		Eigen::Matrix<float, 1, Eigen::Dynamic> eigen_values = eigen_solver.eigenvalues();
-		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> eigen_vectors = eigen_solver.eigenvectors();
-
-		Eigen::Vector3f main_eigen_vector = cgogn::modeling::sort_eigen_vectors(eigen_values, eigen_vectors);
-		main_eigen_vector.normalize();
-
-		Vec3 main_direction = {main_eigen_vector[0], main_eigen_vector[1], main_eigen_vector[2]};
-*/

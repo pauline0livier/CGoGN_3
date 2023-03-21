@@ -41,28 +41,60 @@ namespace modeling
 using Vec3 = geometry::Vec3; 
 using Scalar = geometry::Scalar;
 
+/**
+ * angle between two unit vectors
+*/
 double getAngleBetweenUnitVectors(const Vec3& a, const Vec3& b); 
 
+/**
+ * distance between two Vec3
+*/
 double distance_vec3(const Vec3& p1, const Vec3& p2); 
 
-Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>& eigen_values, const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors);
+/**
+ * sort eigen vectors by minimal eigen values
+*/
+Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, 
+            Eigen::Dynamic>& eigen_values, 
+    const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors);
 
-/*
-Input: bounding box data & extension factor
-Output: std::tuple containing the bounding box extended of factor extension_factor; res(0) for e_bb_min, res(1) for e_bb_max and res(2) for center
-*/ 
-std::tuple<Vec3,Vec3,Vec3> get_extended_bounding_box(const Vec3& bb_min, const Vec3& bb_max, const float& extension_factor); 
+/**
+ * scale the bounding box by extension factor
+*/
+std::tuple<Vec3,Vec3,Vec3> get_extended_bounding_box(const Vec3& bb_min, 
+                            const Vec3& bb_max, const float& extension_factor); 
 
-Vec3 get_mean_value_attribute_from_set(const CMap2& m, const CMap2::Attribute<Vec3>* attribute, cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set); 
+/**
+ * get mean value of attribute from set 
+*/
+Vec3 get_mean_value_attribute_from_set(const CMap2& m, 
+                            const CMap2::Attribute<Vec3>* attribute, 
+                        cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set); 
 
-std::pair<Vec3,Vec3> get_border_values_in_set(const CMap2& m, const CMap2::Attribute<Vec3>* attribute, cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set); 
+/**
+ * get extrema values in set 
+*/
+std::pair<Vec3,Vec3> get_border_values_in_set(const CMap2& m, 
+                    const CMap2::Attribute<Vec3>* attribute, 
+                    cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set); 
 
-std::pair<Vec3, Vec3> get_border_values_in_array_Vec3(const std::vector<Vec3> positions); 
+/**
+ * get extrema values in array of Vec3
+*/
+std::pair<Vec3, Vec3> get_border_values_in_array_Vec3(
+                                            const std::vector<Vec3> positions); 
 
+/**
+ * get vertex closest from target position
+*/
+CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m, 
+                            const CMap2::Attribute<Vec3>* vertex_position, 
+                        cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set, 
+                                const Vec3& target_position); 
 
-CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m, const CMap2::Attribute<Vec3>* vertex_position, cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set, const Vec3& target_position); 
-
-// projection of P on segment AB
+/**
+ * return distance of A with projection of P on [AB] 
+*/
 float projection_on_segment(const Vec3& A, const Vec3& B, const Vec3& P); 
 
 

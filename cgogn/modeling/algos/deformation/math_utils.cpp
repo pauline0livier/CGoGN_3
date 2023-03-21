@@ -36,39 +36,54 @@ double getAngleBetweenUnitVectors(const Vec3& a, const Vec3& b)
 	return 2.0 * asin((a - b).norm() / 2.0);
 }
 
+/**
+ * Call the Vec3 norm function on the difference of vectors
+*/
 double distance_vec3(const Vec3& p1, const Vec3& p2)
 {
-	// compute Euclidean distance or whatever
 	return (p1 - p2).norm();
 }
 
-// from https://github.com/diegomazala/pca/blob/master/src/pca.h
+/**
+ * sort eigen vectors by their eigen values
+*/
 Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>& eigen_values,
-								   const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors)
+		const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors)
 {
-	// Stuff below is done to sort eigen values. This can be done in other ways too.
 	std::vector<std::pair<int, int>> eigen_value_index_vector;
 	for (int i = 0; i < eigen_values.size(); ++i)
 	{
 		eigen_value_index_vector.push_back(std::make_pair(eigen_values[i], i));
 	}
 
-	std::sort(std::begin(eigen_value_index_vector), std::end(eigen_value_index_vector),
-			  std::greater<std::pair<int, int>>());
+	std::sort(std::begin(eigen_value_index_vector), 
+				std::end(eigen_value_index_vector),
+			  	std::greater<std::pair<int, int>>());
 
-	auto sorted_eigen_values = Eigen::Matrix<float, 1, Eigen::Dynamic>(eigen_values.cols());
+	auto sorted_eigen_values = Eigen::Matrix<float, 1, 
+											Eigen::Dynamic>(eigen_values.cols());
 	auto sorted_eigen_vectors =
-		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>(eigen_vectors.rows(), eigen_vectors.cols());
+		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>(
+									eigen_vectors.rows(), eigen_vectors.cols());
 	for (int i = 0; i < eigen_values.size(); ++i)
 	{
 		sorted_eigen_values[i] =
-			eigen_values[eigen_value_index_vector[i].second]; // can also be eigen_value_index_vector[i].first
+			eigen_values[eigen_value_index_vector[i].second]; 
 		sorted_eigen_vectors.col(i) = eigen_vectors.col(eigen_value_index_vector[i].second);
 	}
 
 	return sorted_eigen_vectors.col(0);
 }
 
+/**
+ * scale the bounding box by extension factor 
+ * and relative to the bounding box center
+ * @param {Vec3} bb_min 
+ * @param {Vec3} bb_max
+ * @param {float} extension_factor 
+ * @returns a tuple with extended_bounding_box minimum and maximum positions 
+ * 			and center
+*/
 std::tuple<Vec3, Vec3, Vec3> get_extended_bounding_box(const Vec3& bb_min, const Vec3& bb_max,
 													   const float& extension_factor)
 {
@@ -80,6 +95,11 @@ std::tuple<Vec3, Vec3, Vec3> get_extended_bounding_box(const Vec3& bb_min, const
 	return std::make_tuple(e_bb_min, e_bb_max, center);
 }
 
+/**
+ * loop on the CMap2 vertices to compute the mean of the attribute
+ * valid for attribute in Vec3
+ * @returns {Vec3} mean value 
+*/
 Vec3 get_mean_value_attribute_from_set(const CMap2& m, const CMap2::Attribute<Vec3>* attribute,
 									   cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set)
 {
@@ -96,7 +116,14 @@ Vec3 get_mean_value_attribute_from_set(const CMap2& m, const CMap2::Attribute<Ve
 	return mean_value;
 }
 
-std::pair<Vec3, Vec3> get_border_values_in_set(const CMap2& m, const CMap2::Attribute<Vec3>* attribute, cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set)
+/**
+ * loop on the CMap2 vertices to compute the extrema values of a set
+ * valid for attribute in Vec3
+ * @returns {pair<Vec3, Vec3>} extrema values
+*/
+std::pair<Vec3, Vec3> get_border_values_in_set(const CMap2& m, 
+								const CMap2::Attribute<Vec3>* attribute, 
+						cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set)
 { 
 	Vec3 local_min = {1000.0, 1000.0, 1000.0};
 	Vec3 local_max = {0.0, 0.0, 0.0};
@@ -121,7 +148,12 @@ std::pair<Vec3, Vec3> get_border_values_in_set(const CMap2& m, const CMap2::Attr
 	return std::make_pair(local_min, local_max);
 }
 
-std::pair<Vec3, Vec3> get_border_values_in_array_Vec3(const std::vector<Vec3> positions)
+/**
+ * compute extrema values from a array of Vec3
+ * @returns {pair<Vec3, Vec3>} extrema values
+*/
+std::pair<Vec3, Vec3> get_border_values_in_array_Vec3(
+											const std::vector<Vec3> positions)
 { 
 	Vec3 local_min = {1000.0, 1000.0, 1000.0};
 	Vec3 local_max = {0.0, 0.0, 0.0};
@@ -146,9 +178,16 @@ std::pair<Vec3, Vec3> get_border_values_in_array_Vec3(const std::vector<Vec3> po
 	return std::make_pair(local_min, local_max);
 }
 
-CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m, const CMap2::Attribute<Vec3>* vertex_position,
-											   cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set,
-											   const Vec3& target_position)
+/**
+ * closest vertex in set from target position 
+ * search for closest distance between vertex position and target one
+ * useful to position handle at the user's chosen position
+ * @returns {CMap2::Vertex}
+*/
+CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m, 
+						const CMap2::Attribute<Vec3>* vertex_position,
+						cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set,
+											const Vec3& target_position)
 {
 
 	CMap2::Vertex closest_vertex;
@@ -168,6 +207,10 @@ CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m, const CMap2::Attr
     return closest_vertex; 
 }
 
+/**
+ * projection of a point on a segment 
+ * @returns {float} distance of A to projection of P on [AB]
+*/
 float projection_on_segment(const Vec3& A, const Vec3& B, const Vec3& P){
 
 	const Vec3 AB = B - A;
@@ -179,29 +222,3 @@ float projection_on_segment(const Vec3& A, const Vec3& B, const Vec3& P){
 
 } // namespace cgogn
 
-/*
-
-Eigen::Matrix3f covariance_matrix;
-		// inspired from https://gist.github.com/atandrau/847214/882418ab34737699a6b1394d3a28c66e2cc0856f
-		for (int i = 0; i < 3; i++)
-			for (int j = 0; j < 3; j++)
-			{
-				covariance_matrix(i, j) = 0.0;
-				control_set->foreach_cell([&](MeshVertex v) {
-					const Vec3& pos = value<Vec3>(m, vertex_position, v);
-					covariance_matrix(i, j) += (center[i] - pos[i]) * (center[j] - pos[j]);
-				});
-
-				covariance_matrix(i, j) /= control_set->size() - 1;
-			}
-
-		Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>> eigen_solver(
-			covariance_matrix);
-		Eigen::Matrix<float, 1, Eigen::Dynamic> eigen_values = eigen_solver.eigenvalues();
-		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> eigen_vectors = eigen_solver.eigenvectors();
-
-		Eigen::Vector3f main_eigen_vector = cgogn::modeling::sort_eigen_vectors(eigen_values, eigen_vectors);
-		main_eigen_vector.normalize();
-
-		Vec3 main_direction = {main_eigen_vector[0], main_eigen_vector[1], main_eigen_vector[2]};
-*/
