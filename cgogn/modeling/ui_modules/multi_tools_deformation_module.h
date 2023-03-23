@@ -1624,6 +1624,8 @@ protected:
 								model_p.selected_vertices_set_->clear();
 								mesh_provider_->emit_cells_set_changed(
 									*model_, model_p.selected_vertices_set_);
+
+								model_p.selected_depth_vertices_.clear(); 
 							}
 						}
 					}
@@ -2133,7 +2135,7 @@ protected:
 												*graph_parameters_[selected_graph_];
 								old_p.selected_vertices_set_ = nullptr;
 							}
-							
+
 							selected_graph_ = selected_axis_;
 							modeling::GraphParameters<GRAPH>& axis_p = 
 										*graph_parameters_[selected_graph_];
