@@ -1120,7 +1120,7 @@ private:
 	 * state-of-the-art method 
 	 * [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
 	*/
-	bool compute_mvc_coordinates_on_point(const Vec3& surface_point, 
+	bool compute_mvc_coordinates_on_point_object(const Vec3& surface_point, 
 										const uint32& surface_point_index)
 	{
 

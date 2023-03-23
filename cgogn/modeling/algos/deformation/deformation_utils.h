@@ -42,7 +42,7 @@ namespace
 {
 extern const Vec3 NULL_VECTOR(0.0, 0.0, 0);
 extern constexpr auto TOLERANCE = 1e-6;
-} // namespace
+} 
 
 /**
  * specific function for Green-based deformation of cage 

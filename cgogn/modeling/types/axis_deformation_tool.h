@@ -41,7 +41,7 @@ namespace modeling
 
 /**
  * @Class Axis Deformation Tool 
- * Axis represented as a Incidence graph 
+ * Axis represented as an Incidence graph 
  * Create axis, deform and propagate deformation to object 
  * and associate tools 
 */
