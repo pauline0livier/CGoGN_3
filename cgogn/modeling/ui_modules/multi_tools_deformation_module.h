@@ -68,7 +68,7 @@ enum SelectionTool
 {
 	Handle = 0,
 	Axis,
-	Cage
+	Cage, 
 };
 
 using Vec2 = geometry::Vec2;
@@ -1415,6 +1415,7 @@ protected:
 
 				if (selected_tool_ == Handle)
 				{
+
 					selected_mesh_ = model_;
 					ImGui::Separator();
 
@@ -1496,6 +1497,10 @@ protected:
 									influence_set_.push_back(v);
 									return true;
 							});
+
+							model_p.selected_vertices_set_->clear();
+								mesh_provider_->emit_cells_set_changed(
+									*model_, model_p.selected_vertices_set_);
 
 						}
 
@@ -1899,7 +1904,6 @@ protected:
 				ImGui::Separator();
 				ImGui::Separator();
 				ImGui::Text("Deform one tool");
-
 				ImGui::RadioButton("Deform Axis", 
 					reinterpret_cast<int*>(&deformed_tool_), Axis);
 				ImGui::SameLine();
@@ -1984,6 +1988,8 @@ protected:
 										mesh_provider_->emit_cells_set_changed(
 											*selected_cage_,
 											cage_p.selected_vertices_set_);
+
+										selected_cage_ = nullptr; 
 									}
 								}
 								ImGui::TextUnformatted("Drawing parameters");
@@ -2015,11 +2021,27 @@ protected:
 
 						imgui_handle_selector(multi_tools_deformation, 
 									selected_handle_, "Handle",
-								[&](GRAPH& g) { selected_handle_ = &g; });
+								[&](GRAPH& g) { 
+									if (selected_handle_)
+									{
+									modeling::GraphParameters<GRAPH>& old_p = 
+												*graph_parameters_[selected_handle_];
+									old_p.selected_vertices_set_ = nullptr;
+									}
+									
+									selected_handle_ = &g; });
 
 						if (selected_handle_)
 						{
 							selected_mesh_ = nullptr;
+
+							if (selected_graph_){
+								modeling::GraphParameters<GRAPH>& old_p = 
+												*graph_parameters_[selected_graph_];
+								old_p.selected_vertices_set_ = nullptr;
+							}
+						
+
 							selected_graph_ = selected_handle_;
 							modeling::GraphParameters<GRAPH>& handle_p = 
 										*graph_parameters_[selected_graph_];
@@ -2058,6 +2080,9 @@ protected:
 										graph_provider_->emit_cells_set_changed(
 											*selected_handle_,
 											handle_p.selected_vertices_set_);
+
+										selected_graph_ = nullptr; 
+										selected_handle_ = nullptr; 
 									}
 								}
 								ImGui::TextUnformatted("Drawing parameters");
@@ -2090,12 +2115,25 @@ protected:
 						imgui_axis_selector(multi_tools_deformation, 
 								selected_axis_, "Axis", 
 								[&](GRAPH& g) {
+									if (selected_axis_)
+									{
+									modeling::GraphParameters<GRAPH>& old_p = 
+												*graph_parameters_[selected_axis_];
+									old_p.selected_vertices_set_ = nullptr;
+									}
 									selected_axis_ = &g;
 								});
 
 						if (selected_axis_)
 						{
 							selected_mesh_ = nullptr;
+
+							if (selected_graph_){
+								modeling::GraphParameters<GRAPH>& old_p = 
+												*graph_parameters_[selected_graph_];
+								old_p.selected_vertices_set_ = nullptr;
+							}
+							
 							selected_graph_ = selected_axis_;
 							modeling::GraphParameters<GRAPH>& axis_p = 
 										*graph_parameters_[selected_graph_];
@@ -2128,6 +2166,9 @@ protected:
 										graph_provider_->emit_cells_set_changed(
 											*selected_axis_,
 											axis_p.selected_vertices_set_);
+
+										selected_graph_ = nullptr; 
+										selected_axis_ =  nullptr; 
 									}
 								}
 								ImGui::TextUnformatted("Drawing parameters");
