@@ -167,22 +167,30 @@ Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v,
 }
 
 /**
- * compute axis-related weights of object_point
- * between 2 bones (A-B and B-C)
- * compute projection of object_point on AB to see 
- * if it is projecting on the segment or not
- * if not the case check for BC 
- * if target is inside a bone (distance of projection to an extremity > 0.2)
- * 	full deformation of this bone 
- * if on B half contribution of each bone
- * otherwise introduce virtual joint before A and after C
- * to compensate for the local property of the axis 
- * if on virtual bone : part of the deformation = identity 
+ * 
  * @param {Vec3} A
  * @param {Vec3} B
  * @param {Vec3} C
  * @param {Vec3} object_point
 */
+
+/// @brief compute axis-related weights of object_point
+/// between 2 bones (A-B and B-C)
+/// compute projection of object_point on AB to see 
+/// if it is projecting on the segment or not
+/// if not the case check for BC 
+/// if target is inside a bone (distance of projection to an extremity > 0.2)
+/// full deformation of this bone 
+/// if on B half contribution of each bone
+/// otherwise introduce virtual joint before A and after C
+/// to compensate for the local property of the axis 
+/// if on virtual bone : part of the deformation = identity 
+/// @param A first joint of the partial skeleton
+/// @param B middle joint of the partial skeleton
+/// @param C end joint of the partial skeleton
+/// @param object_point 
+/// @return pair of weights for the two bones 
+/// 		and boolean to specify if on a virtual bone 
 std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, 
 						const Vec3& B, const Vec3& C, const Vec3& object_point) {
 
@@ -243,6 +251,94 @@ std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A,
 		}
 	} 
 	return std::make_pair(weights, fixed_point); 
+}
+
+/// @brief compute weights of target point on partial skeleton 
+/// Constraints: linear partial skeleton
+/// introduction of two virtual bones on the extremities
+/// to preserve the continuity 
+/// @param axis_positions vector of positions of the joints
+/// each successive pair forms a bone, (n-1) bones for a vector of size n
+/// @param target_point 
+/// @return vector of weights of size n+1 to encode the bones + the virtual ones 
+/// 		at the extremities 
+Eigen::SparseVector<double> weight_partial_skeleton(const std::vector<Vec3> axis_positions,
+									 const Vec3& target_point)
+{
+	std::size_t number_of_bones = axis_positions.size() - 1; 
+
+	Eigen::SparseVector<double> weights(number_of_bones + 2); 
+
+	auto compute_local_weights = [&](const double& local_distance, 
+									const size_t& index) {
+		if (local_distance <= 0.8 || local_distance >= 0.2){
+			weights.coeffRef(index) = 1.0; 
+		} else if (local_distance >= 0.8){
+			const double delta = local_distance - 0.8; 
+			const double local_value = (delta*0.5)/0.2; 
+			weights.coeffRef(index) = 1.0 - local_value; 
+			weights.coeffRef(index+1) = local_value;
+		} else if (local_distance <= 0.2){
+			const double delta = 0.2 - local_distance; 
+			const double local_value = (delta*0.5)/0.2; 
+			weights.coeffRef(index) = 1.0 - local_value; 
+			weights.coeffRef(index-1) = local_value;
+		}
+	};
+
+
+	const double distance_first_joint = projection_on_segment(axis_positions[0], 
+										axis_positions[1], target_point);
+
+	if (distance_first_joint <= 0.0){
+		const double local_distance = 1.0 - std::abs(distance_first_joint); 
+		if (local_distance <= 0.8){
+			weights.coeffRef(0) = 1.0;  
+		} else {
+			const double delta = (local_distance - 0.8); 
+			const double local_value = (delta*0.5)/0.2; 
+			weights.coeffRef(1) = local_value;
+			weights.coeffRef(0) = 1 - local_value; 
+		}
+	} else {
+		size_t current_index = 1; 
+		if (distance_first_joint > 0.0 && distance_first_joint <= 1.0){ 
+			compute_local_weights(distance_first_joint, current_index); 
+		
+		} else {
+			current_index ++; 
+			double previous_distance_joint = distance_first_joint; 
+			while (true){
+				const double current_distance_joint = projection_on_segment(
+												axis_positions[current_index -1], 
+												axis_positions[current_index], 
+												target_point); 
+
+				if (current_distance_joint > 0.0 && current_distance_joint <= 1.0){
+					compute_local_weights(current_distance_joint, current_index);
+					break; 
+				} else if (previous_distance_joint > 1.0 && 
+												current_distance_joint <= 0.0){
+						weights.coeffRef(current_index) = 0.5; 
+						weights.coeffRef(current_index - 1) = 0.5; 
+						break; 
+				} else {
+					if (current_index < number_of_bones){
+						previous_distance_joint = current_distance_joint; 
+						current_index ++; 
+					} else {
+						weights.coeffRef(current_index) = 1.0; 
+						weights.coeffRef(current_index + 1) = 0.0; 
+						break; 
+					}
+					
+				}
+			}
+		}
+
+	}
+
+	return weights; 
 }
 
 } // namespace modeling

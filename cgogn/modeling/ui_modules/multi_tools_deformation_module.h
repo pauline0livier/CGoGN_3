@@ -564,6 +564,7 @@ private:
 			modeling::GraphParameters<GRAPH>& axis_p = 
 												*graph_parameters_[axis];
 			axis_p.normal_ = {0.0, 0.0, 1.0}; 
+			axis_p.set_number_of_handles(axis_vertices_position.size()); 
 
 			graph_provider_->emit_connectivity_changed(*axis);
 			graph_provider_->emit_attribute_changed(*axis, 
@@ -2119,9 +2120,9 @@ protected:
 								[&](GRAPH& g) {
 									if (selected_axis_)
 									{
-									modeling::GraphParameters<GRAPH>& old_p = 
+									/*modeling::GraphParameters<GRAPH>& old_p = 
 												*graph_parameters_[selected_axis_];
-									old_p.selected_vertices_set_ = nullptr;
+									old_p.selected_vertices_set_ = nullptr;*/
 									}
 									selected_axis_ = &g;
 								});
@@ -2130,11 +2131,11 @@ protected:
 						{
 							selected_mesh_ = nullptr;
 
-							if (selected_graph_){
+							/*if (selected_graph_){
 								modeling::GraphParameters<GRAPH>& old_p = 
 												*graph_parameters_[selected_graph_];
 								old_p.selected_vertices_set_ = nullptr;
-							}
+							}*/
 
 							selected_graph_ = selected_axis_;
 							modeling::GraphParameters<GRAPH>& axis_p = 

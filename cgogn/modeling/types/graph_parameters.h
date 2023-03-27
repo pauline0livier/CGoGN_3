@@ -68,10 +68,6 @@ public:
 			rendering::ShaderPointSprite::generate_param();
 		param_point_sprite_->color_ = rendering::GLColor(1, 0, 0, 0.65f);
 		param_point_sprite_->set_vbos({&selected_vertices_vbo_});
-
-		transformations_.resize(2);
-		transformations_[0].setIdentity();
-		transformations_[1].setIdentity();
 	}
 
 	~GraphParameters()
@@ -135,6 +131,17 @@ public:
 		}
 	}
 
+	void set_number_of_handles(const size_t& number_of_handles)
+	{
+		number_of_handles_ = number_of_handles; 
+
+		transformations_.resize(number_of_handles+1);
+		for (size_t t = 0; t < transformations_.size(); t++){
+			transformations_[t].setIdentity();
+		}
+	
+	}
+
 	/**
 	 * h key pressed 
 	 * to displace handle type graph 
@@ -175,7 +182,7 @@ public:
 			if (selected_vertices_set_->size() == 1)
 			{
 				selected_vertices_set_->foreach_cell([&](Vertex v) {
-					if (v.index_ == 0 || v.index_ == 2)
+					if (v.index_ == 0 || v.index_ == number_of_handles_-1)
 					{
 						std::vector<Edge>& edges = 
 								(*graph_->vertex_incident_edges_)[v.index_];
@@ -205,7 +212,7 @@ public:
 			{
 				std::vector<Vertex> valid_vertex;
 				selected_vertices_set_->foreach_cell([&](Vertex v) {
-					if (v.index_ == 0 || v.index_ == 2)
+					if (v.index_ == 0 || v.index_ == number_of_handles_ -1)
 					{
 						std::vector<Edge>& edges = 
 							(*graph_->vertex_incident_edges_)[v.index_];
@@ -358,11 +365,11 @@ public:
 					axis_vertex_position = M * axis_vertex_position;
 					if (v.index_ == 0)
 					{
-						transformations_[0] = M;
-					}
-					else if (v.index_ == 2)
-					{
 						transformations_[1] = M;
+					}
+					else if (v.index_ == number_of_handles_ -1)
+					{
+						transformations_[v.index_] = M;
 					}
 					
 				});
@@ -430,7 +437,7 @@ public:
 
 	Vec3 normal_;
 
-	uint32 weight_number;
+	size_t number_of_handles_; 
 
 	Vec3 rotation_center_;
 

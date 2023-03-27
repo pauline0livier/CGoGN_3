@@ -63,8 +63,7 @@ public:
 
 	Graph* control_axis_;
 
-	Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> axis_weights_; 
-	Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> axis_fixed_point_; 
+	Eigen::SparseMatrix<double, Eigen::RowMajor> axis_weights_; 
 
 	std::shared_ptr<Graph::Attribute<Vec3>> control_axis_vertex_position_;
 	std::shared_ptr<boost::synapse::connection> 
@@ -84,7 +83,7 @@ public:
 	}
 
 	/**
- 	* create axis space tool 
+	* create axis space tool 
 	*	set axis from user's selection
 	*  	create clone axis inside the object 
 	*/
@@ -131,12 +130,8 @@ public:
 	{
 		uint32 nbv_object = nb_cells<MeshVertex>(object);
 
-		uint32 nb_bones = axis_skeleton_.size() -1; 
-		axis_weights_.resize(nbv_object, nb_bones);
-		axis_weights_.setZero();
-
-		axis_fixed_point_.resize(nbv_object, nb_bones);
-		axis_fixed_point_.setZero();
+		uint32 nb_bones = axis_skeleton_.size() +1;
+		axis_weights_ = Eigen::SparseMatrix<double, Eigen::RowMajor>(nbv_object, nb_bones); 
 
 		compute_weights(object, vertex_position);
 	}
@@ -150,13 +145,9 @@ public:
 	{
 		uint32 nbv_object = nb_cells<MeshVertex>(object);
 
-		uint32 nb_bones = axis_skeleton_.size() -1;
+		uint32 nb_bones = axis_skeleton_.size() +1;
 
-		axis_weights_.resize(nbv_object, nb_bones);
-		axis_weights_.setZero();
-
-		axis_fixed_point_.resize(nbv_object, nb_bones);
-		axis_fixed_point_.setZero();
+		axis_weights_ = Eigen::SparseMatrix<double,Eigen::RowMajor>(nbv_object, nb_bones); 
 
 		compute_weights(object, vertex_position);
 	}
@@ -191,23 +182,13 @@ public:
 			uint32 v_index = value<uint32>(object, object_vertex_index, v);
 			Vec3 v_position = value<Vec3>(object, object_vertex_position, v);
 
-			Vec3 left_influence = axis_transformation_[0]*v_position; 
-			Vec3 right_influence = axis_transformation_[1]*v_position;
+			for (size_t t = 0; t < axis_transformation_.size(); t++){
+				Vec3 local_transformation = axis_transformation_[t]*v_position; 
 
-			if (axis_fixed_point_(v_index,0)){
-				left_influence = v_position; 
+				value<Vec3>(object, object_vertex_position, v) += 
+									axis_weights_.coeff(v_index, t)*local_transformation; 
+
 			}
-
-			if (axis_fixed_point_(v_index,1)){
-				right_influence = v_position; 
-			}
-
-			double weight0 = axis_weights_(v_index, 0);
-
-			double weight1 = axis_weights_(v_index, 1);
-
-			value<Vec3>(object, object_vertex_position, v) = 
-					weight0 * left_influence + weight1 * right_influence;
 
 		}
 
@@ -251,22 +232,13 @@ private:
 			MeshVertex v = this->object_influence_area_[i]; 
 			Vec3 surface_point = value<Vec3>(object, vertex_position, v);
 
-			uint32 surface_point_idx = 
+			uint32 surface_point_index = 
 							value<uint32>(object, object_vertex_index, v);
 
-			std::pair<Eigen::Vector2d, std::vector<bool>> result_weights = 
-				cgogn::modeling::weight_two_bones(inside_axis_position_[0], 
-												inside_axis_position_[1], 
-												inside_axis_position_[2], 
-												surface_point); 
- 
-			axis_weights_(surface_point_idx, 0) = result_weights.first[0]; 
-			axis_weights_(surface_point_idx, 1) = result_weights.first[1];
-
-			axis_fixed_point_(surface_point_idx, 0) = 
-													result_weights.second[0]; 
-			axis_fixed_point_(surface_point_idx, 1) = 
-													result_weights.second[1];
+			axis_weights_.row(surface_point_index) = 
+				cgogn::modeling::weight_partial_skeleton(inside_axis_position_, 
+												surface_point);
+		
 		}
 
 	}

@@ -26,6 +26,7 @@
 
 #include <cgogn/geometry/types/vector_traits.h>
 #include <cgogn/modeling/algos/deformation/math_utils.h>
+#include <Eigen/Sparse>
 
 namespace cgogn
 {
@@ -64,11 +65,23 @@ Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v,
 						const CMap2::Attribute<Vec3>* face_gradient, 
 						const CMap2::Attribute<Vec3>* vertex_position); 
 
-/**
- * Compute weights between 2 bones (A-B and B-C) and a point 
-*/
+
+/// @brief Compute weights between 2 bones (A-B and B-C) and a point
+/// @param A first joint of the partial skeleton
+/// @param B middle joint of the partial skeleton
+/// @param C end joint of the partial skeleton
+/// @param object_point 
+/// @return 
 std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A, 
 						const Vec3& B, const Vec3& C, const Vec3& object_point); 
+
+
+/// @brief compute weights between vector of bones and a target point
+/// @param axis_positions array of Vector3
+/// @param target_point point on the model to deform 
+/// @return weights of the target point relative to the partial skeleton
+Eigen::SparseVector<double> weight_partial_skeleton(const std::vector<Vec3> axis_positions,
+									 const Vec3& target_point); 
 
 } // namespace modeling
 
