@@ -358,6 +358,7 @@ public:
 						* Eigen::Translation3d(-rotation_center_);
 
 				if (selected_vertices_set_->size() == 1){
+					
 					selected_vertices_set_->foreach_cell([&](Vertex v) {
 					Vec3& axis_vertex_position = 
 						value<Vec3>(*graph_, vertex_position_, v);

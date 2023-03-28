@@ -110,6 +110,12 @@ public:
 
 		cgogn::modeling::set_attribute_vertex_index_graph(*control_axis_, 
 														vertex_index.get());
+
+		axis_transformation_.resize(axis_skeleton_.size() +1); 
+
+		for (size_t t = 0; t < axis_transformation_.size(); t++){
+			axis_transformation_[t].setIdentity();
+		}
 	}
 
 	/**
@@ -180,15 +186,20 @@ public:
 		{
 			MeshVertex v = this->object_influence_area_[i]; 
 			uint32 v_index = value<uint32>(object, object_vertex_index, v);
-			Vec3 v_position = value<Vec3>(object, object_vertex_position, v);
+			Vec3 v_position = value<Vec3>(object, object_vertex_position, v); 
+
+			Vec3 new_position = {0.0, 0.0, 0.0}; 
 
 			for (size_t t = 0; t < axis_transformation_.size(); t++){
+ 
 				Vec3 local_transformation = axis_transformation_[t]*v_position; 
 
-				value<Vec3>(object, object_vertex_position, v) += 
-									axis_weights_.coeff(v_index, t)*local_transformation; 
+				new_position += axis_weights_.coeff(v_index, t)*
+											local_transformation;
 
 			}
+
+			value<Vec3>(object, object_vertex_position, v) = new_position; 
 
 		}
 
