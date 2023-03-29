@@ -90,7 +90,8 @@ public:
 						const Vec3& center, const Vec3& normal)
 	{
 		control_handle_ = g;
-		handle_vertex_ = cgogn::modeling::create_handle(*g, vertex_position, vertex_radius, center);
+		handle_vertex_ = cgogn::modeling::create_handle(*g, vertex_position, 
+											vertex_radius, center, Scalar(5));
 
 		control_handle_vertex_position_ = 
 				cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");

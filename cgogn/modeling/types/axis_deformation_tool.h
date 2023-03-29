@@ -97,7 +97,7 @@ public:
 		control_axis_ = g;
 		axis_skeleton_ = 
 			cgogn::modeling::create_axis(*g, vertex_position, 
-										vertex_radius, vertex_coords);
+										vertex_radius, vertex_coords, Scalar(5));
 
 		control_axis_vertex_position_ = 
 				cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");

@@ -299,65 +299,67 @@ void set_attribute_fixed_position(CMap2& object, CMap2::Attribute<Vec3>* object_
 	});
 }
 
-/**
- * Set g as handle
- * Add vertex and set its position and radius
- * @param {Graph} g 
- * @param {Graph::Attribute<Vec3>} vertex_position
- * @param {Graph::Attribute<Scalar>} vertex_radius
- * @param {Vec3} center1, position of handle
-*/
+
+/// @brief Create handle from default graph 
+/// set vertices, their positions and radius
+/// @param g default graph 
+/// @param g_vertex_position default graph vertices position 
+/// @param g_vertex_radius default graph vertices radius
+/// @param handle_position position of handle
+/// @param radius_value radius of vertex
+/// @return handle vertex 
 Graph::Vertex create_handle(Graph& g, 
-		Graph::Attribute<Vec3>* vertex_position, 
-		Graph::Attribute<Scalar>* vertex_radius, const Vec3& center1)
+		Graph::Attribute<Vec3>* g_vertex_position, 
+		Graph::Attribute<Scalar>* g_vertex_radius, 
+		const Vec3& handle_position, const Scalar radius_value)
 {
 	Graph::Vertex nv = add_vertex(g);
 
-	value<Vec3>(g, vertex_position, nv) = center1;
-	value<Scalar>(g, vertex_radius, nv) = Scalar(5);
+	value<Vec3>(g, g_vertex_position, nv) = handle_position;
+	value<Scalar>(g, g_vertex_radius, nv) = radius_value;
 
 	return nv;
 }
 
-/**
- * Set g as axis
- * Add vertices and set their positions from vertices_positions
- * and radius by default
- * @param {Graph} g 
- * @param {Graph::Attribute<Vec3>} vertex_position
- * @param {Graph::Attribute<Scalar>} vertex_radius
- * @param {std::vector<Vec3>} vertices_positions, position of handles in axis
-*/
+
+/// @brief Create axis from default graph 
+/// set vertices, their positions and radius
+/// @param g default graph 
+/// @param g_vertex_position default graph vertices position 
+/// @param g_vertex_radius default graph vertices radius 
+/// @param vertices_positions positions to set to the graph 
+/// @param radius_value radius to set to the graph 
+/// @return std::vector<Graph::Vertex> axis_vertices 
+/// 	usage of std::vector to store the vertices in the order of the axis
 std::vector<Graph::Vertex> create_axis(Graph& g,
-	Graph::Attribute<Vec3>* vertex_position, 
-	Graph::Attribute<Scalar>* vertex_radius,
-	const std::vector<Vec3>& vertices_positions)
+	Graph::Attribute<Vec3>* g_vertex_position, 
+	Graph::Attribute<Scalar>* g_vertex_radius,
+	const std::vector<Vec3>& vertices_positions, const Scalar& radius_value)
 {
-	std::vector<Graph::Vertex> list_vertex;
+	std::vector<Graph::Vertex> axis_vertices;
 	Graph::Vertex nv = add_vertex(g);
 
-	list_vertex.push_back(nv);
+	axis_vertices.push_back(nv);
 
-	value<Vec3>(g, vertex_position, nv) = vertices_positions[0];
-	value<Scalar>(g, vertex_radius, nv) = Scalar(5); 
+	value<Vec3>(g, g_vertex_position, nv) = vertices_positions[0];
+	value<Scalar>(g, g_vertex_radius, nv) = radius_value; 
 
 	Graph::Vertex lastVertex = nv;
 
 	for (unsigned i = 1; i < vertices_positions.size(); i++)
 	{
 		Graph::Vertex nv1 = add_vertex(g);
-		list_vertex.push_back(nv1);
+		axis_vertices.push_back(nv1);
 
-		value<Vec3>(g, vertex_position, nv1) = vertices_positions[i];
-		//value<Scalar>(g, vertex_radius, nv1) = Scalar(0.05);
-		value<Scalar>(g, vertex_radius, nv1) = Scalar(5); 
+		value<Vec3>(g, g_vertex_position, nv1) = vertices_positions[i];
+		value<Scalar>(g, g_vertex_radius, nv1) = radius_value; 
 
 		connect_vertices(g, lastVertex, nv1);
 
 		lastVertex = nv1;
 	}
 
-	return list_vertex;
+	return axis_vertices;
 }
 
 

@@ -163,20 +163,24 @@ public:
 	{
 	}
 
-	/**
-	 * create local cage (or control cage)
-	 * initialize the triangles set of this cage 
-	 * initialize the local_direction_control_planes of this local cage
-	 * generate the virtual cubes
-	*/
+	/// @brief create local cage mesh 
+	/// initialize the triangles set of this cage 
+	/// initialize the local_direction_control_planes of this local cage
+	/// generate the virtual cubes
+	/// TODO: see to generate the virtual cubes only if needed 
+	/// @param m default mesh 
+	/// @param m_vertex_position position of the vertices of the default mesh 
+	/// @param bb_min bounding box minimum position
+	/// @param bb_max bounding box maximum position
+	/// @param center bounding box center
+	/// @param normal bounding box normal 
 	void create_space_tool(MESH* m, 
-					CMap2::Attribute<Vec3>* vertex_position, 
+					CMap2::Attribute<Vec3>* m_vertex_position, 
 					const Vec3& bb_min, const Vec3& bb_max,
 					const Vec3& center, const Vec3& normal)
 	{
 		control_cage_ = m;
-																								   // so far
-		cgogn::modeling::create_bounding_box(*m, vertex_position, 
+		cgogn::modeling::create_bounding_box(*m, m_vertex_position, 
 											bb_min, bb_max);
 
 		control_cage_vertex_position_ = 
@@ -199,23 +203,25 @@ public:
 		init_virtual_cubes();
 	}
 
-	/**
-	 * set the deformation_type
-	 * so far only MVC
-	*/
+	/// @brief set the deformation type 
+	/// @param new_type so far only MVC
 	void set_deformation_type(const std::string& new_type)
 	{
 		deformation_type_ = new_type;
 	}
 
-	/**
-	 * set influence_cage and object influence area 
-	 * default influence area 
-	 * defined as the vertices of the object 
-	 * inside an influence cage 3x the size of the control cage
-	*/
-	void set_influence_cage(MESH& object, const CMap2::Attribute<Vec3>* object_vertex_position, MESH* m,
-							CMap2::Attribute<Vec3>* vertex_position)
+
+	/// @brief set influence cage and object influence area 
+	/// so far default influence area in the influence cage 
+	/// defined as 3X the size of the control cage 
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model
+	/// @param m default mesh for the influence cage 
+	/// @param m_vertex_position position of the vertices of the mesh 
+	void set_influence_cage(MESH& object, 
+				const CMap2::Attribute<Vec3>* object_vertex_position, 
+							MESH* m,
+							CMap2::Attribute<Vec3>* m_vertex_position)
 	{
 		influence_cage_ = m;
 
@@ -227,7 +233,7 @@ public:
 		influence_cage_bb_min_ = std::get<0>(res_extended_bounding_box);
 		influence_cage_bb_max_ = std::get<1>(res_extended_bounding_box);
 
-		cgogn::modeling::create_bounding_box(*m, vertex_position, 
+		cgogn::modeling::create_bounding_box(*m, m_vertex_position, 
 							influence_cage_bb_min_, influence_cage_bb_max_);
 
 		influence_cage_vertex_position_ = 
@@ -249,18 +255,18 @@ public:
 		});
 	}
 
-	/**
-	 * set the center of the control cage
-	*/
+	/// @brief set the center of the control cage 
+	/// @param center 
 	void set_center_control_cage(Vec3& center)
 	{
 		control_cage_center_ = center;
 	}
 
-	/**
-	 * initialize the binding of the object 
-	 * so far only MVC deformation type
-	*/
+	/// @brief initialize the binding of the model to deform 
+	/// so far only MVC deformation 
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model 
+	/// @param object_vertex_index index of the vertices of the model 
 	void init_bind_object(MESH& object, 
 			const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
 			const std::shared_ptr<Attribute<uint32>>& object_vertex_index)
@@ -285,9 +291,11 @@ public:
 		}
 	}
 
-	/**
-	 * update the binding of the object
-	*/
+
+	/// @brief update the binding of the model 
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model
+	/// @param object_vertex_index index of the vertices of the model
 	void bind_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
 					 const std::shared_ptr<Attribute<uint32>>& object_vertex_index)
 	{
@@ -298,9 +306,10 @@ public:
 		}
 	}
 
-	/**
-	 * deform the object following the deformation type 
-	*/
+	/// @brief deform the model following the chosen deformation type 
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model
+	/// @param object_vertex_index index of the vertices of the model
 	void deform_object(MESH& object, CMap2::Attribute<Vec3>* 
 						object_vertex_position,
 					   CMap2::Attribute<uint32>* object_vertex_index)
@@ -338,10 +347,8 @@ private:
 
 	std::string deformation_type_;
 
-	/**
-	 * initialize the set of triangles 
-	 * from the square faces of the control cage
-	*/
+	/// @brief initialize the set of triangles
+	/// from the square faces of the control cage 
 	void init_triangles()
 	{
 
@@ -385,17 +392,10 @@ private:
 		});
 	}
 
-	/**
-	 * 
-	 * 
-	 * 
-	 */
-	/**
-	 * initialize the control cage planes 
-	 * delimit the control cage area in terms of planes
-	 * Plane of equation ax + by + cz = d
-	 * Create the three local direction control planes 
-	*/
+	/// @brief initialize the control cage planes
+	/// delimit the control cage area in terms of planes
+	/// Plane of equation ax + by + cz = d
+	/// Create the three local direction control planes 
 	void init_control_cage_plane()
 	{
 		const Vec3 x_dir = {1.0, 0.0, 0.0}, 
@@ -487,9 +487,7 @@ private:
 		local_z_direction_control_planes_.triangles_d_max = face_z_max;
 	}
 
-	/**
-	 * initialize the virtual cubes 
-	*/
+	/// @brief initialize the virtual cubes 
 	void init_virtual_cubes()
 	{
 
@@ -500,10 +498,8 @@ private:
 		init_vertex_adjacent_virtual_cubes();
 	}
 
-	/**
-	 * initialize the virtual cubes 
-	 * that share a face with the control cage 
-	*/
+	/// @brief initialize the virtual cubes 
+	/// that share a face with the control cage 
 	void init_face_adjacent_virtual_cubes()
 	{
 		Virtual_cube face_adjacent0 = 
@@ -544,10 +540,8 @@ private:
 		face_adjacent_virtual_cube_.push_back(face_adjacent5);
 	}
 
-	/**
-	 * initialize the virtual cubes 
-	 * that share an edge with the control cage 
-	*/
+	/// @brief initialize the virtual cubes 
+	/// that share an edge with the control cage 
 	void init_edge_adjacent_virtual_cubes()
 	{
 		const Vec3 shift_x_min = 
@@ -708,10 +702,9 @@ private:
 		edge_adjacent_virtual_cube_.push_back(edge_adjacent11);
 	}
 
-	/**
-	 * initialize the virtual cubes 
-	 * that share a vertex with the control cage 
-	*/
+
+	/// @brief initialize the virtual cubes 
+	/// that share a vertex with the control cage 
 	void init_vertex_adjacent_virtual_cubes()
 	{
 		const Vec3 shift_x_min = 
@@ -842,12 +835,12 @@ private:
 		vertex_adjacent_virtual_cube_.push_back(vertex_adjacent7);
 	}
 
-	/**
-	 * compute a virtual cube 
-	 * from a face and a shiftVector 
-	 * shifted the points of the face to create the opposite face
-	 * link the set of points to create the virtual cube from it 
-	*/
+	/// @brief compute a virtual cube from a face and a shift vector
+	/// create the opposite face by shifting the points of the face by the vector 
+	/// link the set of points to create the virtual cube from it 
+	/// @param face pair of triangles 
+	/// @param shift_vector 
+	/// @return virtual cube 
 	Virtual_cube get_virtual_cube_triangles(
 								const std::pair<Triangle, Triangle> face, 
 								const Vec3& shift_vector)
@@ -950,19 +943,15 @@ private:
 		return new_virtual_cube;
 	}
 
-	/**
-	 * find the virtual cube that contains the target point
-	 * point defined by its height on the three axis 
-	 * @param {double} d_x target point height on the x-direction
-	 * @param {double} d_y target point height on the y-direction 
-	 * @param {double} d_z target point height on the z-direction
-	 * @param {bool} valid_x_dir 
-	 * 				target point inside the plane boundaries x-direction
-	 * @param {bool} valid_y_dir 
-	 * 				target point inside the plane boundaries y-direction
-	 * @param {bool} valid_z_dir 
-	 * 				target point inside the plane boundaries z-direction
-	*/
+	/// @brief find the virtual cube that contains the target point
+	/// point defined by its height on the three axis
+	/// @param d_x target point height on the x-direction
+	/// @param d_y target point height on the y-direction
+	/// @param d_z d_z target point height on the z-direction
+	/// @param valid_x_dir target point inside the plane boundaries x-direction
+	/// @param valid_y_dir target point inside the plane boundaries y-direction
+	/// @param valid_z_dir target point inside the plane boundaries z-direction
+	/// @return 
 	Virtual_cube find_virtual_cube_target(const double& d_x, 
 									const double& d_y, const double& d_z, 
 									const bool& valid_x_dir, 
@@ -1138,13 +1127,13 @@ private:
 		}
 	}
 
-	/**
-	 * bind influence area of object with MVC deformation type 
-	 * for each point of the influence area
-	 * 	determine if inside control cage -> classic MVC binding
-	 * 				otherwise, need to find corresponding virtual cube 
-	 * 							compute MVC inside the virtual cube 
-	*/
+	/// @brief bind influence area of object with MVC deformation type
+	/// loop on each point of the influence area 
+	/// check if point inside control cage => classical MVC binding 
+	/// otherwise: find corresponding virtual cube, compute MVC inside it
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model 
+	/// @param object_vertex_index index of the vertices of the model 
 	void bind_object_mvc(MESH& object, 
 			const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
 			const std::shared_ptr<Attribute<uint32>>& object_vertex_index)
@@ -1194,17 +1183,16 @@ private:
 
 				compute_mvc_on_point_outside_cage(surface_point, 
 												surface_point_index, 
-												virtual_cube_target, 
-												object);
+												virtual_cube_target);
 			}
 		}
 	}
 
-	/**
-	 * deform the influence area of the object with MVC deformation type
-	 * rely object_fixed_data to handle case of point inside virtual cube 
-	 * 
-	*/
+	/// @brief deform the influence area of the object with MVC deformation type
+	/// rely object_fixed_data to handle case of point inside virtual cube
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model 
+	/// @param object_vertex_index index of the vertices of the model 
 	void deform_object_mvc(MESH& object, 
 						CMap2::Attribute<Vec3>* object_vertex_position,
 						CMap2::Attribute<uint32>* object_vertex_index)
@@ -1248,6 +1236,13 @@ private:
 	 * state-of-the-art method 
 	 * [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
 	*/
+
+	/// @brief compute MVC on point inside the cage 
+	/// state-of-the-art method 
+	/// [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
+	/// @param surface_point 
+	/// @param surface_point_index 
+	/// @return 
 	bool compute_mvc_on_point_inside_cage(const Vec3& surface_point, 
 										const uint32& surface_point_index)
 	{
@@ -1383,10 +1378,18 @@ private:
 	 * 	that belongs to the local cage 
 	 * 	set the other fixed part inside object_fixed_data
 	*/
+
+	/// @brief compute MVC on point outside cage (inside a virtual cube)
+	/// separate the weights of the control cage points and 
+	/// and the virtual ones 
+	/// @param surface_point 
+	/// @param surface_point_index 
+	/// @param virtual_cube_target 
+	/// @param object 
+	/// @return 
 	bool compute_mvc_on_point_outside_cage(const Vec3& surface_point, 
 								const uint32& surface_point_index,
-								const Virtual_cube virtual_cube_target, 
-								MESH& object)
+								const Virtual_cube virtual_cube_target)
 	{
 		uint32 nbv_cage = nb_cells<Vertex>(*control_cage_);
 
@@ -1557,12 +1560,12 @@ private:
 		return false;
 	}
 
-	/**
-	 * check point inside influence cage 
-	 * use the local_direction_control_plane structure 
-	 * to check if a point of the object (surface_point) 
-	 * is between the planes of the influence cage 
-	*/
+	/// @brief check if a position is inside the influence cage 
+	/// use the local_direction_control_plane structure
+	/// to verify if a position of the model is between the planes 
+	/// of the influence cage 
+	/// @param surface_point 
+	/// @return true if inside the influence cage, false otherwise 
 	bool check_point_inside_influence_cage(const Vec3& surface_point)
 	{
 		const double d_x = surface_point
@@ -1608,10 +1611,11 @@ private:
 		return (valid_x_dir && valid_y_dir && valid_z_dir);
 	}
 
-	/**
-	 * find intersection points between two faces  
-	 * @returns the edge common to the two provided faces 
-	*/
+
+	/// @brief find the intersections points between two faces
+	/// @param face1 
+	/// @param face2 
+	/// @return common edge of the provided faces
 	std::vector<Point> find_intersection_points_face(
 			const std::pair<Triangle, Triangle>& face1,
 			const std::pair<Triangle, Triangle>& face2)
@@ -1653,10 +1657,11 @@ private:
 		return intersect_points;
 	}
 
-	/**
-	 * find intersection point between three faces  
-	 * @returns the common point to the three provided faces 
-	*/
+	/// @brief find intersection point between three faces 
+	/// @param face1 
+	/// @param face2 
+	/// @param face3 
+	/// @return common point intersecting the three provided faces
 	Point find_intersection_point(const std::pair<Triangle, Triangle> face1, 
 								const std::pair<Triangle, Triangle> face2,
 								const std::pair<Triangle, Triangle> face3)
@@ -1713,12 +1718,14 @@ private:
 
 		return intersection_point;
 	}
- 
-	/**
-	 * get face from intersecting edge
-	 * create new face composed of the intersecting edge 
-	 * and this edge shifted by shiftVector
-	*/
+
+
+	/// @brief get face from intersecting edge 
+	/// create new face composed of the intersecting edge (in the vector)
+	/// and this edge shifted by the vector
+	/// @param intersect_points 
+	/// @param shiftVector 
+	/// @return Face 
 	std::pair<Triangle, Triangle> get_face_from_intersecting_edge(
 									const std::vector<Point>& intersect_points,
 									const Vec3& shiftVector)
@@ -1742,14 +1749,14 @@ private:
 		return std::make_pair(local_triangle1, local_triangle2);
 	}
 
-	
-	/**
-	 * get face from intersecting vertex
-	 * Create new face composed of the intersection point 
-	 * and the shift of this point wiht the two provided directions 
-	 * shiftVector1 and shiftVector2
-	 * 
-	*/
+
+	/// @brief get face from intersecting vertex
+	/// create new face composed of the intersection point
+	/// and the shift of this point with the two provided directions
+	/// @param intersection_point 
+	/// @param shiftVector1 
+	/// @param shiftVector2 
+	/// @return Face 
 	std::pair<Triangle, Triangle> get_face_from_intersecting_vertex(
 											const Point& intersection_point,
 											const Vec3& shiftVector1, 

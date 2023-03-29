@@ -344,12 +344,10 @@ private:
 		} 
 
 		std::cout << selected_vertex.index_ << std::endl; 
-		if (selected_vertex.index_ == 0){
-			std::cout << "case 0 index selected" << std::endl; 
+		if (selected_vertex.index_ == 0){ 
 			transformations_valid_indices_.push_back(1); 
 		} else {
 			if (selected_vertex.index_ == number_of_handles_ -1){
-				std::cout << "case last index " << std::endl; 
 				transformations_valid_indices_.push_back(selected_vertex.index_); 
 			} else {
 				std::cout << "TODO" << std::endl; 

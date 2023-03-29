@@ -89,27 +89,23 @@ void set_attribute_face_index(CMap2& cage,
 */
 void set_attribute_face_normal(CMap2& cage, 
                                         CMap2::Attribute<Vec3>* vertex_position, 
-                                        CMap2::Attribute<Vec3>* face_normal); 
+                                        CMap2::Attribute<Vec3>* face_normal);
 /**
- * set attribute fixed position for CMap2
-*/
-void set_attribute_fixed_position(CMap2& object, 
-                                CMap2::Attribute<Vec3>* object_fixed_position); 
-
-/**
- * set Graph g as handle with provided properties 
+ * set default graph g as handle with provided properties 
 */
 Graph::Vertex create_handle(Graph& g, 
-                Graph::Attribute<Vec3>* vertex_position, 
-                Graph::Attribute<Scalar>* vertex_radius, const Vec3& center); 
+		Graph::Attribute<Vec3>* g_vertex_position, 
+		Graph::Attribute<Scalar>* g_vertex_radius, 
+		const Vec3& handle_position, const Scalar radius_value); 
 
 /**
- * set Graph g as axis with provided properties
+ * set default graph g as axis with provided properties
 */
 std::vector<Graph::Vertex> create_axis(Graph& g, 
-                Graph::Attribute<Vec3>* vertex_position, 
-                Graph::Attribute<Scalar>* vertex_radius, 
-                const std::vector<Vec3>& vertices_positions); 
+                Graph::Attribute<Vec3>* g_vertex_position, 
+                Graph::Attribute<Scalar>* g_vertex_radius, 
+                const std::vector<Vec3>& vertices_positions, 
+                const Scalar& radius_value); 
 
 } // namespace modeling
 
