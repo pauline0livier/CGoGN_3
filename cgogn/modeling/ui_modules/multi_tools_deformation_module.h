@@ -126,13 +126,12 @@ public:
 	{
 	}
 
-	/**
-	 * initialize mesh 
-	 * Create parameters for this mesh
-	 * Create synapse connection to trigger when attribute or cell sets changed
-	 * Create a cell container to insert the selected elements 
-	 * @param {MESH} m 
-	*/
+	
+	/// @brief initialize mesh 
+	/// set mesh_ for mesh_parameter
+	/// create synapse connection when attribute or cell sets changed 
+	/// create a cell container to insert the selected elements  
+	/// @param m mesh
 	void init_mesh(MESH* m)
 	{
 		parameters_[m] = new modeling::Parameters<MESH>();
@@ -174,14 +173,12 @@ public:
 		md.template add_cells_set<MeshVertex>();
 	}
 
-	/**
-	 * initialize graph 
-	 * Create graph parameters for this graph
-	 * Create synapse connection to trigger when attribute or 
-	 * cell sets changed
-	 * Create a cell container to insert the selected elements
-	 * @param {GRAPH} g 
-	*/
+
+	/// @brief initialize graph 
+	/// set graph_ for graph_parameter
+	/// create synapse connection when attribute or cell sets changed 
+	/// create a cell container to insert the selected elements  
+	/// @param g graph 
 	void init_graph(GRAPH* g)
 	{
 		graph_parameters_[g] = new modeling::GraphParameters<GRAPH>();
@@ -230,25 +227,29 @@ public:
 	 * @param {shared_ptr<MeshAttribute<Vec3>>} vertex_position 
 	 * @param {shared_ptr<MeshAttribute<Vec3>>} vertex_normal
 	*/
+
+	/// @brief set model to deform 
+	/// @param m model to deform 
+	/// @param vertex_position position of the vertices of the mesh
+	/// @param vertex_normal normal position of the vertices of the mesh
 	void set_model(MESH& m,
-				const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
-				const std::shared_ptr<MeshAttribute<Vec3>>& vertex_normal)
+				const std::shared_ptr<MeshAttribute<Vec3>>& m_vertex_position,
+				const std::shared_ptr<MeshAttribute<Vec3>>& m_vertex_normal)
 	{
 		model_ = &m;
 
-		geometry::compute_normal<MeshVertex>(m, vertex_position.get(), 
-												vertex_normal.get());
+		geometry::compute_normal<MeshVertex>(m, m_vertex_position.get(), 
+												m_vertex_normal.get());
 
-		mesh_provider_->emit_attribute_changed(m, vertex_normal.get());
+		mesh_provider_->emit_attribute_changed(m, m_vertex_normal.get());
 
-		set_vertex_position(m, vertex_position);
+		set_vertex_position(m, m_vertex_position);
 	}
 
-	/**
-	 * loop on the existing cages, in global_cage_container 
-	 * and cage_container
-	 * @param {FUNC} f function to apply to the cages
-	*/
+
+	/// @brief  loop on the cage of cage_container and global_cage_container
+	/// @tparam FUNC function type
+	/// @param f function to apply on each cage
 	template <typename FUNC>
 	void foreach_cage(const FUNC& f)
 	{
@@ -264,10 +265,10 @@ public:
 			f(*(cdt->control_cage_), name);
 	}
 
-	/**
-	 * loop on the existing local cages, in cage_container
-	 * @param {FUNC} f function to apply to the cages
-	*/
+
+	/// @brief loop on the local cage of cage_container
+	/// @tparam FUNC function type
+	/// @param f function to apply on each local cage
 	template <typename FUNC>
 	void foreach_local_cage(const FUNC& f)
 	{
@@ -280,10 +281,10 @@ public:
 			f(*(cdt->control_cage_), name);
 	}
 
-	/**
-	 * loop on the existing handle, in handle_container
-	 * @param {FUNC} f function to apply to the handles
-	*/
+
+	/// @brief loop on the handle of handle_container
+	/// @tparam FUNC function type
+	/// @param f function to apply on each handle
 	template <typename FUNC>
 	void foreach_handle(const FUNC& f)
 	{
@@ -291,10 +292,10 @@ public:
 			f(*(hdt->control_handle_), name);
 	}
 
-	/**
-	 * loop on the existing axis, in axis_container
-	 * @param {FUNC} f function to apply to the axis
-	*/
+
+	/// @brief loop on the axis of axis_container
+	/// @tparam FUNC function type
+	/// @param f function to apply on each axis
 	template <typename FUNC>
 	void foreach_axis(const FUNC& f)
 	{
@@ -323,11 +324,16 @@ private:
 	 * @param {MESH} m mesh to deform
 	 * @param {shared_ptr<MeshAttribute<Vec3>>} vertex_position 
 	*/
+
+	/// @brief set mesh_parameter vertex position from the mesh ones
+	/// set vertex base size
+	/// @param m mesh
+	/// @param m_vertex_position position of the vertices of the mesh
 	void set_vertex_position(MESH& m, 
-				const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position)
+				const std::shared_ptr<MeshAttribute<Vec3>>& m_vertex_position)
 	{
 		modeling::Parameters<MESH>& p = *parameters_[&m];
-		p.vertex_position_ = vertex_position;
+		p.vertex_position_ = m_vertex_position;
 		if (p.vertex_position_)
 		{
 			p.vertex_base_size_ = 
@@ -341,18 +347,16 @@ private:
 			v->request_update();
 	}
 
-	/**
-	 * set graph parameters vertex position from the graph vertex position 
-	 * set vertex base size 
-	 * create 
-	 * @param {GRAPH} g graph to deform
-	 * @param {shared_ptr<GraphAttribute<Vec3>>} vertex_position 
-	*/
+
+	/// @brief set graph_parameter vertex position from the graph ones
+	/// set vertex base size
+	/// @param g graph  
+	/// @param g_vertex_position position of the vertices of the graph
 	void set_graph_vertex_position(const GRAPH& g, 
-				const std::shared_ptr<GraphAttribute<Vec3>>& vertex_position)
+			const std::shared_ptr<GraphAttribute<Vec3>>& g_vertex_position)
 	{
 		modeling::GraphParameters<GRAPH>& p = *graph_parameters_[&g];
-		p.vertex_position_ = vertex_position;
+		p.vertex_position_ = g_vertex_position;
 		if (p.vertex_position_)
 		{
 			p.vertex_base_size_ = 5.0;
@@ -363,15 +367,11 @@ private:
 			v->request_update();
 	}
 
-	/**
-	 * create global cage around mesh 
-	 * create GlobalCageDeformationTool 
-	 * use mesh bounding box for the cage's dimensions
-	 * @param {MESH} m mesh to deform
-	 * @param {shared_ptr<MeshAttribute<Vec3>>} vertex_position 
-	*/
-	void create_global_cage_tool(const MESH& m, 
-				const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position)
+
+	/// @brief create global cage around model 
+	/// Create GlobalCageDeformationTool
+	/// @param object model to deform 
+	void create_global_cage_tool(const MESH& object)
 	{
 		std::string cage_name = "global_cage";
 
@@ -391,7 +391,7 @@ private:
 													cage_vertex_position);
 
 			set_vertex_position(*cage, cage_vertex_position);
-			MeshData<MESH>& md = mesh_provider_->mesh_data(m);
+			MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 
 			std::tuple<Vec3, Vec3, Vec3> extended_bounding_box =
 				modeling::get_extended_bounding_box(md.bb_min_, 
@@ -414,18 +414,14 @@ private:
 			surface_render_->set_render_faces(*v1, *cage, false);
 		}
 	}
-
-	/**
-	 * create local handle on mesh 
-	 * create HandleDeformationTool 
-	 * use user's selection to find the handle's position
-	 * set the normal of the handle for the deformation
-	 * @param {MESH} m mesh to deform
-	 * @param {shared_ptr<MeshAttribute<Vec3>>} vertex_position
-	 * @param {CellsSet<MESH, MeshVertex>*} handle_set 
-	*/
-	void create_handle_tool(MESH& m, 
-				const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
+	
+	/// @brief create local handle on model 
+	/// Create HandleDeformationTool
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model
+	/// @param handle_set user selected set 
+	void create_handle_tool(MESH& object, 
+				const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 				CellsSet<MESH, MeshVertex>* handle_set)
 	{
 		int handle_number = handle_container_.size();
@@ -449,13 +445,14 @@ private:
 			set_graph_vertex_position(*handle, handle_vertex_position);
 
 			auto mesh_vertex_normal = 
-							get_attribute<Vec3, MeshVertex>(m, "normal");
+							get_attribute<Vec3, MeshVertex>(object, "normal");
 
 			const Vec3 handle_position =
-				modeling::get_mean_value_attribute_from_set(m, 
-										vertex_position.get(), handle_set);
+				modeling::get_mean_value_attribute_from_set(object, 
+													object_vertex_position.get(), 
+													handle_set);
 
-			Vec3 normal = modeling::get_mean_value_attribute_from_set(m, 
+			Vec3 normal = modeling::get_mean_value_attribute_from_set(object, 
 									mesh_vertex_normal.get(), handle_set);
 			normal.normalize();
 
@@ -467,9 +464,10 @@ private:
 								normal);
 
 			CMap2::Vertex closest_vertex =
-				modeling::closest_vertex_in_set_from_value(m, 
-										vertex_position.get(), handle_set, 
-										handle_position);
+				modeling::closest_vertex_in_set_from_value(object, 
+													object_vertex_position.get(), 
+													handle_set, 
+													handle_position);
 
 			hdt->set_handle_mesh_vertex(closest_vertex);
 
@@ -492,22 +490,19 @@ private:
 					get_or_add_attribute<Scalar, MeshVertex>(*model_, 
 													"geodesic_distance");
 
-			hdt->set_geodesic_distance(m, vertex_position);
-			mesh_provider_->emit_attribute_changed(m, object_geodesic.get());
+			hdt->set_geodesic_distance(object, object_vertex_position);
+			mesh_provider_->emit_attribute_changed(object, object_geodesic.get());
 
 			boost::synapse::emit<handle_added>(this, hdt);
 		}
 	}
 
-	/**
-	 * create local axis on mesh 
-	 * create AxisDeformationTool 
-	 * use user's selection to find the axis's position
-	 * @param {MESH} m mesh to deform
-	 * @param {shared_ptr<MeshAttribute<Vec3>>} vertex_position
-	*/
-	void create_axis_tool(const MESH& m, 
-			const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position)
+	/// @brief create local axis on model 
+	/// Create AxisDeformationTool 
+	/// @param object model to deform  
+	/// @param object_vertex_position position of the vertices of the model
+	void create_axis_tool(const MESH& object, 
+			const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position)
 	{
 		int axis_number = axis_container_.size();
 		std::string axis_name = "local_axis" + std::to_string(axis_number);
@@ -528,7 +523,7 @@ private:
 			set_graph_vertex_position(*axis, axis_vertex_position);
 
 			auto mesh_vertex_normal = 
-					get_attribute<Vec3, MeshVertex>(m, "normal");
+					get_attribute<Vec3, MeshVertex>(object, "normal");
 
 			modeling::Parameters<MESH>& model_p = *parameters_[model_];
 
@@ -542,18 +537,18 @@ private:
 				std::pair<MeshVertex, MeshVertex> vertices_set = 
 										model_p.selected_depth_vertices_[i];
 
-				const Vec3 front_position = 
-						value<Vec3>(m, vertex_position, vertices_set.first);
+				const Vec3 front_position = value<Vec3>(object, 
+									object_vertex_position, vertices_set.first);
 				axis_vertices_position.push_back(front_position);
 
-				const Vec3 back_position = 
-						value<Vec3>(m, vertex_position, vertices_set.second);
+				const Vec3 back_position = value<Vec3>(object, 
+									object_vertex_position, vertices_set.second);
 
 				inside_axis_position.push_back(
 									(front_position + back_position) / 2.0);
 
 				const Vec3& normal = 
-					value<Vec3>(m, mesh_vertex_normal, vertices_set.first);
+					value<Vec3>(object, mesh_vertex_normal, vertices_set.first);
 				axis_normals.push_back(normal);
 			}
 
@@ -584,16 +579,14 @@ private:
 		}
 	}
 
-	/**
-	 * create local cage on mesh 
-	 * create CageDeformationTool 
-	 * use user's selection to find the local cage's position
-	 * @param {MESH} m mesh to deform
-	 * @param {shared_ptr<MeshAttribute<Vec3>>} vertex_position
-	 * @param {CellsSet<MESH, MeshVertex>*} control_set
-	*/
-	void create_local_cage_tool(const MESH& m, 
-			const std::shared_ptr<MeshAttribute<Vec3>>& vertex_position,
+
+	/// @brief create local cage on model 
+	/// create CageDeformationTool
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model
+	/// @param control_set user selected vertices 
+	void create_local_cage_tool(const MESH& object, 
+			const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 			CellsSet<MESH, MeshVertex>* control_set)
 	{
 		int cage_number = cage_container_.size();
@@ -617,17 +610,17 @@ private:
 			set_vertex_position(*l_cage, l_cage_vertex_position);
 
 			std::shared_ptr<MeshAttribute<Vec3>> mesh_vertex_normal = 
-							get_attribute<Vec3, MeshVertex>(m, "normal");
+							get_attribute<Vec3, MeshVertex>(object, "normal");
 
 			Vec3 center = 
-				modeling::get_mean_value_attribute_from_set(m, 
-										vertex_position.get(), control_set);
+				modeling::get_mean_value_attribute_from_set(object, 
+									object_vertex_position.get(), control_set);
 
 			Vec3 normal = {0.0, 1.0, 0.0};
 
 			std::pair<Vec3, Vec3> local_boundaries =
-				modeling::get_border_values_in_set(m, 
-										vertex_position.get(), control_set);
+				modeling::get_border_values_in_set(object, 
+										object_vertex_position.get(), control_set);
 
 			std::tuple<Vec3, Vec3, Vec3> extended_boundaries =
 				modeling::get_extended_bounding_box(local_boundaries.first, 
@@ -662,19 +655,15 @@ private:
 		}
 	}
 
-	/**
-	 * bind global cage 
-	 * bind the global cage with the object 
-	 * bind the global cage with the existing spatial tools 
-	 * if global cage vertices are changing 
-	 * 	propagate the change on the object 
-	 * 	propagate the change on the spatial tools 
-	 * @param {MESH} object mesh to deform
-	 * @param {shared_ptr<MeshAttribute<Vec3>>} object_vertex_position
-	 * @param {MESH} global_cage
-	 * @param {std::shared_ptr<MeshAttribute<Vec3>>} cage_vertex_position
-	 * @param {string} binding_type choice between MVC and Green coordinates
-	*/
+
+	/// @brief bind global cage to model and existing tools 
+	/// initialize connection when global cage vertices are updated 
+	/// 	changes propagating on the model and existing tools
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model
+	/// @param global_cage 
+	/// @param cage_vertex_position position of the vertices of the global cage
+	/// @param binding_type chosen binding type (MVC or Green)
 	void bind_global_cage(MESH& object, 
 		const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 		MESH& global_cage, 
@@ -796,18 +785,14 @@ private:
 				});
 	}
 
-	/**
-	 * bind local cage 
-	 * set local cage influence set 
-	 * bind the local cage with the influence set 
-	 * if local cage vertices are changing 
-	 * 	propagate the change on the influence set 
-	 * @param {MESH} object mesh to deform
-	 * @param {shared_ptr<MeshAttribute<Vec3>>} object_vertex_position
-	 * @param {MESH} local_cage
-	 * @param {std::shared_ptr<MeshAttribute<Vec3>>} cage_vertex_position
-	 * @param {string} binding_type choice between MVC and Green coordinates
-	*/
+	/// @brief bind local cage to model and surrounding tools 
+	/// initialize connection when local cage vertices are updated 
+	/// 	changes propagating on the model and surrounding tools
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model
+	/// @param local_cage 
+	/// @param cage_vertex_position position of the vertices of the local cage
+	/// @param binding_type chosen binding type (MVC or Green)
 	void bind_local_cage(MESH& object, 
 		const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 		MESH& local_cage, 
@@ -871,23 +856,14 @@ private:
 				});
 	}
 
-	/**
-	 * bind local handle 
-	 * bind the local handle with the object 
-	 * bind the local handle with global cage if exists  
-	 * if local handle is changing 
-	 * 	propagate the change on the object 
-	 * 	propagate the change on the global cage
-	 * 		if handle gets out of the global cage
-	 * 			update size of the global cage 
-	 * 			update the weights of the global cage 
-	 * 				with the object and the existing spatial tools
-	 * @param {MESH} object mesh to deform
-	 * @param {shared_ptr<MeshAttribute<Vec3>>} object_vertex_position
-	 * @param {GRAPH} control_handle
-	 * @param {std::shared_ptr<GraphAttribute<Vec3>>} handle_vertex_position
-	 * @param {string} binding_type choice between round and spike
-	*/
+	/// @brief bind local handle to model and surrounding tools 
+	/// initialize connection when the handle vertex is updated 
+	/// 	changes propagating on the model and surrounding tools
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model
+	/// @param control_handle local handle
+	/// @param handle_vertex_position position of the vertex of the local handle
+	/// @param binding_type chosen binding type (round or spike)
 	void bind_local_handle(MESH& object, 
 		const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 		GRAPH& control_handle, 
@@ -1054,17 +1030,14 @@ private:
 	}
 
 
-	/**
-	 * bind local axis 
-	 * bind the local axis with the object 
-	 * if local axis vertices are changing 
-	 * 	propagate the change on the object  
-	 * @param {MESH} object mesh to deform
-	 * @param {shared_ptr<MeshAttribute<Vec3>>} object_vertex_position
-	 * @param {GRAPH} control_axis
-	 * @param {std::shared_ptr<GraphAttribute<Vec3>>} axis_vertex_position
-	 * @param {string} binding_type choice between rigid or loose
-	*/
+	/// @brief bind local axis to model and surrounding tools 
+	/// initialize connection when local axis vertices are updated 
+	/// 	changes propagating on the model and surrounding tools
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model
+	/// @param control_axis local axis  
+	/// @param axis_vertex_position position of the vertices of the local axis
+	/// @param binding_type chosen binding type (rigid or loose)
 	void bind_local_axis(MESH& object, 
 		const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 		GRAPH& control_axis, 
@@ -1127,10 +1100,13 @@ private:
 	}
 
 protected:
-	/**
-	 * init
-	 * load the necessary modules 
-	*/
+
+	/// @brief initialize the module 
+	/// load the necessary exterior modules 
+	/// mesh_provider: storage of meshes and their mesh_data
+	/// graph_provider: storage of graphs and their graph_data 
+	/// surface_render: render module for mesh 
+	/// graph_render: render module for graph 
 	void init() override
 	{
 		mesh_provider_ = static_cast<ui::MeshProvider<MESH>*>(
@@ -1162,16 +1138,15 @@ protected:
 				std::string{mesh_traits<GRAPH>::name} + ")"));
 	}
 
-	/**
-	 * mouse pressed event
-	 * call the corresponding events in the parameters 
-	 * pressed shift to select mesh vertices (also cages)
-	 * pressed ctrl to select graph vertices
-	 * @param {View*} current view
-	 * @param {int32} button
-	 * @param {int32} x coordinate taken from mouse's position
-	 * @param {int32} y coordinate taken from mouse's position
-	*/
+
+	/// @brief mouse pressed event
+	/// call the corresponding events in the parameters
+	/// pressed Shift to select vertices on selected mesh (model or cage)
+	/// pressed Ctrl to selected vertices on selected graph (handle or axis)
+	/// @param view current view
+	/// @param button left (select) or right (unselect)
+	/// @param x retrieved from mouse position
+	/// @param y retrieved from mouse position
 	void mouse_press_event(View* view, 
 						int32 button, int32 x, int32 y) override
 	{
@@ -1199,15 +1174,14 @@ protected:
 		}
 	}
 
-	/**
-	 * key pressed event
-	 * call the corresponding events in the parameters 
-	 * D mesh deformation (including cage)
-	 * H handle deformation
-	 * A or Q axis deformation
-	 * @param {View*} current view
-	 * @param {int32} key_code code of the key 
-	*/
+
+	/// @brief key pressed event 
+	/// call the corresponding events in the parameters 
+	/// pressed D to deform selected mesh (model and cages)
+	/// pressed H to deform selected handle 
+	/// pressed A or Q to deform selected axis 
+	/// @param view current view 
+	/// @param key_code 
 	void key_press_event(View* view, int32 key_code) override
 	{
 		if (key_code == GLFW_KEY_D)
@@ -1241,15 +1215,13 @@ protected:
 		}
 	}
 
-	/**
-	 * key released event
-	 * call the corresponding events in the parameters 
-	 * D mesh deformation (including cage)
-	 * H handle deformation
-	 * A or Q axis deformation
-	 * @param {View*} current view
-	 * @param {int32} key_code code of the key 
-	*/
+	/// @brief key released event
+	/// call the corresponding events in the parameters 
+	/// released D on selected mesh (model and cage)
+	/// released H on selected handle
+	/// released A or Q on selected axis 
+	/// @param view current view
+	/// @param key_code 
 	void key_release_event(View* view, int32 key_code) override
 	{
 		unused_parameters(view);
@@ -1272,16 +1244,14 @@ protected:
 		}
 	}
 
-	/**
-	 * mouse move event
-	 * call the corresponding events in the parameters 
-	 * pressed shift to select mesh vertices (also cages)
-	 * pressed ctrl to select graph vertices
-	 * @param {View*} current view
-	 * @param {int32} button
-	 * @param {int32} x coordinate taken from mouse's position
-	 * @param {int32} y coordinate taken from mouse's position
-	*/
+
+	/// @brief mouse move event
+	/// call the corresponding events in the parameters 
+	/// pressed shift to select mesh vertices (model and cages)
+	/// pressed ctrl to select graph vertices
+	/// @param view current view 
+	/// @param x retrieved from mouse position 
+	/// @param y retrieved from mouse position
 	void mouse_move_event(View* view, int32 x, int32 y) override
 	{
 
@@ -1305,12 +1275,8 @@ protected:
 		}
 	}
 
-	/**
-	 * draw
-	 * call the parameter local draw 
-	 * update rendering from user's input
-	 * @param {View*} current view
-	*/
+	/// @brief update rendering of selected vertices 
+	/// @param view current view 
 	void draw(View* view) override
 	{
 		for (auto& [m, p] : parameters_)
@@ -1324,11 +1290,9 @@ protected:
 		}
 	}
 
-	/**
-	 * left panel 
-	 * user interface 
-	 * call to corresponding functions 
-	*/
+	/// @brief left panel used for user interface
+	/// refreshed constantly 
+	/// call the corresponding functions relative to user interaction
 	void left_panel() override
 	{
 		imgui_mesh_selector(mesh_provider_, model_, "Object", 
@@ -1362,8 +1326,7 @@ protected:
 				ImGui::Text("Global");
 				if (ImGui::Button("Create global cage"))
 				{
-					create_global_cage_tool(*model_, 
-											model_p.vertex_position_);
+					create_global_cage_tool(*model_);
 				}
 
 				if (global_cage_container_.size() == 1)

@@ -131,6 +131,12 @@ public:
 		}
 	}
 
+	/// @brief set number of handles in the axis 
+	/// update the number of transformations 
+	/// number of transformations = (number_of_handles -1) + 2
+	/// number_of_handles -1 = number of bones 
+	/// +2 for the virtual bones at the extremities 
+	/// @param number_of_handles 
 	void set_number_of_handles(const size_t& number_of_handles)
 	{
 		number_of_handles_ = number_of_handles; 
@@ -141,11 +147,10 @@ public:
 		}
 	
 	}
-
-	/**
-	 * h key pressed 
-	 * to displace handle type graph 
-	*/
+	
+	/// @brief H key pressed
+	/// initialize displacement of handle
+	/// @param view current view 
 	void key_pressed_H_event(ui::View* view)
 	{
 		if (vertex_position_ && selected_vertices_set_ && 
@@ -170,10 +175,10 @@ public:
 		}
 	}
 
-	/**
-	 * a or q key pressed 
-	 * to displace handle type axis 
-	*/
+
+	/// @brief A key pressed 
+	/// initialize displacement of axis/partial skeleton  
+	/// @param view current view
 	void key_pressed_A_event(ui::View* view)
 	{
 		if (vertex_position_ && selected_vertices_set_ && 
@@ -282,116 +287,55 @@ public:
 		}
 	}
 
-	/**
-	 * key released 
-	 * reset dragging parameter
-	*/
+
+	/// @brief h key released 
+	/// reset dragging handle parameter
+	/// @param view 
 	void key_release_handle_event(ui::View* view)
 	{
 		if (dragging_handle_)
 			dragging_handle_ = false;
 	}
 
-	/**
-	 * key released 
-	 * reset dragging parameter
-	*/
+
+	/// @brief a or q key released 
+	/// reset dragging axis parameter 
+	/// reset the axis transformations 
+	/// @param view 
 	void key_release_axis_event(ui::View* view)
 	{
 		if (dragging_axis_){
 			dragging_axis_ = false;
-			transformations_[0].setIdentity();
-			transformations_[1].setIdentity();
+
+			for (size_t t = 0; t < transformations_.size(); t++){
+				transformations_[t].setIdentity();
+			}
+			
 		}
 			
 	}
 
-	/**
-	 * mouse displacement 
-	 * handle displaces along normal 
-	 * axis rotate around defined center and axis of rotation
-	*/
+	/// @brief mouse displacement outcomes 
+	/// call for the corresponding displacement functions 
+	/// @param view current view
+	/// @param x retrieved from mouse position
+	/// @param y retrieved from mouse position
 	void mouse_displacement(ui::View* view, const int32& x, const int32& y)
 	{
 		if (dragging_handle_)
 		{
-			rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
-			Vec3 t = drag_pos - previous_drag_pos_;
-
-			Vec3 t_bis = t.dot(normal_) * normal_;
-
-			selected_vertices_set_->foreach_cell([&](Vertex v) { 
-				value<Vec3>(*graph_, vertex_position_, v) += t_bis; });
-			
-			previous_drag_pos_ = drag_pos + t_bis;
+			mouse_handle_displacement(view, x, y); 
 		}
 
 		if (dragging_axis_)
 		{
-			float64 dx = float64(x - view->previous_mouse_x());
-			float64 dy = float64(y - view->previous_mouse_y());
-
-			if (std::abs(dx) + std::abs(dy) > 0.0)
-			{
-				rendering::GLVec3d axis(dy, dx, 0.0);
-				float64 spinning_speed = axis.norm();
-
-				axis /= spinning_speed;
-				spinning_speed *= 0.005;
-
-				float64 sign = 1.0; 
-				if (dx < 0.0)
-				{
-					sign = -1.0;
-				}
-				
-
-				rendering::Transfo3d inv_camera = 
-									view->camera().frame_.inverse();
-				rendering::Transfo3d 
-				sm(Eigen::AngleAxisd(sign * 1.0 * spinning_speed, normal_)); // 2.0
-				rendering::Transfo3d 
-					rot((inv_camera * sm * view->camera().frame_).linear());
-
-				rendering::Transfo3d M =
-					Eigen::Translation3d(rotation_center_) * rot 
-						* Eigen::Translation3d(-rotation_center_);
-
-				if (selected_vertices_set_->size() == 1){
-					
-					selected_vertices_set_->foreach_cell([&](Vertex v) {
-					Vec3& axis_vertex_position = 
-						value<Vec3>(*graph_, vertex_position_, v);
-
-					axis_vertex_position = M * axis_vertex_position;
-					if (v.index_ == 0)
-					{
-						transformations_[1] = M;
-					}
-					else if (v.index_ == number_of_handles_ -1)
-					{
-						transformations_[v.index_] = M;
-					}
-					
-				});
-				} else if (selected_vertices_set_->size() == 2){
-					selected_vertices_set_->foreach_cell([&](Vertex v) {
-						Vec3& axis_vertex_position = 
-							value<Vec3>(*graph_, vertex_position_, v);
-						axis_vertex_position = M * axis_vertex_position;
-					}); 
-
-					transformations_[0] = M;
-					transformations_[1] = M;
-				}
-				
-			}
+			mouse_axis_displacement(view, x, y); 
 		}
 	}
 
-	/**
-	 * local draw 
-	*/
+	
+	/// @brief update rendering of selected vertices 
+	/// @param view current view 
 	void local_draw(ui::View* view)
 	{
 		const rendering::GLMat4& proj_matrix = view->projection_matrix();
@@ -444,10 +388,100 @@ public:
 
 	std::vector<rendering::Transfo3d> transformations_;
 
-	bool dragging_handle_;
-	bool dragging_axis_;
+	
 	float64 drag_z_;
 	rendering::GLVec3d previous_drag_pos_;
+
+private: 
+	bool dragging_handle_;
+	bool dragging_axis_;
+
+	/// @brief handle displacement caused by the mouse displacement
+	/// handle translates along normal 
+	/// @param view current view 
+	/// @param x retrieved from mouse position
+	/// @param y retrieved from mouse position
+	void mouse_handle_displacement(ui::View* view, const int32& x, const int32& y)
+	{
+		rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
+			Vec3 t = drag_pos - previous_drag_pos_;
+
+			Vec3 t_bis = t.dot(normal_) * normal_;
+
+			selected_vertices_set_->foreach_cell([&](Vertex v) { 
+				value<Vec3>(*graph_, vertex_position_, v) += t_bis; });
+			
+			previous_drag_pos_ = drag_pos + t_bis;
+	}
+
+	/// @brief axis displacement caused by mouse displacement
+	/// axis rotates around defined center and axis of rotation
+	/// @param view current view
+	/// @param x retrieved from mouse position
+	/// @param y retrieved from mouse position
+	void mouse_axis_displacement(ui::View* view, const int32& x, const int32& y)
+	{
+		float64 dx = float64(x - view->previous_mouse_x());
+			float64 dy = float64(y - view->previous_mouse_y());
+
+			if (std::abs(dx) + std::abs(dy) > 0.0)
+			{
+				rendering::GLVec3d axis(dy, dx, 0.0);
+				float64 spinning_speed = axis.norm();
+
+				axis /= spinning_speed;
+				spinning_speed *= 0.005;
+
+				float64 sign = 1.0; 
+				if (dx < 0.0)
+				{
+					sign = -1.0;
+				}
+				
+				rendering::Transfo3d inv_camera = 
+									view->camera().frame_.inverse();
+				rendering::Transfo3d 
+				sm(Eigen::AngleAxisd(sign * 1.0 * spinning_speed, normal_)); // 2.0
+				rendering::Transfo3d 
+					rot((inv_camera * sm * view->camera().frame_).linear());
+
+				rendering::Transfo3d M =
+					Eigen::Translation3d(rotation_center_) * rot 
+						* Eigen::Translation3d(-rotation_center_);
+
+				if (selected_vertices_set_->size() == 1){
+					
+					selected_vertices_set_->foreach_cell([&](Vertex v) {
+					Vec3& axis_vertex_position = 
+						value<Vec3>(*graph_, vertex_position_, v);
+
+					axis_vertex_position = M * axis_vertex_position;
+					if (v.index_ == 0)
+					{
+						transformations_[1] = M;
+					}
+					else if (v.index_ == number_of_handles_ -1)
+					{
+						transformations_[v.index_] = M;
+					}
+					
+				});
+				} else if (selected_vertices_set_->size() == 2){
+					selected_vertices_set_->foreach_cell([&](Vertex v) {
+						Vec3& axis_vertex_position = 
+							value<Vec3>(*graph_, vertex_position_, v);
+						axis_vertex_position = M * axis_vertex_position;
+					}); 
+
+					transformations_[0] = M;
+					transformations_[1] = M;
+				}
+				
+			}
+	}
+
+
+
 };
 
 } // namespace modeling
