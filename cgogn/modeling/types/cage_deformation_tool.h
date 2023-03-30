@@ -69,6 +69,8 @@ class CageDeformationTool
 		Vec3 position;
 		uint32_t control_cage_index;
 		bool inside_control_cage;
+		Vertex v; 
+		std::vector<Vec3> shift_vector; 
 	};
 
 	/**
@@ -94,7 +96,6 @@ class CageDeformationTool
 	{
 		std::vector<Triangle> triangles; 
 		std::vector<Point> points;
-		std::vector<uint32_t> virtual_cage_indices;
 	};
 
 	/**
@@ -121,21 +122,6 @@ class CageDeformationTool
 		Vec3 shift_before_d_min;
 	};
 
-	/**
-	 * Fixed_data structure 
-	 * for a point p in the influence area 
-	 *  if p is inside a virtual cube 
-	 * 	then the deformation contribution 
-	 * 	of the virtual points is a constant (since the points are fixed)
-	 * 	position_ encodes the constant on the position
-	 * 	normal_ the constant on the normal (used for Green coordinates)
-	*/
-	struct Fixed_data
-	{
-		Eigen::MatrixXd position_; 
-		Eigen::MatrixXd normal_;
-	}; 
-
 public:
 	MESH* control_cage_;
 	std::shared_ptr<Attribute<Vec3>> control_cage_vertex_position_;
@@ -150,13 +136,13 @@ public:
 	MESH* influence_cage_;
 
 	MatrixWeights object_weights_;
-	Fixed_data object_fixed_data_; 
-
+	Eigen::VectorXi activation_cage_;  
 
 	std::vector<Vertex> object_influence_area_;
 
 	CageDeformationTool() : control_cage_vertex_position_(nullptr)
 	{
+		virtual_cubes_.resize(26); 
 	}
 
 	~CageDeformationTool()
@@ -262,6 +248,12 @@ public:
 		control_cage_center_ = center;
 	}
 
+	/// @brief update influence cage after local cage deformation
+	void update_influence_cage()
+	{
+
+	}
+
 	/// @brief initialize the binding of the model to deform 
 	/// so far only MVC deformation 
 	/// @param object model to deform 
@@ -277,12 +269,8 @@ public:
 		object_weights_.position_.resize(nbv_object, nbv_cage);
 		object_weights_.position_.setZero();
 
-		object_fixed_data_.position_.resize(nbv_object, 3);
-		for (std::size_t i = 0; i < nbv_object; i++){
-			for (std::size_t j = 0; j < 3; j++){
-				object_fixed_data_.position_(i,j) = 0.0; 
-			}
-		}
+		activation_cage_.resize(nbv_object); 
+		activation_cage_.setZero(); 
 
 		if (deformation_type_ == "MVC")
 		{
@@ -337,9 +325,7 @@ private:
 
 	Eigen::VectorXd control_area_validity_;
 
-	std::vector<Virtual_cube> face_adjacent_virtual_cube_;
-	std::vector<Virtual_cube> edge_adjacent_virtual_cube_;
-	std::vector<Virtual_cube> vertex_adjacent_virtual_cube_;
+	std::vector<Virtual_cube> virtual_cubes_; 	
 
 	Eigen::Matrix<Vec2, Eigen::Dynamic, Eigen::Dynamic> normal_weights_;
 
@@ -360,12 +346,12 @@ private:
 			for (std::size_t p = 0; p < 4; p++)
 			{
 				Point point_i;
-				CMap2::Vertex vertex_i = face_vertices_[p];
+				point_i.v = face_vertices_[p];
 				point_i.position = value<Vec3>(*control_cage_, 
-								control_cage_vertex_position_, vertex_i);
+								control_cage_vertex_position_, point_i.v);
 				point_i.control_cage_index = 
 					value<uint32_t>(*control_cage_, 
-									control_cage_vertex_index_, vertex_i);
+									control_cage_vertex_index_, point_i.v);
 				point_i.inside_control_cage = true;
 				points.push_back(point_i);
 			}
@@ -502,42 +488,41 @@ private:
 	/// that share a face with the control cage 
 	void init_face_adjacent_virtual_cubes()
 	{
-		Virtual_cube face_adjacent0 = 
-			get_virtual_cube_triangles(
+		Virtual_cube face_adjacent0 = get_virtual_cube_triangles(
 				local_x_direction_control_planes_.triangles_d_min,
 				{-local_x_direction_control_planes_.d_gap, 0.0, 0.0});
 
-		face_adjacent_virtual_cube_.push_back(face_adjacent0);
+		virtual_cubes_[0] = face_adjacent0;
 
 		Virtual_cube face_adjacent1 = get_virtual_cube_triangles(
 				local_x_direction_control_planes_.triangles_d_max,
 				{local_x_direction_control_planes_.d_gap, 0.0, 0.0});
 
-		face_adjacent_virtual_cube_.push_back(face_adjacent1);
+		virtual_cubes_[1] = face_adjacent1;
 
 		Virtual_cube face_adjacent2 = get_virtual_cube_triangles(
 				local_y_direction_control_planes_.triangles_d_min,
 				{0.0, -local_y_direction_control_planes_.d_gap, 0.0});
 
-		face_adjacent_virtual_cube_.push_back(face_adjacent2);
+		virtual_cubes_[2] = face_adjacent2;
 
 		Virtual_cube face_adjacent3 = get_virtual_cube_triangles(
 				local_y_direction_control_planes_.triangles_d_max,
 				{0.0, local_y_direction_control_planes_.d_gap, 0.0});
 
-		face_adjacent_virtual_cube_.push_back(face_adjacent3);
+		virtual_cubes_[3] = face_adjacent3;
 
 		Virtual_cube face_adjacent4 = get_virtual_cube_triangles(
 				local_z_direction_control_planes_.triangles_d_min,
 				{0.0, 0.0, -local_z_direction_control_planes_.d_gap});
 
-		face_adjacent_virtual_cube_.push_back(face_adjacent4);
+		virtual_cubes_[4] = face_adjacent4;
 
 		Virtual_cube face_adjacent5 = get_virtual_cube_triangles(
 				local_z_direction_control_planes_.triangles_d_max,
 				{0.0, 0.0, local_z_direction_control_planes_.d_gap});
 
-		face_adjacent_virtual_cube_.push_back(face_adjacent5);
+		virtual_cubes_[5] = face_adjacent5;
 	}
 
 	/// @brief initialize the virtual cubes 
@@ -566,10 +551,11 @@ private:
 
 		std::pair<Triangle, Triangle> new_face0 = 
 			get_face_from_intersecting_edge(intersect_points0, shift_x_min);
-		Virtual_cube edge_adjacent0 = 
-			get_virtual_cube_triangles(new_face0, shift_z_min);
 
-		edge_adjacent_virtual_cube_.push_back(edge_adjacent0);
+		Virtual_cube edge_adjacent0 = get_virtual_cube_triangles(new_face0, 
+																shift_z_min);
+
+		virtual_cubes_[6] = edge_adjacent0;
 
 		std::vector<Point> intersect_points1 = 
 			find_intersection_points_face(
@@ -578,10 +564,11 @@ private:
 
 		std::pair<Triangle, Triangle> new_face1 = 
 			get_face_from_intersecting_edge(intersect_points1, shift_x_max);
-		Virtual_cube edge_adjacent1 = 
-			get_virtual_cube_triangles(new_face1, shift_z_min);
 
-		edge_adjacent_virtual_cube_.push_back(edge_adjacent1);
+		Virtual_cube edge_adjacent1 = get_virtual_cube_triangles(new_face1, 
+																shift_z_min);
+
+		virtual_cubes_[7] = edge_adjacent1;
 
 		std::vector<Point> intersect_points2 = 
 			find_intersection_points_face(
@@ -590,10 +577,10 @@ private:
 
 		std::pair<Triangle, Triangle> new_face2 = 
 			get_face_from_intersecting_edge(intersect_points2, shift_x_min);
-		Virtual_cube edge_adjacent2 = 
-			get_virtual_cube_triangles(new_face2, shift_z_max);
 
-		edge_adjacent_virtual_cube_.push_back(edge_adjacent2);
+		Virtual_cube edge_adjacent2 = get_virtual_cube_triangles(new_face2, 
+																shift_z_max);
+		virtual_cubes_[8] = edge_adjacent2;
 
 		std::vector<Point> intersect_points3 = 
 			find_intersection_points_face(
@@ -602,10 +589,11 @@ private:
 
 		std::pair<Triangle, Triangle> new_face3 = 
 			get_face_from_intersecting_edge(intersect_points3, shift_x_max);
-		Virtual_cube edge_adjacent3 = 
-			get_virtual_cube_triangles(new_face3, shift_z_max);
 
-		edge_adjacent_virtual_cube_.push_back(edge_adjacent3);
+		Virtual_cube edge_adjacent3 = get_virtual_cube_triangles(new_face3, 
+																shift_z_max);
+
+		virtual_cubes_[9] = edge_adjacent3;
 
 		std::vector<Point> intersect_points4 = 
 			find_intersection_points_face(
@@ -614,10 +602,11 @@ private:
 
 		std::pair<Triangle, Triangle> new_face4 = 
 			get_face_from_intersecting_edge(intersect_points4, shift_y_min);
-		Virtual_cube edge_adjacent4 = 
-			get_virtual_cube_triangles(new_face4, shift_x_min);
 
-		edge_adjacent_virtual_cube_.push_back(edge_adjacent4);
+		Virtual_cube edge_adjacent4 = get_virtual_cube_triangles(new_face4, 
+																shift_x_min);
+
+		virtual_cubes_[10] = edge_adjacent4;
 
 		std::vector<Point> intersect_points5 = 
 			find_intersection_points_face(
@@ -625,10 +614,11 @@ private:
 				local_x_direction_control_planes_.triangles_d_min);
 		std::pair<Triangle, Triangle> new_face5 = 
 			get_face_from_intersecting_edge(intersect_points5, shift_y_max);
-		Virtual_cube edge_adjacent5 = 
-			get_virtual_cube_triangles(new_face5, shift_x_min);
 
-		edge_adjacent_virtual_cube_.push_back(edge_adjacent5);
+		Virtual_cube edge_adjacent5 = get_virtual_cube_triangles(new_face5, 
+																shift_x_min);
+
+		virtual_cubes_[11] = edge_adjacent5;
 
 		std::vector<Point> intersect_points6 = 
 			find_intersection_points_face(
@@ -637,10 +627,10 @@ private:
 
 		std::pair<Triangle, Triangle> new_face6 = 
 			get_face_from_intersecting_edge(intersect_points6, shift_y_min);
-		Virtual_cube edge_adjacent6 = 
-			get_virtual_cube_triangles(new_face6, shift_x_max);
 
-		edge_adjacent_virtual_cube_.push_back(edge_adjacent6);
+		Virtual_cube edge_adjacent6 = get_virtual_cube_triangles(new_face6, 
+																shift_x_max);
+		virtual_cubes_[12] = edge_adjacent6;
 
 		std::vector<Point> intersect_points7 = 
 			find_intersection_points_face(
@@ -649,21 +639,23 @@ private:
 
 		std::pair<Triangle, Triangle> new_face7 = 
 			get_face_from_intersecting_edge(intersect_points7, shift_y_max);
-		Virtual_cube edge_adjacent7 = 
-			get_virtual_cube_triangles(new_face7, shift_x_max);
 
-		edge_adjacent_virtual_cube_.push_back(edge_adjacent7);
+		Virtual_cube edge_adjacent7 = get_virtual_cube_triangles(new_face7, 
+																shift_x_max);
+
+		virtual_cubes_[13] = edge_adjacent7;
 
 		std::vector<Point> intersect_points8 = 
 			find_intersection_points_face(
 				local_y_direction_control_planes_.triangles_d_min, 
 				local_z_direction_control_planes_.triangles_d_min);
+
 		std::pair<Triangle, Triangle> new_face8 = 
 			get_face_from_intersecting_edge(intersect_points8, shift_y_min);
-		Virtual_cube edge_adjacent8 = 
-			get_virtual_cube_triangles(new_face8, shift_z_min);
 
-		edge_adjacent_virtual_cube_.push_back(edge_adjacent8);
+		Virtual_cube edge_adjacent8 = get_virtual_cube_triangles(new_face8, 
+																shift_z_min);
+		virtual_cubes_[14] = edge_adjacent8;
 
 		std::vector<Point> intersect_points9 = 
 			find_intersection_points_face(
@@ -672,10 +664,10 @@ private:
 
 		std::pair<Triangle, Triangle> new_face9 = 
 			get_face_from_intersecting_edge(intersect_points9, shift_y_max);
-		Virtual_cube edge_adjacent9 = 
-			get_virtual_cube_triangles(new_face9, shift_z_min);
 
-		edge_adjacent_virtual_cube_.push_back(edge_adjacent9);
+		Virtual_cube edge_adjacent9 = get_virtual_cube_triangles(new_face9, 
+																shift_z_min);
+		virtual_cubes_[15] = edge_adjacent9;
 
 		std::vector<Point> intersect_points10 = 
 			find_intersection_points_face(
@@ -684,10 +676,10 @@ private:
 
 		std::pair<Triangle, Triangle> new_face10 = 
 			get_face_from_intersecting_edge(intersect_points10, shift_y_min);
-		Virtual_cube edge_adjacent10 = 
-			get_virtual_cube_triangles(new_face10, shift_z_max);
 
-		edge_adjacent_virtual_cube_.push_back(edge_adjacent10);
+		Virtual_cube edge_adjacent10 = get_virtual_cube_triangles(new_face10, 
+																shift_z_max);
+		virtual_cubes_[16] = edge_adjacent10;
 
 		std::vector<Point> intersect_points11 = 
 			find_intersection_points_face(
@@ -696,10 +688,10 @@ private:
 
 		std::pair<Triangle, Triangle> new_face11 = 
 			get_face_from_intersecting_edge(intersect_points11, shift_y_max);
-		Virtual_cube edge_adjacent11 = 
-			get_virtual_cube_triangles(new_face11, shift_z_max);
 
-		edge_adjacent_virtual_cube_.push_back(edge_adjacent11);
+		Virtual_cube edge_adjacent11 = get_virtual_cube_triangles(new_face11, 
+																shift_z_max);
+		virtual_cubes_[17] = edge_adjacent11;
 	}
 
 
@@ -731,10 +723,10 @@ private:
 		std::pair<Triangle, Triangle> new_face0 =
 			get_face_from_intersecting_vertex(intersection_point0, 
 											shift_x_min, shift_y_min);
-		Virtual_cube vertex_adjacent0 = 
-			get_virtual_cube_triangles(new_face0, shift_z_min);
 
-		vertex_adjacent_virtual_cube_.push_back(vertex_adjacent0);
+		Virtual_cube vertex_adjacent0 = get_virtual_cube_triangles(new_face0, 
+																shift_z_min);
+		virtual_cubes_[18] = vertex_adjacent0;
 
 		Point intersection_point1 = 
 			find_intersection_point(
@@ -745,10 +737,10 @@ private:
 		std::pair<Triangle, Triangle> new_face1 =
 			get_face_from_intersecting_vertex(intersection_point1, 
 											shift_x_max, shift_y_min);
-		Virtual_cube vertex_adjacent1 = 
-			get_virtual_cube_triangles(new_face1, shift_z_min);
 
-		vertex_adjacent_virtual_cube_.push_back(vertex_adjacent1);
+		Virtual_cube vertex_adjacent1 = get_virtual_cube_triangles(new_face1, 
+																shift_z_min);
+		virtual_cubes_[19] = vertex_adjacent1;
 
 		Point intersection_point2 = 
 			find_intersection_point(
@@ -759,10 +751,10 @@ private:
 		std::pair<Triangle, Triangle> new_face2 =
 			get_face_from_intersecting_vertex(intersection_point2, 
 											shift_x_min, shift_y_min);
-		Virtual_cube vertex_adjacent2 = 
-			get_virtual_cube_triangles(new_face2, shift_z_max);
 
-		vertex_adjacent_virtual_cube_.push_back(vertex_adjacent2);
+		Virtual_cube vertex_adjacent2 = get_virtual_cube_triangles(new_face2, 
+																shift_z_max);
+		virtual_cubes_[20] = vertex_adjacent2;
 
 		Point intersection_point3 = 
 			find_intersection_point(
@@ -773,10 +765,10 @@ private:
 		std::pair<Triangle, Triangle> new_face3 =
 			get_face_from_intersecting_vertex(intersection_point3, 
 											shift_x_max, shift_y_min);
-		Virtual_cube vertex_adjacent3 = 
-			get_virtual_cube_triangles(new_face3, shift_z_max);
-
-		vertex_adjacent_virtual_cube_.push_back(vertex_adjacent3);
+		
+		Virtual_cube vertex_adjacent3 = get_virtual_cube_triangles(new_face3, 
+																shift_z_max);
+		virtual_cubes_[21] = vertex_adjacent3;
 
 		Point intersection_point4 = 
 			find_intersection_point(
@@ -787,10 +779,10 @@ private:
 		std::pair<Triangle, Triangle> new_face4 =
 			get_face_from_intersecting_vertex(intersection_point4, 
 											shift_x_min, shift_y_max);
-		Virtual_cube vertex_adjacent4 = 
-			get_virtual_cube_triangles(new_face4, shift_z_min);
-
-		vertex_adjacent_virtual_cube_.push_back(vertex_adjacent4);
+		
+		Virtual_cube vertex_adjacent4 = get_virtual_cube_triangles(new_face4, 
+																shift_z_min);
+		virtual_cubes_[22] = vertex_adjacent4;
 
 		Point intersection_point5 = 
 			find_intersection_point(
@@ -801,10 +793,10 @@ private:
 		std::pair<Triangle, Triangle> new_face5 =
 			get_face_from_intersecting_vertex(intersection_point5, 
 											shift_x_max, shift_y_max);
-		Virtual_cube vertex_adjacent5 = 
-			get_virtual_cube_triangles(new_face5, shift_z_min);
-
-		vertex_adjacent_virtual_cube_.push_back(vertex_adjacent5);
+		
+		Virtual_cube vertex_adjacent5 = get_virtual_cube_triangles(new_face5, 
+																shift_z_min);
+		virtual_cubes_[23] = vertex_adjacent5;
 
 		Point intersection_point6 = 
 			find_intersection_point(
@@ -815,10 +807,11 @@ private:
 		std::pair<Triangle, Triangle> new_face6 =
 			get_face_from_intersecting_vertex(intersection_point6, 
 											shift_x_min, shift_y_max);
-		Virtual_cube vertex_adjacent6 = 
-			get_virtual_cube_triangles(new_face6, shift_z_max);
+		
+		Virtual_cube vertex_adjacent6 = get_virtual_cube_triangles(new_face6, 
+																shift_z_max);
 
-		vertex_adjacent_virtual_cube_.push_back(vertex_adjacent6);
+		virtual_cubes_[24] = vertex_adjacent6;
 
 		Point intersection_point7 = 
 			find_intersection_point(
@@ -829,10 +822,10 @@ private:
 		std::pair<Triangle, Triangle> new_face7 =
 			get_face_from_intersecting_vertex(intersection_point7, 
 											shift_x_max, shift_y_max);
-		Virtual_cube vertex_adjacent7 = 
-			get_virtual_cube_triangles(new_face7, shift_z_max);
-
-		vertex_adjacent_virtual_cube_.push_back(vertex_adjacent7);
+		
+		Virtual_cube vertex_adjacent7 = get_virtual_cube_triangles(new_face7, 
+																shift_z_max);
+		virtual_cubes_[25] = vertex_adjacent7;
 	}
 
 	/// @brief compute a virtual cube from a face and a shift vector
@@ -956,7 +949,8 @@ private:
 									const double& d_y, const double& d_z, 
 									const bool& valid_x_dir, 
 									const bool& valid_y_dir, 
-									const bool& valid_z_dir)
+									const bool& valid_z_dir, 
+									const uint32& surface_point_index)
 	{
 		if (valid_x_dir)
 		{
@@ -964,22 +958,26 @@ private:
 			{
 				if (d_z > local_z_direction_control_planes_.d_max)
 				{
-					return face_adjacent_virtual_cube_[5];
+					activation_cage_[surface_point_index] = 5; 
+					return virtual_cubes_[5];
 				}
 				else
 				{
-					return face_adjacent_virtual_cube_[4];
+					activation_cage_[surface_point_index] = 4;
+					return virtual_cubes_[4];
 				}
 			}
 			else if (valid_z_dir)
 			{
 				if (d_y > local_y_direction_control_planes_.d_max)
 				{
-					return face_adjacent_virtual_cube_[3];
+					activation_cage_[surface_point_index] = 3;
+					return virtual_cubes_[3];
 				}
 				else
 				{
-					return face_adjacent_virtual_cube_[2];
+					activation_cage_[surface_point_index] = 2;
+					return virtual_cubes_[2];
 				}
 			}
 			else
@@ -988,22 +986,26 @@ private:
 				{
 					if (d_z > local_z_direction_control_planes_.d_max)
 					{
-						return edge_adjacent_virtual_cube_[11];
+						activation_cage_[surface_point_index] = 17;
+						return virtual_cubes_[17];
 					}
 					else
 					{
-						return edge_adjacent_virtual_cube_[9];
+						activation_cage_[surface_point_index] = 15;
+						return virtual_cubes_[15];
 					}
 				}
 				else
 				{
 					if (d_z > local_z_direction_control_planes_.d_max)
 					{
-						return edge_adjacent_virtual_cube_[10];
+						activation_cage_[surface_point_index] = 16;
+						return virtual_cubes_[16];
 					}
 					else
 					{
-						return edge_adjacent_virtual_cube_[8];
+						activation_cage_[surface_point_index] = 14;
+						return virtual_cubes_[14];
 					}
 				}
 			}
@@ -1014,11 +1016,13 @@ private:
 			{
 				if (d_x > local_x_direction_control_planes_.d_max)
 				{
-					return face_adjacent_virtual_cube_[1];
+					activation_cage_[surface_point_index] = 1;
+					return virtual_cubes_[1];
 				}
 				else
 				{
-					return face_adjacent_virtual_cube_[0];
+					activation_cage_[surface_point_index] = 0;
+					return virtual_cubes_[0];
 				}
 			}
 			else
@@ -1027,22 +1031,26 @@ private:
 				{
 					if (d_z > local_z_direction_control_planes_.d_max)
 					{
-						return edge_adjacent_virtual_cube_[3];
+						activation_cage_[surface_point_index] = 9;
+						return virtual_cubes_[9];
 					}
 					else
 					{
-						return edge_adjacent_virtual_cube_[1];
+						activation_cage_[surface_point_index] = 7;
+						return virtual_cubes_[7];
 					}
 				}
 				else
 				{
 					if (d_z > local_z_direction_control_planes_.d_max)
 					{
-						return edge_adjacent_virtual_cube_[2];
+						activation_cage_[surface_point_index] = 8;
+						return virtual_cubes_[8];
 					}
 					else
 					{
-						return edge_adjacent_virtual_cube_[0];
+						activation_cage_[surface_point_index] = 6;
+						return virtual_cubes_[6];
 					}
 				}
 			}
@@ -1053,22 +1061,26 @@ private:
 			{
 				if (d_x > local_x_direction_control_planes_.d_max)
 				{
-					return edge_adjacent_virtual_cube_[7];
+					activation_cage_[surface_point_index] = 13;
+					return virtual_cubes_[13];
 				}
 				else
 				{
-					return edge_adjacent_virtual_cube_[5];
+					activation_cage_[surface_point_index] = 11;
+					return virtual_cubes_[11];
 				}
 			}
 			else
 			{
 				if (d_x > local_x_direction_control_planes_.d_max)
 				{
-					return edge_adjacent_virtual_cube_[6];
+					activation_cage_[surface_point_index] = 12;
+					return virtual_cubes_[12];
 				}
 				else
 				{
-					return edge_adjacent_virtual_cube_[4];
+					activation_cage_[surface_point_index] = 10;
+					return virtual_cubes_[10];
 				}
 			}
 		}
@@ -1080,22 +1092,26 @@ private:
 				{
 					if (d_z > local_z_direction_control_planes_.d_max)
 					{
-						return vertex_adjacent_virtual_cube_[7];
+						activation_cage_[surface_point_index] = 25;
+						return virtual_cubes_[25];
 					}
 					else
 					{
-						return vertex_adjacent_virtual_cube_[5];
+						activation_cage_[surface_point_index] = 23;
+						return virtual_cubes_[23];
 					}
 				}
 				else
 				{
 					if (d_z > local_z_direction_control_planes_.d_max)
 					{
-						return vertex_adjacent_virtual_cube_[3];
+						activation_cage_[surface_point_index] = 21;
+						return virtual_cubes_[21];
 					}
 					else
 					{
-						return vertex_adjacent_virtual_cube_[1];
+						activation_cage_[surface_point_index] = 19;
+						return virtual_cubes_[19];
 					}
 				}
 			}
@@ -1105,22 +1121,26 @@ private:
 				{
 					if (d_z > local_z_direction_control_planes_.d_max)
 					{
-						return vertex_adjacent_virtual_cube_[6];
+						activation_cage_[surface_point_index] = 24;
+						return virtual_cubes_[24];
 					}
 					else
 					{
-						return vertex_adjacent_virtual_cube_[4];
+						activation_cage_[surface_point_index] = 22;
+						return virtual_cubes_[22];
 					}
 				}
 				else
 				{
 					if (d_z > local_z_direction_control_planes_.d_max)
 					{
-						return vertex_adjacent_virtual_cube_[2];
+						activation_cage_[surface_point_index] = 20;
+						return virtual_cubes_[20];
 					}
 					else
 					{
-						return vertex_adjacent_virtual_cube_[0];
+						activation_cage_[surface_point_index] = 18;
+						return virtual_cubes_[18];
 					}
 				}
 			}
@@ -1172,6 +1192,7 @@ private:
 
 			if (valid_x_dir && valid_y_dir && valid_z_dir)
 			{
+				activation_cage_[surface_point_index] = 27; 
 				compute_mvc_on_point_inside_cage(surface_point, 
 												surface_point_index);
 			}
@@ -1179,7 +1200,8 @@ private:
 			{
 				Virtual_cube virtual_cube_target = 
 					find_virtual_cube_target(d_x, d_y, d_z, 
-									valid_x_dir, valid_y_dir, valid_z_dir);
+									valid_x_dir, valid_y_dir, valid_z_dir,
+									surface_point_index);
 
 				compute_mvc_on_point_outside_cage(surface_point, 
 												surface_point_index, 
@@ -1206,13 +1228,10 @@ private:
 			uint32 object_point_index = 
 							value<uint32>(object, object_vertex_index, v);
 
-			Vec3 new_position = {
-					object_fixed_data_.position_(object_point_index,0), 
-					object_fixed_data_.position_(object_point_index,1), 
-					object_fixed_data_.position_(object_point_index,2)
-					};
-
-			foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
+			if (activation_cage_[object_point_index] == 27)
+			{
+				Vec3 new_position = {0.0, 0.0, 0.0}; 
+				foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
 				const Vec3& cage_point = 
 					value<Vec3>(*control_cage_, 
 								control_cage_vertex_position_, cv);
@@ -1228,6 +1247,22 @@ private:
 			});
 
 			value<Vec3>(object, object_vertex_position, v) = new_position;
+			} else {
+				Virtual_cube virtual_cube_target = virtual_cubes_[activation_cage_[object_point_index]];
+
+				Vec3 new_position = {0.0, 0.0, 0.0};  
+				for (size_t p = 0; p < virtual_cube_target.points.size(); p++){
+					const Point& cage_point = virtual_cube_target.points[p];
+
+					uint32 cage_point_index = p;
+					new_position += object_weights_
+							.position_(object_point_index, p) * cage_point.position;
+
+				}
+
+			}
+
+			
 		}
 	}
 
@@ -1408,7 +1443,9 @@ private:
 		std::vector<double> d(nbv_cage);
 		std::vector<Vec3> u(nbv_cage);
 
-		for (std::size_t p = 0; p < virtual_cube_target.points.size(); p++)
+		std::size_t number_of_points = virtual_cube_target.points.size(); 
+
+		for (std::size_t p = 0; p < number_of_points; p++)
 		{
 			const Point& cage_point = virtual_cube_target.points[p];
 
@@ -1418,26 +1455,9 @@ private:
 				(surface_point - cage_point.position).norm();
 			if (d[cage_point_index] < epsilon)
 			{
-				virtual_cage_coords_[cage_point_index] = 1.0;
-
-				if (cage_point.inside_control_cage)
-				{
-					object_weights_
+				object_weights_
 						.position_(surface_point_index, 
-									cage_point.control_cage_index) = 1.0;
-				}
-				else
-				{
-					object_fixed_data_
-						.position_(surface_point_index,0) += 
-													cage_point.position[0];
-					object_fixed_data_
-						.position_(surface_point_index,0) += 
-													cage_point.position[1];
-					object_fixed_data_
-						.position_(surface_point_index,0) += 
-													cage_point.position[2];
-				}
+									cage_point_index) = 1.0;
 				return true;
 			}
 
@@ -1524,37 +1544,13 @@ private:
 			w_control_cage_coords_[triangle_index[2]] += w[2];
 		}
 
-		for (std::size_t p = 0; p < 8; p++)
+		for (std::size_t p = 0; p < number_of_points; p++)
 		{
 			uint32 cage_point_index = p;
 
-			virtual_cage_coords_[cage_point_index] = 
+			object_weights_.position_(surface_point_index, cage_point_index) =
 				w_control_cage_coords_[cage_point_index] / sumWeights;
-		}
 
-		for (std::size_t p = 0; p < 8; p++)
-		{
-			const Point target_point = virtual_cube_target.points[p];
-			if (target_point.inside_control_cage)
-			{
-				object_weights_
-					.position_(surface_point_index, 
-							target_point.control_cage_index) = 
-												virtual_cage_coords_[p];
-					
-			}
-			else
-			{
-				object_fixed_data_.position_(surface_point_index,0) += 
-						virtual_cage_coords_[p] * target_point.position[0];
-
-				object_fixed_data_.position_(surface_point_index,1) += 
-						virtual_cage_coords_[p] * target_point.position[1];
-
-				object_fixed_data_.position_(surface_point_index,2) += 
-						virtual_cage_coords_[p] * target_point.position[2];
-					
-			}
 		}
 
 		return false;
