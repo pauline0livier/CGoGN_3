@@ -846,6 +846,8 @@ private:
 						get_attribute<uint32, MeshVertex>(object, 
 														"vertex_index");
 
+						current_cdt->update_influence_cage(); 
+						
 						current_cdt->deform_object(object, 
 											object_vertex_position.get(), 
 											object_vertex_index.get());

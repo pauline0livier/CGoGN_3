@@ -60,17 +60,25 @@ class CageDeformationTool
 	/**
 	 * point structure
 	 * point can be on the local cage
-	 * 	if it is the case: 
-	 * 		- inside_control_cage = true
-	 * 		- control_cage_index defined
+	 * if it is the case: 
+	 * 		- inside_control_cage = true,
+	 * 		- control_cage_index and vertex defined, 
+	 * otherwise:
+	 * 		- inside_control_cage = false, 
+	 * 		- vertex of closest control cage point 
+	 * 		- shift_vector defined (a,b,c)
+	 * 		a,b,c = {-1, 0, 1}, direction and if after or before  
+	 * 		TODO: check if update is activated if the point is common to 
+	 * 				at least two cages 
 	*/
 	struct Point
 	{
 		Vec3 position;
 		uint32_t control_cage_index;
 		bool inside_control_cage;
-		Vertex v; 
-		std::vector<Vec3> shift_vector; 
+		Vertex vertex; 
+		Vec3 shift_vector; 
+		bool update; 
 	};
 
 	/**
@@ -105,7 +113,8 @@ class CageDeformationTool
 	 * d_min and d_max for the extrema heights 
 	 * d_gap = d_max - d_min, gap between the extrema values
 	 * triangles_d_min and triangles_d_max represent the square faces 
-	 * shift_after_d_max = d_max + d_gap, shift_before_d_min = d_min - d_gap
+	 * shift_after_d_max = (d_gap)*direction, 
+	 * shift_before_d_min = (- d_gap) *direction
 	 * 	that is the position of the next virtual cube planes along this direction
 	*/
 	struct Local_direction_control_planes
@@ -214,7 +223,7 @@ public:
 		std::tuple<Vec3, Vec3, Vec3> res_extended_bounding_box =
 			cgogn::modeling::get_extended_bounding_box(control_cage_bb_min_, 
 													control_cage_bb_max_, 
-													3.0);
+													10.0);
 
 		influence_cage_bb_min_ = std::get<0>(res_extended_bounding_box);
 		influence_cage_bb_max_ = std::get<1>(res_extended_bounding_box);
@@ -251,7 +260,28 @@ public:
 	/// @brief update influence cage after local cage deformation
 	void update_influence_cage()
 	{
+		for (size_t c = 0; c < virtual_cubes_.size(); c++){
+			for (size_t p = 0; p < virtual_cubes_[c].points.size(); p++){
+				Point local_point = virtual_cubes_[c].points[p];    
 
+				local_point.position = value<Vec3>(*control_cage_, 
+						control_cage_vertex_position_, local_point.vertex);
+
+				if (!local_point.inside_control_cage){  
+					local_point.position += 
+					(local_point.shift_vector[0]*
+					local_x_direction_control_planes_.shift_after_d_max); 
+
+					local_point.position += 
+					(local_point.shift_vector[1]*
+					local_y_direction_control_planes_.shift_after_d_max);
+
+					local_point.position += 
+					(local_point.shift_vector[2]*
+					local_z_direction_control_planes_.shift_after_d_max); 
+				} 
+			}
+		}
 	}
 
 	/// @brief initialize the binding of the model to deform 
@@ -284,8 +314,9 @@ public:
 	/// @param object model to deform 
 	/// @param object_vertex_position position of the vertices of the model
 	/// @param object_vertex_index index of the vertices of the model
-	void bind_object(MESH& object, const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
-					 const std::shared_ptr<Attribute<uint32>>& object_vertex_index)
+	void bind_object(MESH& object, 
+				const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
+				const std::shared_ptr<Attribute<uint32>>& object_vertex_index)
 	{
 		if (deformation_type_ == "MVC")
 		{
@@ -298,9 +329,9 @@ public:
 	/// @param object model to deform 
 	/// @param object_vertex_position position of the vertices of the model
 	/// @param object_vertex_index index of the vertices of the model
-	void deform_object(MESH& object, CMap2::Attribute<Vec3>* 
-						object_vertex_position,
-					   CMap2::Attribute<uint32>* object_vertex_index)
+	void deform_object(MESH& object,
+					CMap2::Attribute<Vec3>* object_vertex_position,
+					CMap2::Attribute<uint32>* object_vertex_index)
 	{
 		if (deformation_type_ == "MVC")
 		{
@@ -346,13 +377,14 @@ private:
 			for (std::size_t p = 0; p < 4; p++)
 			{
 				Point point_i;
-				point_i.v = face_vertices_[p];
+				point_i.vertex = face_vertices_[p];
 				point_i.position = value<Vec3>(*control_cage_, 
-								control_cage_vertex_position_, point_i.v);
+								control_cage_vertex_position_, point_i.vertex);
 				point_i.control_cage_index = 
 					value<uint32_t>(*control_cage_, 
-									control_cage_vertex_index_, point_i.v);
+									control_cage_vertex_index_, point_i.vertex);
 				point_i.inside_control_cage = true;
+				point_i.shift_vector = {0.0, 0.0, 0.0}; 
 				points.push_back(point_i);
 			}
 
@@ -451,32 +483,41 @@ private:
 			}
 		}
 
+		const double gap_x = d_x_max - d_x_min; 
 		local_x_direction_control_planes_.d_min = d_x_min;
 		local_x_direction_control_planes_.d_max = d_x_max;
-		local_x_direction_control_planes_.d_gap = d_x_max - d_x_min;
+		local_x_direction_control_planes_.d_gap = gap_x;
 		local_x_direction_control_planes_.direction = x_dir;
 		local_x_direction_control_planes_.triangles_d_min = face_x_min;
 		local_x_direction_control_planes_.triangles_d_max = face_x_max;
+		local_x_direction_control_planes_.shift_after_d_max = (gap_x)*x_dir;
+		local_x_direction_control_planes_.shift_before_d_min = (-gap_x)*x_dir; 
 
+		const double gap_y = d_y_max - d_y_min;
 		local_y_direction_control_planes_.d_min = d_y_min;
 		local_y_direction_control_planes_.d_max = d_y_max;
-		local_y_direction_control_planes_.d_gap = d_y_max - d_y_min;
+		local_y_direction_control_planes_.d_gap = gap_y;
 		local_y_direction_control_planes_.direction = y_dir;
 		local_y_direction_control_planes_.triangles_d_min = face_y_min;
 		local_y_direction_control_planes_.triangles_d_max = face_y_max;
+		local_y_direction_control_planes_.shift_after_d_max = (gap_y)*y_dir;
+		local_y_direction_control_planes_.shift_before_d_min = (-gap_y)*y_dir;
 
+		const double gap_z = d_z_max - d_z_min; 
 		local_z_direction_control_planes_.d_min = d_z_min;
 		local_z_direction_control_planes_.d_max = d_z_max;
-		local_z_direction_control_planes_.d_gap = d_z_max - d_z_min;
+		local_z_direction_control_planes_.d_gap = gap_z;
 		local_z_direction_control_planes_.direction = z_dir;
 		local_z_direction_control_planes_.triangles_d_min = face_z_min;
 		local_z_direction_control_planes_.triangles_d_max = face_z_max;
+		local_z_direction_control_planes_.shift_after_d_max = (gap_z)*z_dir;
+		local_z_direction_control_planes_.shift_before_d_min = (-gap_z)*z_dir;
+
 	}
 
 	/// @brief initialize the virtual cubes 
 	void init_virtual_cubes()
 	{
-
 		init_face_adjacent_virtual_cubes();
 
 		init_edge_adjacent_virtual_cubes();
@@ -490,37 +531,43 @@ private:
 	{
 		Virtual_cube face_adjacent0 = get_virtual_cube_triangles(
 				local_x_direction_control_planes_.triangles_d_min,
-				{-local_x_direction_control_planes_.d_gap, 0.0, 0.0});
+				local_x_direction_control_planes_.shift_before_d_min,
+				{-1.0, 0.0, 0.0});
 
-		virtual_cubes_[0] = face_adjacent0;
+		virtual_cubes_[0] = face_adjacent0;	 
 
 		Virtual_cube face_adjacent1 = get_virtual_cube_triangles(
 				local_x_direction_control_planes_.triangles_d_max,
-				{local_x_direction_control_planes_.d_gap, 0.0, 0.0});
+				local_x_direction_control_planes_.shift_after_d_max,
+				{1.0, 0.0, 0.0});
 
 		virtual_cubes_[1] = face_adjacent1;
 
 		Virtual_cube face_adjacent2 = get_virtual_cube_triangles(
 				local_y_direction_control_planes_.triangles_d_min,
-				{0.0, -local_y_direction_control_planes_.d_gap, 0.0});
+				local_y_direction_control_planes_.shift_before_d_min,
+				{0.0, -1.0, 0.0});
 
 		virtual_cubes_[2] = face_adjacent2;
 
 		Virtual_cube face_adjacent3 = get_virtual_cube_triangles(
 				local_y_direction_control_planes_.triangles_d_max,
-				{0.0, local_y_direction_control_planes_.d_gap, 0.0});
+				local_y_direction_control_planes_.shift_after_d_max,
+				{0.0, 1.0, 0.0});
 
 		virtual_cubes_[3] = face_adjacent3;
 
 		Virtual_cube face_adjacent4 = get_virtual_cube_triangles(
 				local_z_direction_control_planes_.triangles_d_min,
-				{0.0, 0.0, -local_z_direction_control_planes_.d_gap});
+				local_z_direction_control_planes_.shift_before_d_min, 
+				{0.0, 0.0, -1.0});
 
 		virtual_cubes_[4] = face_adjacent4;
 
 		Virtual_cube face_adjacent5 = get_virtual_cube_triangles(
 				local_z_direction_control_planes_.triangles_d_max,
-				{0.0, 0.0, local_z_direction_control_planes_.d_gap});
+				local_z_direction_control_planes_.shift_after_d_max, 
+				{0.0, 0.0, 1.0});
 
 		virtual_cubes_[5] = face_adjacent5;
 	}
@@ -530,19 +577,28 @@ private:
 	void init_edge_adjacent_virtual_cubes()
 	{
 		const Vec3 shift_x_min = 
-				{-local_x_direction_control_planes_.d_gap, 0.0, 0.0};
+				local_x_direction_control_planes_.shift_before_d_min;
 		const Vec3 shift_x_max = 
-				{local_x_direction_control_planes_.d_gap, 0.0, 0.0};
+				local_x_direction_control_planes_.shift_after_d_max;
+		
+		const Vec3 unit_x_min = {-1.0, 0.0, 0.0}, 
+		unit_x_max = {1.0, 0.0, 0.0}; 
 
 		const Vec3 shift_y_min = 
-				{0.0, -local_y_direction_control_planes_.d_gap, 0.0};
+				local_y_direction_control_planes_.shift_before_d_min;
 		const Vec3 shift_y_max = 
-				{0.0, local_y_direction_control_planes_.d_gap, 0.0};
+				local_y_direction_control_planes_.shift_after_d_max;
+
+		const Vec3 unit_y_min = {0.0, -1.0, 0.0}, 
+		unit_y_max = {0.0, 1.0, 0.0};
 
 		const Vec3 shift_z_min = 
-				{0.0, 0.0, -local_z_direction_control_planes_.d_gap};
+				local_z_direction_control_planes_.shift_before_d_min;
 		const Vec3 shift_z_max = 
-				{0.0, 0.0, local_z_direction_control_planes_.d_gap};
+				local_z_direction_control_planes_.shift_after_d_max;
+
+		const Vec3 unit_z_min = {0.0, 0.0, -1.0}, 
+		unit_z_max = {0.0, 0.0, 1.0};
 
 		std::vector<Point> intersect_points0 = 
 			find_intersection_points_face(
@@ -550,10 +606,11 @@ private:
 					local_z_direction_control_planes_.triangles_d_min);
 
 		std::pair<Triangle, Triangle> new_face0 = 
-			get_face_from_intersecting_edge(intersect_points0, shift_x_min);
+			get_face_from_intersecting_edge(intersect_points0, shift_x_min,
+											unit_x_min);
 
 		Virtual_cube edge_adjacent0 = get_virtual_cube_triangles(new_face0, 
-																shift_z_min);
+													shift_z_min, unit_z_min);
 
 		virtual_cubes_[6] = edge_adjacent0;
 
@@ -563,10 +620,11 @@ private:
 				local_z_direction_control_planes_.triangles_d_min);
 
 		std::pair<Triangle, Triangle> new_face1 = 
-			get_face_from_intersecting_edge(intersect_points1, shift_x_max);
+			get_face_from_intersecting_edge(intersect_points1, shift_x_max, 
+											unit_x_max);
 
 		Virtual_cube edge_adjacent1 = get_virtual_cube_triangles(new_face1, 
-																shift_z_min);
+													shift_z_min, unit_z_min);
 
 		virtual_cubes_[7] = edge_adjacent1;
 
@@ -576,10 +634,11 @@ private:
 				local_z_direction_control_planes_.triangles_d_max);
 
 		std::pair<Triangle, Triangle> new_face2 = 
-			get_face_from_intersecting_edge(intersect_points2, shift_x_min);
+			get_face_from_intersecting_edge(intersect_points2, shift_x_min, 
+											unit_x_min);
 
 		Virtual_cube edge_adjacent2 = get_virtual_cube_triangles(new_face2, 
-																shift_z_max);
+													shift_z_max, unit_z_max);
 		virtual_cubes_[8] = edge_adjacent2;
 
 		std::vector<Point> intersect_points3 = 
@@ -588,10 +647,11 @@ private:
 				local_z_direction_control_planes_.triangles_d_max);
 
 		std::pair<Triangle, Triangle> new_face3 = 
-			get_face_from_intersecting_edge(intersect_points3, shift_x_max);
+			get_face_from_intersecting_edge(intersect_points3, shift_x_max,
+											unit_x_max);
 
 		Virtual_cube edge_adjacent3 = get_virtual_cube_triangles(new_face3, 
-																shift_z_max);
+													shift_z_max, unit_z_max);
 
 		virtual_cubes_[9] = edge_adjacent3;
 
@@ -601,10 +661,11 @@ private:
 				local_x_direction_control_planes_.triangles_d_min);
 
 		std::pair<Triangle, Triangle> new_face4 = 
-			get_face_from_intersecting_edge(intersect_points4, shift_y_min);
+			get_face_from_intersecting_edge(intersect_points4, shift_y_min,
+											unit_y_min);
 
 		Virtual_cube edge_adjacent4 = get_virtual_cube_triangles(new_face4, 
-																shift_x_min);
+													shift_x_min, unit_x_min);
 
 		virtual_cubes_[10] = edge_adjacent4;
 
@@ -613,10 +674,11 @@ private:
 				local_y_direction_control_planes_.triangles_d_max, 
 				local_x_direction_control_planes_.triangles_d_min);
 		std::pair<Triangle, Triangle> new_face5 = 
-			get_face_from_intersecting_edge(intersect_points5, shift_y_max);
+			get_face_from_intersecting_edge(intersect_points5, shift_y_max,
+											unit_y_max);
 
 		Virtual_cube edge_adjacent5 = get_virtual_cube_triangles(new_face5, 
-																shift_x_min);
+													shift_x_min, unit_x_min);
 
 		virtual_cubes_[11] = edge_adjacent5;
 
@@ -626,10 +688,11 @@ private:
 				local_x_direction_control_planes_.triangles_d_max);
 
 		std::pair<Triangle, Triangle> new_face6 = 
-			get_face_from_intersecting_edge(intersect_points6, shift_y_min);
+			get_face_from_intersecting_edge(intersect_points6, shift_y_min,
+											unit_y_min);
 
 		Virtual_cube edge_adjacent6 = get_virtual_cube_triangles(new_face6, 
-																shift_x_max);
+													shift_x_max, unit_x_max);
 		virtual_cubes_[12] = edge_adjacent6;
 
 		std::vector<Point> intersect_points7 = 
@@ -638,10 +701,11 @@ private:
 				local_x_direction_control_planes_.triangles_d_max);
 
 		std::pair<Triangle, Triangle> new_face7 = 
-			get_face_from_intersecting_edge(intersect_points7, shift_y_max);
+			get_face_from_intersecting_edge(intersect_points7, shift_y_max,
+											unit_y_max);
 
 		Virtual_cube edge_adjacent7 = get_virtual_cube_triangles(new_face7, 
-																shift_x_max);
+													shift_x_max, unit_x_max);
 
 		virtual_cubes_[13] = edge_adjacent7;
 
@@ -651,10 +715,11 @@ private:
 				local_z_direction_control_planes_.triangles_d_min);
 
 		std::pair<Triangle, Triangle> new_face8 = 
-			get_face_from_intersecting_edge(intersect_points8, shift_y_min);
+			get_face_from_intersecting_edge(intersect_points8, shift_y_min,
+											unit_y_min);
 
 		Virtual_cube edge_adjacent8 = get_virtual_cube_triangles(new_face8, 
-																shift_z_min);
+													shift_z_min, unit_z_min);
 		virtual_cubes_[14] = edge_adjacent8;
 
 		std::vector<Point> intersect_points9 = 
@@ -663,10 +728,11 @@ private:
 				local_z_direction_control_planes_.triangles_d_min);
 
 		std::pair<Triangle, Triangle> new_face9 = 
-			get_face_from_intersecting_edge(intersect_points9, shift_y_max);
+			get_face_from_intersecting_edge(intersect_points9, shift_y_max,
+											unit_y_max);
 
 		Virtual_cube edge_adjacent9 = get_virtual_cube_triangles(new_face9, 
-																shift_z_min);
+													shift_z_min, unit_z_min);
 		virtual_cubes_[15] = edge_adjacent9;
 
 		std::vector<Point> intersect_points10 = 
@@ -675,10 +741,11 @@ private:
 				local_z_direction_control_planes_.triangles_d_max);
 
 		std::pair<Triangle, Triangle> new_face10 = 
-			get_face_from_intersecting_edge(intersect_points10, shift_y_min);
+			get_face_from_intersecting_edge(intersect_points10, shift_y_min,
+											unit_y_min);
 
 		Virtual_cube edge_adjacent10 = get_virtual_cube_triangles(new_face10, 
-																shift_z_max);
+													shift_z_max, unit_z_max);
 		virtual_cubes_[16] = edge_adjacent10;
 
 		std::vector<Point> intersect_points11 = 
@@ -687,10 +754,11 @@ private:
 				local_z_direction_control_planes_.triangles_d_max);
 
 		std::pair<Triangle, Triangle> new_face11 = 
-			get_face_from_intersecting_edge(intersect_points11, shift_y_max);
+			get_face_from_intersecting_edge(intersect_points11, shift_y_max,
+											unit_y_max);
 
 		Virtual_cube edge_adjacent11 = get_virtual_cube_triangles(new_face11, 
-																shift_z_max);
+													shift_z_max, unit_z_max);
 		virtual_cubes_[17] = edge_adjacent11;
 	}
 
@@ -700,19 +768,28 @@ private:
 	void init_vertex_adjacent_virtual_cubes()
 	{
 		const Vec3 shift_x_min = 
-			{-local_x_direction_control_planes_.d_gap, 0.0, 0.0};
+			local_x_direction_control_planes_.shift_before_d_min;
 		const Vec3 shift_x_max = 
-			{local_x_direction_control_planes_.d_gap, 0.0, 0.0};
+			local_x_direction_control_planes_.shift_after_d_max;
+
+		const Vec3 unit_x_min = {-1.0, 0.0, 0.0}, 
+		unit_x_max = {1.0, 0.0, 0.0};
 
 		const Vec3 shift_y_min = 
-			{0.0, -local_y_direction_control_planes_.d_gap, 0.0};
+			local_y_direction_control_planes_.shift_before_d_min;
 		const Vec3 shift_y_max = 
-			{0.0, local_y_direction_control_planes_.d_gap, 0.0};
+			local_y_direction_control_planes_.shift_after_d_max;
+
+		const Vec3 unit_y_min = {0.0, -1.0, 0.0}, 
+		unit_y_max = {0.0, 1.0, 0.0};
 
 		const Vec3 shift_z_min = 
-			{0.0, 0.0, -local_z_direction_control_planes_.d_gap};
+			local_z_direction_control_planes_.shift_before_d_min;
 		const Vec3 shift_z_max = 
-			{0.0, 0.0, local_z_direction_control_planes_.d_gap};
+			local_z_direction_control_planes_.shift_after_d_max;
+
+		const Vec3 unit_z_min = {0.0, 0.0, -1.0}, 
+		unit_z_max = {0.0, 0.0, 1.0};
 
 		Point intersection_point0 = 
 			find_intersection_point(
@@ -722,10 +799,11 @@ private:
 
 		std::pair<Triangle, Triangle> new_face0 =
 			get_face_from_intersecting_vertex(intersection_point0, 
-											shift_x_min, shift_y_min);
+											shift_x_min, shift_y_min,
+											unit_x_min, unit_y_min);
 
 		Virtual_cube vertex_adjacent0 = get_virtual_cube_triangles(new_face0, 
-																shift_z_min);
+													shift_z_min, unit_z_min);
 		virtual_cubes_[18] = vertex_adjacent0;
 
 		Point intersection_point1 = 
@@ -736,10 +814,11 @@ private:
 
 		std::pair<Triangle, Triangle> new_face1 =
 			get_face_from_intersecting_vertex(intersection_point1, 
-											shift_x_max, shift_y_min);
+											shift_x_max, shift_y_min,
+											unit_x_max, unit_y_min);
 
 		Virtual_cube vertex_adjacent1 = get_virtual_cube_triangles(new_face1, 
-																shift_z_min);
+													shift_z_min, unit_z_min);
 		virtual_cubes_[19] = vertex_adjacent1;
 
 		Point intersection_point2 = 
@@ -750,10 +829,11 @@ private:
 
 		std::pair<Triangle, Triangle> new_face2 =
 			get_face_from_intersecting_vertex(intersection_point2, 
-											shift_x_min, shift_y_min);
+											shift_x_min, shift_y_min,
+											unit_x_min, unit_y_min);
 
 		Virtual_cube vertex_adjacent2 = get_virtual_cube_triangles(new_face2, 
-																shift_z_max);
+													shift_z_max, unit_z_max);
 		virtual_cubes_[20] = vertex_adjacent2;
 
 		Point intersection_point3 = 
@@ -764,10 +844,11 @@ private:
 
 		std::pair<Triangle, Triangle> new_face3 =
 			get_face_from_intersecting_vertex(intersection_point3, 
-											shift_x_max, shift_y_min);
+											shift_x_max, shift_y_min,
+											unit_x_max, unit_y_min);
 		
 		Virtual_cube vertex_adjacent3 = get_virtual_cube_triangles(new_face3, 
-																shift_z_max);
+													shift_z_max, unit_z_max);
 		virtual_cubes_[21] = vertex_adjacent3;
 
 		Point intersection_point4 = 
@@ -778,10 +859,11 @@ private:
 
 		std::pair<Triangle, Triangle> new_face4 =
 			get_face_from_intersecting_vertex(intersection_point4, 
-											shift_x_min, shift_y_max);
+											shift_x_min, shift_y_max,
+											unit_x_min, unit_y_max);
 		
 		Virtual_cube vertex_adjacent4 = get_virtual_cube_triangles(new_face4, 
-																shift_z_min);
+													shift_z_min, unit_z_min);
 		virtual_cubes_[22] = vertex_adjacent4;
 
 		Point intersection_point5 = 
@@ -792,10 +874,11 @@ private:
 
 		std::pair<Triangle, Triangle> new_face5 =
 			get_face_from_intersecting_vertex(intersection_point5, 
-											shift_x_max, shift_y_max);
+											shift_x_max, shift_y_max,
+											unit_x_max, unit_y_max);
 		
 		Virtual_cube vertex_adjacent5 = get_virtual_cube_triangles(new_face5, 
-																shift_z_min);
+													shift_z_min, unit_z_min);
 		virtual_cubes_[23] = vertex_adjacent5;
 
 		Point intersection_point6 = 
@@ -806,10 +889,11 @@ private:
 
 		std::pair<Triangle, Triangle> new_face6 =
 			get_face_from_intersecting_vertex(intersection_point6, 
-											shift_x_min, shift_y_max);
+											shift_x_min, shift_y_max,
+											unit_x_min, unit_y_max);
 		
 		Virtual_cube vertex_adjacent6 = get_virtual_cube_triangles(new_face6, 
-																shift_z_max);
+													shift_z_max, unit_z_max);
 
 		virtual_cubes_[24] = vertex_adjacent6;
 
@@ -821,10 +905,11 @@ private:
 
 		std::pair<Triangle, Triangle> new_face7 =
 			get_face_from_intersecting_vertex(intersection_point7, 
-											shift_x_max, shift_y_max);
+											shift_x_max, shift_y_max,
+											unit_x_max, unit_y_max);
 		
 		Virtual_cube vertex_adjacent7 = get_virtual_cube_triangles(new_face7, 
-																shift_z_max);
+													shift_z_max, unit_z_max);
 		virtual_cubes_[25] = vertex_adjacent7;
 	}
 
@@ -836,7 +921,7 @@ private:
 	/// @return virtual cube 
 	Virtual_cube get_virtual_cube_triangles(
 								const std::pair<Triangle, Triangle> face, 
-								const Vec3& shift_vector)
+								const Vec3& shift_vector, const Vec3& unit_dir)
 	{
 		Virtual_cube new_virtual_cube;
 
@@ -852,18 +937,34 @@ private:
 		Point point4;
 		point4.position = triangle1.points[2].position + shift_vector;
 		point4.inside_control_cage = false;
+		point4.shift_vector = {0.0, 0.0, 0.0}; 
+		point4.shift_vector += triangle1.points[2].shift_vector; 
+		point4.shift_vector += unit_dir; 
+		point4.vertex = triangle1.points[2].vertex; 
 
 		Point point5;
 		point5.position = triangle1.points[1].position + shift_vector;
 		point5.inside_control_cage = false;
+		point5.shift_vector = {0.0, 0.0, 0.0}; 
+		point5.shift_vector += triangle1.points[1].shift_vector; 
+		point5.shift_vector += unit_dir; 
+		point5.vertex = triangle1.points[1].vertex;
 
 		Point point6;
 		point6.position = triangle1.points[0].position + shift_vector;
 		point6.inside_control_cage = false;
+		point6.shift_vector = {0.0, 0.0, 0.0}; 
+		point6.shift_vector += triangle1.points[0].shift_vector; 
+		point6.shift_vector += unit_dir; 
+		point6.vertex = triangle1.points[0].vertex; 
 
 		Point point7;
 		point7.position = triangle2.points[1].position + shift_vector;
 		point7.inside_control_cage = false;
+		point7.shift_vector = {0.0, 0.0, 0.0}; 
+		point7.shift_vector += triangle2.points[1].shift_vector; 
+		point7.shift_vector += unit_dir; 
+		point7.vertex = triangle2.points[1].vertex;  
 
 		Triangle triangle3, triangle4;
 		triangle3.points = {point4, point5, point7};
@@ -1228,9 +1329,11 @@ private:
 			uint32 object_point_index = 
 							value<uint32>(object, object_vertex_index, v);
 
+			
 			if (activation_cage_[object_point_index] == 27)
 			{
-				Vec3 new_position = {0.0, 0.0, 0.0}; 
+				Vec3 new_position = {0.0, 0.0, 0.0};
+
 				foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
 				const Vec3& cage_point = 
 					value<Vec3>(*control_cage_, 
@@ -1245,21 +1348,26 @@ private:
 
 				return true;
 			});
-
-			value<Vec3>(object, object_vertex_position, v) = new_position;
+				value<Vec3>(object, object_vertex_position, v) = new_position;
+			
 			} else {
-				Virtual_cube virtual_cube_target = virtual_cubes_[activation_cage_[object_point_index]];
+				
+				Virtual_cube virtual_cube_target = 
+						virtual_cubes_[activation_cage_[object_point_index]];  
 
-				Vec3 new_position = {0.0, 0.0, 0.0};  
+
+				Vec3 new_position = {0.0, 0.0, 0.0};
 				for (size_t p = 0; p < virtual_cube_target.points.size(); p++){
 					const Point& cage_point = virtual_cube_target.points[p];
-
 					uint32 cage_point_index = p;
-					new_position += object_weights_
-							.position_(object_point_index, p) * cage_point.position;
+
+					new_position += 
+						object_weights_.position_(object_point_index, p) * 
+									cage_point.position;
 
 				}
-
+				value<Vec3>(object, object_vertex_position, v) = new_position;
+			 
 			}
 
 			
@@ -1620,17 +1728,17 @@ private:
 		std::vector<Point> intersect_points;
 		double epsilon = 0.00000001;
 
-		std::vector<Point> points_face_1;
-		points_face_1.push_back(face1.first.points[2]);
-		points_face_1.push_back(face1.first.points[0]);
-		points_face_1.push_back(face1.second.points[1]);
-		points_face_1.push_back(face1.first.points[1]);
+		std::vector<Point> points_face_1(4);
+		points_face_1[0] = face1.first.points[2];
+		points_face_1[1] = face1.first.points[0];
+		points_face_1[2] = face1.second.points[1];
+		points_face_1[3] = face1.first.points[1];
 
-		std::vector<Point> points_face_2;
-		points_face_2.push_back(face2.first.points[2]);
-		points_face_2.push_back(face2.first.points[0]);
-		points_face_2.push_back(face2.second.points[1]);
-		points_face_2.push_back(face2.first.points[1]);
+		std::vector<Point> points_face_2(4);
+		points_face_2[0] = face2.first.points[2];
+		points_face_2[1] = face2.first.points[0];
+		points_face_2[2] = face2.second.points[1];
+		points_face_2[3] = face2.first.points[1];
 
 		for (std::size_t i = 0; i < 4; i++)
 		{
@@ -1666,23 +1774,23 @@ private:
 
 		double epsilon = 0.00000001;
 
-		std::vector<Point> points_face_1;
-		points_face_1.push_back(face1.first.points[2]);
-		points_face_1.push_back(face1.first.points[0]);
-		points_face_1.push_back(face1.second.points[1]);
-		points_face_1.push_back(face1.first.points[1]);
+		std::vector<Point> points_face_1(4);
+		points_face_1[0] = face1.first.points[2];
+		points_face_1[1] = face1.first.points[0];
+		points_face_1[2] = face1.second.points[1];
+		points_face_1[3] = face1.first.points[1];
 
-		std::vector<Point> points_face_2;
-		points_face_2.push_back(face2.first.points[2]);
-		points_face_2.push_back(face2.first.points[0]);
-		points_face_2.push_back(face2.second.points[1]);
-		points_face_2.push_back(face2.first.points[1]);
+		std::vector<Point> points_face_2(4);
+		points_face_2[0] = face2.first.points[2];
+		points_face_2[1] = face2.first.points[0];
+		points_face_2[2] = face2.second.points[1];
+		points_face_2[3] = face2.first.points[1];
 
-		std::vector<Point> points_face_3;
-		points_face_3.push_back(face3.first.points[2]);
-		points_face_3.push_back(face3.first.points[0]);
-		points_face_3.push_back(face3.second.points[1]);
-		points_face_3.push_back(face3.first.points[1]);
+		std::vector<Point> points_face_3(4);
+		points_face_3[0] = face3.first.points[2];
+		points_face_3[1] = face3.first.points[0];
+		points_face_3[2] = face3.second.points[1];
+		points_face_3[3] = face3.first.points[1];
 
 		for (std::size_t i = 0; i < 4; i++)
 		{
@@ -1723,8 +1831,8 @@ private:
 	/// @param shiftVector 
 	/// @return Face 
 	std::pair<Triangle, Triangle> get_face_from_intersecting_edge(
-									const std::vector<Point>& intersect_points,
-									const Vec3& shiftVector)
+								const std::vector<Point>& intersect_points,
+								const Vec3& shiftVector, const Vec3& unit_dir)
 	{
 		
 		const Point face_point0 = intersect_points[0];
@@ -1733,10 +1841,18 @@ private:
 		Point face_point2;
 		face_point2.position = face_point1.position + shiftVector;
 		face_point2.inside_control_cage = false;
+		face_point2.shift_vector = {0.0, 0.0, 0.0}; 
+		face_point2.shift_vector += face_point1.shift_vector; 
+		face_point2.shift_vector += unit_dir; 
+		face_point2.vertex = face_point1.vertex; 
 
 		Point face_point3;
 		face_point3.position = face_point0.position + shiftVector;
 		face_point3.inside_control_cage = false;
+		face_point3.shift_vector = {0.0, 0.0, 0.0};
+		face_point3.shift_vector += face_point0.shift_vector; 
+		face_point3.shift_vector += unit_dir;
+		face_point3.vertex = face_point0.vertex; 
 
 		Triangle local_triangle1, local_triangle2;
 		local_triangle1.points = {face_point1, face_point3, face_point0};
@@ -1756,20 +1872,34 @@ private:
 	std::pair<Triangle, Triangle> get_face_from_intersecting_vertex(
 											const Point& intersection_point,
 											const Vec3& shiftVector1, 
-											const Vec3& shiftVector2)
+											const Vec3& shiftVector2,
+											const Vec3& unit_dir1, 
+											const Vec3& unit_dir2)
 	{
 		const Point face_point0 = intersection_point;
 
 		Point face_point1, face_point2, face_point3;
 		face_point1.position = face_point0.position + shiftVector1;
 		face_point1.inside_control_cage = false;
+		face_point1.shift_vector = {0.0, 0.0, 0.0};
+		face_point1.shift_vector += face_point0.shift_vector; 
+		face_point1.shift_vector += unit_dir1; 
+		face_point1.vertex = face_point0.vertex; 
 
 		face_point2.position = 
-						(face_point1.position + shiftVector1) + shiftVector2;
+						(face_point0.position + shiftVector1) + shiftVector2;
 		face_point2.inside_control_cage = false;
+		face_point2.shift_vector = {0.0, 0.0, 0.0};
+		face_point2.shift_vector += face_point0.shift_vector; 
+		face_point2.shift_vector += (unit_dir1 + unit_dir2); 
+		face_point2.vertex = face_point0.vertex; 
 
 		face_point3.position = face_point0.position + shiftVector2;
 		face_point3.inside_control_cage = false;
+		face_point3.shift_vector = {0.0, 0.0, 0.0};
+		face_point3.shift_vector += face_point0.shift_vector; 
+		face_point3.shift_vector += unit_dir2;
+		face_point3.vertex = face_point0.vertex; 
 
 		Triangle local_triangle1, local_triangle2;
 		local_triangle1.points = {face_point1, face_point3, face_point0};
