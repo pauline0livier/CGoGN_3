@@ -264,21 +264,23 @@ public:
 			for (size_t p = 0; p < virtual_cubes_[c].points.size(); p++){
 				Point local_point = virtual_cubes_[c].points[p];    
 
-				local_point.position = value<Vec3>(*control_cage_, 
+				virtual_cubes_[c].points[p].position = value<Vec3>(*control_cage_, 
 						control_cage_vertex_position_, local_point.vertex);
 
 				if (!local_point.inside_control_cage){  
-					local_point.position += 
+					
+					virtual_cubes_[c].points[p].position += 
 					(local_point.shift_vector[0]*
 					local_x_direction_control_planes_.shift_after_d_max); 
 
-					local_point.position += 
+					virtual_cubes_[c].points[p].position += 
 					(local_point.shift_vector[1]*
 					local_y_direction_control_planes_.shift_after_d_max);
 
-					local_point.position += 
+					virtual_cubes_[c].points[p].position += 
 					(local_point.shift_vector[2]*
-					local_z_direction_control_planes_.shift_after_d_max); 
+					local_z_direction_control_planes_.shift_after_d_max);
+
 				} 
 			}
 		}
@@ -483,7 +485,7 @@ private:
 			}
 		}
 
-		const double gap_x = d_x_max - d_x_min; 
+		const double gap_x = 3.0*(d_x_max - d_x_min); 
 		local_x_direction_control_planes_.d_min = d_x_min;
 		local_x_direction_control_planes_.d_max = d_x_max;
 		local_x_direction_control_planes_.d_gap = gap_x;
@@ -493,7 +495,7 @@ private:
 		local_x_direction_control_planes_.shift_after_d_max = (gap_x)*x_dir;
 		local_x_direction_control_planes_.shift_before_d_min = (-gap_x)*x_dir; 
 
-		const double gap_y = d_y_max - d_y_min;
+		const double gap_y = 3.0*(d_y_max - d_y_min);
 		local_y_direction_control_planes_.d_min = d_y_min;
 		local_y_direction_control_planes_.d_max = d_y_max;
 		local_y_direction_control_planes_.d_gap = gap_y;
@@ -503,7 +505,7 @@ private:
 		local_y_direction_control_planes_.shift_after_d_max = (gap_y)*y_dir;
 		local_y_direction_control_planes_.shift_before_d_min = (-gap_y)*y_dir;
 
-		const double gap_z = d_z_max - d_z_min; 
+		const double gap_z = 3.0*(d_z_max - d_z_min); 
 		local_z_direction_control_planes_.d_min = d_z_min;
 		local_z_direction_control_planes_.d_max = d_z_max;
 		local_z_direction_control_planes_.d_gap = gap_z;
@@ -1355,7 +1357,6 @@ private:
 				Virtual_cube virtual_cube_target = 
 						virtual_cubes_[activation_cage_[object_point_index]];  
 
-
 				Vec3 new_position = {0.0, 0.0, 0.0};
 				for (size_t p = 0; p < virtual_cube_target.points.size(); p++){
 					const Point& cage_point = virtual_cube_target.points[p];
@@ -1544,10 +1545,6 @@ private:
 		w_control_cage_coords_.resize(nbv_cage);
 		w_control_cage_coords_.setZero();
 
-		Eigen::VectorXd virtual_cage_coords_;
-		virtual_cage_coords_.resize(nbv_cage);
-		virtual_cage_coords_.setZero();
-
 		std::vector<double> d(nbv_cage);
 		std::vector<Vec3> u(nbv_cage);
 
@@ -1563,9 +1560,8 @@ private:
 				(surface_point - cage_point.position).norm();
 			if (d[cage_point_index] < epsilon)
 			{
-				object_weights_
-						.position_(surface_point_index, 
-									cage_point_index) = 1.0;
+				object_weights_.position_(surface_point_index, 
+													cage_point_index) = 1.0;
 				return true;
 			}
 
