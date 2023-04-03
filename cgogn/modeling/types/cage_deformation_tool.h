@@ -90,7 +90,7 @@ class CageDeformationTool
 		std::vector<Point> points;
 		std::vector<uint32_t> virtual_cage_indices;
 		Vec3 normal;
-		std::pair<Point, Point> edges;
+		std::pair<Vec3, Vec3> edges;
 	};
 
 	/**
@@ -199,7 +199,7 @@ public:
 	}
 
 	/// @brief set the deformation type 
-	/// @param new_type so far only MVC
+	/// @param new_type so far MVC or Green
 	void set_deformation_type(const std::string& new_type)
 	{
 		deformation_type_ = new_type;
@@ -309,6 +309,15 @@ public:
 			bind_object_mvc(object, object_vertex_position, 
 							object_vertex_index);
 		}
+
+		if (deformation_type_ == "Green"){
+			uint32 nbt_cage = cage_triangles_.size();
+			object_weights_.normal_.resize(nbv_object, nbt_cage);
+			object_weights_.normal_.setZero();
+
+			bind_object_green(object, object_vertex_position, 
+							object_vertex_index);
+		}
 	}
 
 
@@ -392,20 +401,19 @@ private:
 
 			Triangle triangle1;
 			triangle1.points = {points[1], points[3], points[0]};
-			triangle1.normal = (cgogn::geometry::normal(
-										triangle1.points[0].position, 
-										triangle1.points[1].position,
-										triangle1.points[2].position))
-								.normalized();
+			triangle1.normal = get_normal_from_triangle(triangle1); 
+			triangle1.edges = get_edges_from_triangle(triangle1); 
+			
+			std::make_pair(triangle1.points[1].position 
+												- triangle1.points[0].position, 
+											triangle1.points[2].position 
+												- triangle1.points[1].position);
 			cage_triangles_.push_back(triangle1);
 
 			Triangle triangle2;
 			triangle2.points = {points[1], points[2], points[3]};
-			triangle2.normal = (cgogn::geometry::normal(
-										triangle2.points[0].position, 
-										triangle2.points[1].position,
-										triangle2.points[2].position))
-								.normalized();
+			triangle2.normal = get_normal_from_triangle(triangle2); 
+			triangle2.edges = get_edges_from_triangle(triangle2); 
 			cage_triangles_.push_back(triangle2);
 
 			return true;
@@ -971,9 +979,13 @@ private:
 		Triangle triangle3, triangle4;
 		triangle3.points = {point4, point5, point7};
 		triangle3.virtual_cage_indices = {4, 5, 7};
+		triangle3.normal = get_normal_from_triangle(triangle3);
+		triangle3.edges = get_edges_from_triangle(triangle3);
 
 		triangle4.points = {point4, point7, point6};
 		triangle4.virtual_cage_indices = {4, 7, 6};
+		triangle4.normal = get_normal_from_triangle(triangle4);
+		triangle4.edges = get_edges_from_triangle(triangle4);
 
 		std::vector<Point> virtual_cube_points(8);
 		virtual_cube_points[0] = triangle1.points[2];
@@ -994,34 +1006,50 @@ private:
 		triangle5.points = 
 			{triangle1.points[2], triangle3.points[1], triangle3.points[0]};
 		triangle5.virtual_cage_indices = {0, 5, 4};
+		triangle5.normal = get_normal_from_triangle(triangle5);
+		triangle5.edges = get_edges_from_triangle(triangle5);
 
 		triangle6.points = 
 			{triangle1.points[2], triangle1.points[1], triangle3.points[1]};
 		triangle6.virtual_cage_indices = {0, 1, 5};
+		triangle6.normal = get_normal_from_triangle(triangle6);
+		triangle6.edges = get_edges_from_triangle(triangle6);
 
 		triangle7.points = 
 			{triangle4.points[2], triangle2.points[1], triangle1.points[0]};
 		triangle7.virtual_cage_indices = {6, 2, 3};
+		triangle7.normal = get_normal_from_triangle(triangle7);
+		triangle7.edges = get_edges_from_triangle(triangle7);
 
 		triangle8.points = 
 			{triangle4.points[2], triangle3.points[2], triangle2.points[1]};
 		triangle8.virtual_cage_indices = {6, 7, 2};
+		triangle8.normal = get_normal_from_triangle(triangle8);
+		triangle8.edges = get_edges_from_triangle(triangle8);
 
 		triangle9.points = 
 			{triangle1.points[2], triangle4.points[2], triangle1.points[0]};
 		triangle9.virtual_cage_indices = {0, 6, 3};
+		triangle9.normal = get_normal_from_triangle(triangle9);
+		triangle9.edges = get_edges_from_triangle(triangle9);
 
 		triangle10.points = 
 			{triangle1.points[2], triangle3.points[0], triangle4.points[2]};
 		triangle10.virtual_cage_indices = {0, 4, 6};
+		triangle10.normal = get_normal_from_triangle(triangle10);
+		triangle10.edges = get_edges_from_triangle(triangle10);
 
 		triangle11.points = 
 			{triangle2.points[1], triangle3.points[1], triangle1.points[1]};
 		triangle11.virtual_cage_indices = {2, 5, 1};
+		triangle11.normal = get_normal_from_triangle(triangle11);
+		triangle11.edges = get_edges_from_triangle(triangle11);
 
 		triangle12.points = 
 			{triangle2.points[1], triangle3.points[2], triangle3.points[1]};
 		triangle12.virtual_cage_indices = {2, 7, 5};
+		triangle12.normal = get_normal_from_triangle(triangle12);
+		triangle12.edges = get_edges_from_triangle(triangle12);
 
 		virtual_cube_triangles.push_back(triangle3);
 		virtual_cube_triangles.push_back(triangle4);
@@ -1375,12 +1403,6 @@ private:
 		}
 	}
 
-	/**
-	 * compute MVC on point inside the cage 
-	 * state-of-the-art method 
-	 * [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
-	*/
-
 	/// @brief compute MVC on point inside the cage 
 	/// state-of-the-art method 
 	/// [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
@@ -1533,7 +1555,7 @@ private:
 	/// @return 
 	bool compute_mvc_on_point_outside_cage(const Vec3& surface_point, 
 								const uint32& surface_point_index,
-								const Virtual_cube virtual_cube_target)
+								const Virtual_cube& virtual_cube_target)
 	{
 		uint32 nbv_cage = nb_cells<Vertex>(*control_cage_);
 
@@ -1659,6 +1681,362 @@ private:
 
 		return false;
 	}
+
+
+	/// @brief bind influence area of object with Green deformation type
+	/// loop on each point of the influence area 
+	/// check if point inside control cage => classical Green binding 
+	/// otherwise: find corresponding virtual cube, compute Green inside it
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model 
+	/// @param object_vertex_index index of the vertices of the model 
+	void bind_object_green(MESH& object, 
+			const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
+			const std::shared_ptr<Attribute<uint32>>& object_vertex_index)
+	{
+		const std::size_t influence_area_length = 
+											object_influence_area_.size();
+
+		for (std::size_t i = 0; i < influence_area_length; i++)
+		{
+			Vertex v = object_influence_area_[i];
+			const Vec3& surface_point = 
+							value<Vec3>(object, object_vertex_position, v);
+			uint32 surface_point_index = 
+							value<uint32>(object, object_vertex_index, v);
+
+			const double d_x = surface_point
+							.dot(local_x_direction_control_planes_.direction),
+						 
+						d_y = surface_point
+							.dot(local_y_direction_control_planes_.direction),
+						
+						d_z = surface_point
+							.dot(local_z_direction_control_planes_.direction);
+
+			const bool valid_x_dir = 
+						(d_x <= local_x_direction_control_planes_.d_max &&
+						d_x >= local_x_direction_control_planes_.d_min),
+
+					   valid_y_dir = 
+					   (d_y <= local_y_direction_control_planes_.d_max &&
+						d_y >= local_y_direction_control_planes_.d_min),
+
+					   valid_z_dir = 
+					   (d_z <= local_z_direction_control_planes_.d_max &&
+						d_z >= local_z_direction_control_planes_.d_min);
+
+			if (valid_x_dir && valid_y_dir && valid_z_dir)
+			{
+				activation_cage_[surface_point_index] = 27; 
+				compute_green_on_point_inside_cage(surface_point, 
+												surface_point_index);
+			}
+			else
+			{
+				Virtual_cube virtual_cube_target = 
+					find_virtual_cube_target(d_x, d_y, d_z, 
+									valid_x_dir, valid_y_dir, valid_z_dir,
+									surface_point_index);
+
+				compute_green_on_point_outside_cage(surface_point, 
+												surface_point_index, 
+												virtual_cube_target);
+			}
+		}
+	}
+
+	/// @brief deform the influence area of the object with Green deformation type
+	/// rely object_fixed_data to handle case of point inside virtual cube
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model 
+	/// @param object_vertex_index index of the vertices of the model 
+	void deform_object_green(MESH& object, 
+						CMap2::Attribute<Vec3>* object_vertex_position,
+						CMap2::Attribute<uint32>* object_vertex_index)
+	{
+		const std::size_t influence_area_length = 
+											object_influence_area_.size();
+
+		for (std::size_t i = 0; i < influence_area_length; i++)
+		{
+			Vertex v = object_influence_area_[i];
+			uint32 object_point_index = 
+							value<uint32>(object, object_vertex_index, v);
+
+			
+			if (activation_cage_[object_point_index] == 27)
+			{
+				Vec3 new_position = {0.0, 0.0, 0.0};
+
+				foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
+				const Vec3& cage_point = 
+					value<Vec3>(*control_cage_, 
+								control_cage_vertex_position_, cv);
+				uint32 cage_point_index = 
+					value<uint32>(*control_cage_, 
+								control_cage_vertex_index_, cv);
+
+				new_position += 
+					object_weights_.position_(object_point_index, 
+											cage_point_index) * cage_point;
+
+				return true;
+			});
+
+			Vec3 new_normal = {0.0, 0.0, 0.0};
+
+			const auto sqrt8 = sqrt(8);
+
+			for (std::size_t t = 0; t < cage_triangles_.size(); t++)
+			{
+
+				std::vector<Vec3> triangle_position(3);
+				for (std::size_t i = 0; i < 3; i++)
+				{
+					triangle_position[i] = cage_triangles_[t].points[i].position; 
+				}
+
+				const Vec3 t_normal = cage_triangles_[t].normal_;
+				const auto t_u0 = cage_triangles_[t].edges_.first;
+				const auto t_v0 = cage_triangles_[t].edges_.second;
+
+				const auto t_u1 = 
+					triangle_position[1] - triangle_position[0];
+				const auto t_v1 = 
+					triangle_position[2] - triangle_position[1];
+
+				const auto area_face = (t_u0.cross(t_v0)).norm() * 0.5;
+				double t_sj =
+					sqrt((t_u1.squaredNorm()) * (t_v0.squaredNorm()) 
+							- 2.0 * (t_u1.dot(t_v1)) * (t_u0.dot(t_v0)) +
+						 (t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
+							(sqrt8 * area_face);
+
+				new_normal += 
+					object_weights_.normal_(vidx, t) * t_sj * t_normal;
+			}
+
+			value<Vec3>(object, object_vertex_position, v) = 
+												new_position + new_normal;
+			
+			} else {
+				
+				Virtual_cube virtual_cube_target = 
+						virtual_cubes_[activation_cage_[object_point_index]];  
+
+				Vec3 new_position = {0.0, 0.0, 0.0};
+				for (size_t p = 0; p < virtual_cube_target.points.size(); p++){
+					const Point& cage_point = virtual_cube_target.points[p];
+					uint32 cage_point_index = p;
+
+					new_position += 
+						object_weights_.position_(object_point_index, p) * 
+									cage_point.position;
+
+				}
+
+				Vec3 new_normal = {0.0, 0.0, 0.0};
+
+				const auto sqrt8 = sqrt(8);
+
+				for (std::size_t t = 0; t < virtual_cube_target.triangles.size(); t++)
+				{
+					Triangle local_triangle = virtual_cube_target.triangles[t]; 
+					std::vector<Vec3> triangle_position(3);
+					for (std::size_t i = 0; i < 3; i++)
+					{
+						triangle_position[i] = local_triangle.points[i].position;
+					}
+
+					const Vec3 t_normal = local_triangle.normal_;
+					const auto t_u0 = local_triangle.edges_.first;
+					const auto t_v0 = local_triangle.edges_.second;
+
+					const auto t_u1 = 
+						triangle_position[1] - triangle_position[0];
+					const auto t_v1 = 
+						triangle_position[2] - triangle_position[1];
+
+					const auto area_face = (t_u0.cross(t_v0)).norm() * 0.5;
+					double t_sj =
+						sqrt((t_u1.squaredNorm()) * (t_v0.squaredNorm()) 
+							- 2.0 * (t_u1.dot(t_v1)) * (t_u0.dot(t_v0)) +
+						 (t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
+							(sqrt8 * area_face);
+
+					new_normal += 
+							object_weights_.normal_(vidx, t) * t_sj * t_normal;
+			}
+
+			value<Vec3>(object, object_vertex_position, v) = 
+													new_position + new_normal;
+			 
+			}
+
+			
+		}
+	}
+
+
+	/// @brief compute Green on point inside the cage 
+	/// state-of-the-art method
+	/// [Green coordinates, Lipman et al. 2008]
+	/// @param surface_point 
+	/// @param surface_point_index 
+	void compute_green_on_point_inside_cage(const Vec3& surface_point, 
+										const uint32& surface_point_index)
+	{
+
+		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
+		{
+			std::vector<Vec3> triangle_position(3);
+
+			for (std::size_t i = 0; i < 3; i++)
+			{
+				triangle_position[i] = cage_triangles_[t].points[i].position; 
+			}
+
+			const Vec3 t_normal = cage_triangles_[t].normal; 
+
+			std::vector<Vec3> t_vj(3);
+			for (std::size_t l = 0; l < 3; ++l)
+			{
+				t_vj[l] = triangle_position[l] - surface_point;
+			}
+
+			const Vec3 t_p_ = (t_vj[0].dot(t_normal)) * t_normal;
+
+			Vec3 t_I = {0.0, 0.0, 0.0};
+			std::vector<double> t_II(3);
+			Vec3 t_s = {0.0, 0.0, 0.0};
+			std::vector<Vec3> t_N(3);
+
+			for (std::size_t l = 0; l < 3; ++l)
+			{
+				const Vec3 t_v0 = t_vj[l];
+				const Vec3 t_v1 = t_vj[(l + 1) % 3];
+
+				const auto t_vjpt = 
+					((t_v0 - t_p_).cross((t_v1 - t_p_))).dot(t_normal);
+				t_s[l] = t_vjpt < 0 ? -1.0 : 1.0;
+
+				t_I[l] = modeling::GCTriInt2(t_p_, t_v0, t_v1);
+				t_II[l] = modeling::GCTriInt2(NULL_VECTOR, t_v1, t_v0);
+				t_N[l] = (t_v1.cross(t_v0)).normalized();
+			}
+
+			const double t_I_ = -abs(t_s.dot(t_I));
+
+			object_weights_.normal_(surface_point_index, t) = -t_I_;
+
+			Vec3 t_w = t_I_ * t_normal;
+
+			for (std::size_t k = 0; k < 3; ++k)
+			{
+				t_w += (t_II[k] * t_N[k]);
+			}
+
+			if (t_w.norm() > DBL_EPSILON)
+			{
+				for (size_t l = 0; l < 3; l++)
+				{
+					const uint32 cage_point_index = 
+								cage_triangles_[t].points[l].control_cage_index; 
+
+					const Vec3 Nl = t_N[(l + 1) % 3];
+					const double num = Nl.dot(t_w);
+					const double denom = Nl.dot(t_vj[l]);
+
+					object_weights_
+						.position_(surface_point_index, cage_point_index) 
+										+= num / denom;
+				}
+			}
+		}
+	}
+
+
+	/// @brief compute Green on point inside the cage 
+	/// state-of-the-art method
+	/// [Green coordinates, Lipman et al. 2008]
+	/// @param surface_point 
+	/// @param surface_point_index 
+	void compute_green_on_point_outside_cage(const Vec3& surface_point, 
+										const uint32& surface_point_index,
+										const Virtual_cube& virtual_cube_target)
+	{
+
+		for (std::size_t t = 0; t < virtual_cube_target.triangles.size(); t++)
+		{
+			Triangle local_triangle = virtual_cube_target.triangles[t]; 
+
+			std::vector<Vec3> triangle_position(3);
+
+			for (std::size_t i = 0; i < 3; i++)
+			{
+				triangle_position[i] = local_triangle.points[i].position; 
+			}
+
+			const Vec3 t_normal = local_triangle.normal; 
+
+			std::vector<Vec3> t_vj(3);
+			for (std::size_t l = 0; l < 3; ++l)
+			{
+				t_vj[l] = triangle_position[l] - surface_point;
+			}
+
+			const Vec3 t_p_ = (t_vj[0].dot(t_normal)) * t_normal;
+
+			Vec3 t_I = {0.0, 0.0, 0.0};
+			std::vector<double> t_II(3);
+			Vec3 t_s = {0.0, 0.0, 0.0};
+			std::vector<Vec3> t_N(3);
+
+			for (std::size_t l = 0; l < 3; ++l)
+			{
+				const Vec3 t_v0 = t_vj[l];
+				const Vec3 t_v1 = t_vj[(l + 1) % 3];
+
+				const auto t_vjpt = 
+					((t_v0 - t_p_).cross((t_v1 - t_p_))).dot(t_normal);
+				t_s[l] = t_vjpt < 0 ? -1.0 : 1.0;
+
+				t_I[l] = modeling::GCTriInt2(t_p_, t_v0, t_v1);
+				t_II[l] = modeling::GCTriInt2(NULL_VECTOR, t_v1, t_v0);
+				t_N[l] = (t_v1.cross(t_v0)).normalized();
+			}
+
+			const double t_I_ = -abs(t_s.dot(t_I));
+
+			object_weights_.normal_(surface_point_index, t) = -t_I_;
+
+			Vec3 t_w = t_I_ * t_normal;
+
+			for (std::size_t k = 0; k < 3; ++k)
+			{
+				t_w += (t_II[k] * t_N[k]);
+			}
+
+			if (t_w.norm() > DBL_EPSILON)
+			{
+				for (size_t l = 0; l < 3; l++)
+				{
+					const uint32 cage_point_index = 
+							local_triangle.virtual_cage_indices[l]; 
+
+					const Vec3 Nl = t_N[(l + 1) % 3];
+					const double num = Nl.dot(t_w);
+					const double denom = Nl.dot(t_vj[l]);
+
+					object_weights_
+						.position_(surface_point_index, cage_point_index) 
+										+= num / denom;
+				}
+			}
+		}
+	}
+
 
 	/// @brief check if a position is inside the influence cage 
 	/// use the local_direction_control_plane structure
@@ -1852,7 +2230,12 @@ private:
 
 		Triangle local_triangle1, local_triangle2;
 		local_triangle1.points = {face_point1, face_point3, face_point0};
+		local_triangle1.normal = get_normal_from_triangle(local_triangle1);
+		local_triangle1.edges = get_edges_from_triangle(local_triangle1);
+
 		local_triangle2.points = {face_point1, face_point2, face_point3};
+		local_triangle2.normal = get_normal_from_triangle(local_triangle2);
+		local_triangle2.edges = get_edges_from_triangle(local_triangle2);
 
 		return std::make_pair(local_triangle1, local_triangle2);
 	}
@@ -1902,6 +2285,23 @@ private:
 		local_triangle2.points = {face_point1, face_point2, face_point3};
 
 		return std::make_pair(local_triangle1, local_triangle2);
+	}
+
+
+	Vec3 get_normal_from_triangle(const Triangle& local_triangle)
+	{
+		return (cgogn::geometry::normal(local_triangle.points[0].position, 
+										local_triangle.points[1].position,
+										local_triangle.points[2].position))
+										.normalized();
+	}
+
+	std::pair <Vec3, Vec3> get_edges_from_triangle(const Triangle& local_triangle)
+	{
+		return std::make_pair(local_triangle.points[1].position 
+								- local_triangle.points[0].position, 
+							local_triangle.points[2].position 
+								- local_triangle.points[1].position);
 	}
 };
 

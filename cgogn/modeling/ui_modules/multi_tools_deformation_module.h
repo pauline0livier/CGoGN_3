@@ -628,7 +628,7 @@ private:
 
 			cdt->create_space_tool(l_cage, l_cage_vertex_position.get(), 
 									std::get<0>(extended_boundaries),
-								   	std::get<1>(extended_boundaries), 
+									std::get<1>(extended_boundaries), 
 									center, normal);
 
 			mesh_provider_->emit_connectivity_changed(*l_cage);
@@ -1292,6 +1292,32 @@ protected:
 		}
 	}
 
+	static const char* set_deformation_parameters(const char* items[])
+	{
+		static const char* current_item = "MVC";
+		ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
+
+		ImGuiStyle& style = ImGui::GetStyle();
+		float w = ImGui::CalcItemWidth();
+		float spacing = style.ItemInnerSpacing.x;
+		float button_sz = ImGui::GetFrameHeight();
+		ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
+		if (ImGui::BeginCombo("##custom combo", current_item, 
+									ImGuiComboFlags_NoArrowButton))
+		{
+			for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+			{
+				bool is_selected = (current_item == items[n]);
+					if (ImGui::Selectable(items[n], is_selected))
+						current_item = items[n];
+					if (is_selected)
+						ImGui::SetItemDefaultFocus();
+					}
+			ImGui::EndCombo();
+		}
+		return current_item; 
+	}
+
 	/// @brief left panel used for user interface
 	/// refreshed constantly 
 	/// call the corresponding functions relative to user interaction
@@ -1334,6 +1360,7 @@ protected:
 				if (global_cage_container_.size() == 1)
 				{
 					const char* items[] = {"MVC", "Green"};
+
 					static const char* current_item = "MVC";
 					ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
 
@@ -1341,10 +1368,9 @@ protected:
 					float w = ImGui::CalcItemWidth();
 					float spacing = style.ItemInnerSpacing.x;
 					float button_sz = ImGui::GetFrameHeight();
-					ImGui::PushItemWidth(w - spacing * 2.0f - 
-										button_sz * 2.0f);
+					ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
 					if (ImGui::BeginCombo("##custom combo", current_item, 
-											ImGuiComboFlags_NoArrowButton))
+									ImGuiComboFlags_NoArrowButton))
 					{
 						for (int n = 0; n < IM_ARRAYSIZE(items); n++)
 						{
@@ -1354,7 +1380,7 @@ protected:
 							if (is_selected)
 								ImGui::SetItemDefaultFocus();
 						}
-						ImGui::EndCombo();
+				ImGui::EndCombo();
 					}
 
 					if (ImGui::Button("Bind global cage"))
@@ -1498,31 +1524,22 @@ protected:
 							if (handle_name.size() > 0 &&
 								std::mismatch(prefix.begin(), prefix.end(), handle_name.begin()).first == prefix.end())
 							{
-								const char* items[] = {"Spike", "Round"};
-								std::string current_item = "Spike";
-								ImGuiComboFlags flags = 
-											ImGuiComboFlags_NoArrowButton;
+								static ImGuiComboFlags flags = 0;
 
-								ImGuiStyle& style = ImGui::GetStyle();
-								float w = ImGui::CalcItemWidth();
-								float spacing = style.ItemInnerSpacing.x;
-								float button_sz = ImGui::GetFrameHeight();
-								ImGui::PushItemWidth(w - spacing * 2.0f - 
-													button_sz * 2.0f);
-								if (ImGui::BeginCombo("##custom_combo", 
-											current_item.c_str(),
-											ImGuiComboFlags_NoArrowButton))
+								const char* items[] = { "Spike", "Round" };
+								static const char* item_current = items[0];       
+
+								if (ImGui::BeginCombo("combo handle", 
+															item_current, flags)) 
 								{
 									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
 									{
-										bool is_selected = 
-											(current_item == items[n]);
-										if (ImGui::Selectable(items[n], 
-															is_selected))
-											current_item = items[n];
+										bool is_selected = (item_current == items[n]);
+										if (ImGui::Selectable(items[n], is_selected))
+											item_current = items[n];
 										if (is_selected)
-											ImGui::SetItemDefaultFocus();
-									}
+											ImGui::SetItemDefaultFocus();   
+										}
 									ImGui::EndCombo();
 								}
 
@@ -1541,7 +1558,8 @@ protected:
 									bind_local_handle(*model_, 
 										model_p.vertex_position_, 
 										*(hdt->control_handle_),
-										hdt->control_handle_vertex_position_, current_item);
+										hdt->control_handle_vertex_position_, 
+										item_current);
 
 									new_tool_ = false;
 								}
@@ -1668,29 +1686,22 @@ protected:
 							if (axis_name.size() > 0 &&
 								std::mismatch(prefix.begin(), prefix.end(), axis_name.begin()).first == prefix.end())
 							{
-								const char* items[] = {"Rigid", "Loose"};
-								std::string current_item = "Rigid";
-								ImGuiComboFlags flags = 
-											ImGuiComboFlags_NoArrowButton;
+								static ImGuiComboFlags flags = 0;
 
-								ImGuiStyle& style = ImGui::GetStyle();
-								float w = ImGui::CalcItemWidth();
-								float spacing = style.ItemInnerSpacing.x;
-								float button_sz = ImGui::GetFrameHeight();
-								ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
-								if (ImGui::BeginCombo("##custom_combo", 
-													current_item.c_str(),
-											ImGuiComboFlags_NoArrowButton))
+								const char* items[] = { "Rigid", "Loose" };
+								static const char* item_current = items[0];       
+
+								if (ImGui::BeginCombo("combo local axis", 
+															item_current, flags)) 
 								{
 									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
 									{
-										bool is_selected = (current_item == items[n]);
-										if (ImGui::Selectable(items[n], 
-															is_selected))
-											current_item = items[n];
+										bool is_selected = (item_current == items[n]);
+										if (ImGui::Selectable(items[n], is_selected))
+											item_current = items[n];
 										if (is_selected)
-											ImGui::SetItemDefaultFocus();
-									}
+											ImGui::SetItemDefaultFocus();   
+										}
 									ImGui::EndCombo();
 								}
 
@@ -1710,7 +1721,8 @@ protected:
 									bind_local_axis(*model_, 
 												model_p.vertex_position_, 
 												*(adt->control_axis_),
-										adt->control_axis_vertex_position_, current_item);
+										adt->control_axis_vertex_position_, 
+												item_current);
 
 									new_tool_ = false;
 								}
@@ -1816,40 +1828,35 @@ protected:
 							std::string prefix = "local_cage";
 
 							if (cage_name.size() > 0 &&
-								std::mismatch(prefix.begin(), prefix.end(), cage_name.begin()).first == prefix.end())
+								std::mismatch(prefix.begin(), prefix.end(), 
+								cage_name.begin()).first == prefix.end())
 							{
 
-								const char* items[] = {"MVC", "Green"};
-								std::string current_item = "MVC";
-								ImGuiComboFlags flags = 
-											ImGuiComboFlags_NoArrowButton;
+								static ImGuiComboFlags flags = 0;
 
-								ImGuiStyle& style = ImGui::GetStyle();
-								float w = ImGui::CalcItemWidth();
-								float spacing = style.ItemInnerSpacing.x;
-								float button_sz = ImGui::GetFrameHeight();
-								ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
-								if (ImGui::BeginCombo("##custom combo", 
-													current_item.c_str(),
-											ImGuiComboFlags_NoArrowButton))
+								const char* items[] = { "MVC", "Green" };
+								static const char* item_current = items[0];       
+
+								if (ImGui::BeginCombo("combo local cage", 
+															item_current, flags)) 
 								{
 									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
 									{
-										bool is_selected = 
-											(current_item == items[n]);
+										bool is_selected = (item_current == items[n]);
 										if (ImGui::Selectable(items[n], is_selected))
-											current_item = items[n];
+											item_current = items[n];
 										if (is_selected)
-											ImGui::SetItemDefaultFocus();
-									}
+											ImGui::SetItemDefaultFocus();   
+										}
 									ImGui::EndCombo();
 								}
+								
 
 								if (ImGui::Button("Bind local cage"))
 								{
 									std::shared_ptr<modeling::
-										CageDeformationTool<MESH>> cdt =
-											cage_container_[cage_name];
+									CageDeformationTool<MESH>> cdt =
+												cage_container_[cage_name];
 
 									modeling::Parameters<MESH>& local_p = 
 												*parameters_[selected_cage_];
@@ -1857,10 +1864,10 @@ protected:
 									local_p.name_ = cage_name;
 
 									bind_local_cage(*model_, 
-											model_p.vertex_position_, 
-											*(cdt->control_cage_),
-										cdt->control_cage_vertex_position_,
-											 current_item);
+													model_p.vertex_position_, 
+													*(cdt->control_cage_),
+											cdt->control_cage_vertex_position_,
+													item_current);
 
 									new_tool_ = false;
 								}
