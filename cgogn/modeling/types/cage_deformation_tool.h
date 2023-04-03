@@ -349,6 +349,12 @@ public:
 			deform_object_mvc(object, object_vertex_position, 
 								object_vertex_index);
 		}
+
+		if (deformation_type_ == "Green")
+		{
+			deform_object_green(object, object_vertex_position, 
+								object_vertex_index);
+		}
 	}
 
 private:
@@ -1797,9 +1803,9 @@ private:
 					triangle_position[i] = cage_triangles_[t].points[i].position; 
 				}
 
-				const Vec3 t_normal = cage_triangles_[t].normal_;
-				const auto t_u0 = cage_triangles_[t].edges_.first;
-				const auto t_v0 = cage_triangles_[t].edges_.second;
+				const Vec3 t_normal = cage_triangles_[t].normal;
+				const auto t_u0 = cage_triangles_[t].edges.first;
+				const auto t_v0 = cage_triangles_[t].edges.second;
 
 				const auto t_u1 = 
 					triangle_position[1] - triangle_position[0];
@@ -1814,7 +1820,7 @@ private:
 							(sqrt8 * area_face);
 
 				new_normal += 
-					object_weights_.normal_(vidx, t) * t_sj * t_normal;
+					object_weights_.normal_(object_point_index, t) * t_sj * t_normal;
 			}
 
 			value<Vec3>(object, object_vertex_position, v) = 
@@ -1843,15 +1849,16 @@ private:
 				for (std::size_t t = 0; t < virtual_cube_target.triangles.size(); t++)
 				{
 					Triangle local_triangle = virtual_cube_target.triangles[t]; 
+
 					std::vector<Vec3> triangle_position(3);
 					for (std::size_t i = 0; i < 3; i++)
 					{
 						triangle_position[i] = local_triangle.points[i].position;
 					}
 
-					const Vec3 t_normal = local_triangle.normal_;
-					const auto t_u0 = local_triangle.edges_.first;
-					const auto t_v0 = local_triangle.edges_.second;
+					const Vec3 t_normal = local_triangle.normal;
+					const auto t_u0 = local_triangle.edges.first;
+					const auto t_v0 = local_triangle.edges.second;
 
 					const auto t_u1 = 
 						triangle_position[1] - triangle_position[0];
@@ -1866,7 +1873,7 @@ private:
 							(sqrt8 * area_face);
 
 					new_normal += 
-							object_weights_.normal_(vidx, t) * t_sj * t_normal;
+							object_weights_.normal_(object_point_index, t) * t_sj * t_normal;
 			}
 
 			value<Vec3>(object, object_vertex_position, v) = 
@@ -1967,6 +1974,7 @@ private:
 										const Virtual_cube& virtual_cube_target)
 	{
 
+		double sumWeights = 0.0; 
 		for (std::size_t t = 0; t < virtual_cube_target.triangles.size(); t++)
 		{
 			Triangle local_triangle = virtual_cube_target.triangles[t]; 
@@ -2032,8 +2040,17 @@ private:
 					object_weights_
 						.position_(surface_point_index, cage_point_index) 
 										+= num / denom;
+
 				}
+				 
 			}
+
+			for (size_t p = 0; p < virtual_cube_target.points.size(); p++)
+			{
+				sumWeights += object_weights_
+						.position_(surface_point_index, p); 
+			}
+
 		}
 	}
 
