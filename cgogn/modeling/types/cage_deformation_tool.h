@@ -1964,7 +1964,8 @@ private:
 	}
 
 
-	/// @brief compute Green on point inside the cage 
+	/// @brief compute Green on point outside the cage 
+	/// TODO: fix the position weights 
 	/// state-of-the-art method
 	/// [Green coordinates, Lipman et al. 2008]
 	/// @param surface_point 
@@ -1974,7 +1975,7 @@ private:
 										const Virtual_cube& virtual_cube_target)
 	{
 
-		double sumWeights = 0.0; 
+		
 		for (std::size_t t = 0; t < virtual_cube_target.triangles.size(); t++)
 		{
 			Triangle local_triangle = virtual_cube_target.triangles[t]; 
@@ -1986,7 +1987,7 @@ private:
 				triangle_position[i] = local_triangle.points[i].position; 
 			}
 
-			const Vec3 t_normal = local_triangle.normal; 
+			const Vec3 t_normal = -local_triangle.normal; 
 
 			std::vector<Vec3> t_vj(3);
 			for (std::size_t l = 0; l < 3; ++l)
@@ -2043,12 +2044,6 @@ private:
 
 				}
 				 
-			}
-
-			for (size_t p = 0; p < virtual_cube_target.points.size(); p++)
-			{
-				sumWeights += object_weights_
-						.position_(surface_point_index, p); 
 			}
 
 		}
@@ -2247,7 +2242,7 @@ private:
 
 		Triangle local_triangle1, local_triangle2;
 		local_triangle1.points = {face_point1, face_point3, face_point0};
-		local_triangle1.normal = get_normal_from_triangle(local_triangle1);
+		local_triangle1.normal = get_normal_from_triangle(local_triangle1); 
 		local_triangle1.edges = get_edges_from_triangle(local_triangle1);
 
 		local_triangle2.points = {face_point1, face_point2, face_point3};

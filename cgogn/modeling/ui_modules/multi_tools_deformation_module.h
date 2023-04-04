@@ -686,9 +686,6 @@ private:
 		{
 			for (auto& [name, hdt] : handle_container_)
 			{
-				modeling::GraphParameters<GRAPH>& p_handle = 
-								*graph_parameters_[hdt->control_handle_];
-
 				Vec3 handle_position = hdt->get_handle_position();
 
 				gcdt->init_bind_handle(name, handle_position);
