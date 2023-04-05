@@ -927,20 +927,7 @@ private:
 
 		hdt->set_deformation_type(binding_type);
 
-		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
-
-		hdt->object_influence_area_ = influence_set_;
-		influence_set_.clear();
-
-		if (binding_type == "Spike")
-		{
-			hdt->set_attenuation_spike(object, object_vertex_position);
-		}
-
-		if (binding_type == "Round")
-		{
-			hdt->set_attenuation_round(object, object_vertex_position);
-		}
+		hdt->init_bind_object(object, object_vertex_position); 
 
 		if (global_cage_container_.size() > 0)
 		{
@@ -951,6 +938,8 @@ private:
 				gcdt->init_bind_handle(p_handle.name_, handle_position);
 			}
 		}
+
+		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 
 		hdt->handle_attribute_update_connection_ =
 			boost::synapse::connect<typename GraphProvider<GRAPH>::
@@ -989,9 +978,10 @@ private:
 
 							if (global_cage_container_.size() > 0)
 							{
-								for (auto& [name, gcdt] : 
-													global_cage_container_)
-								{
+								std::shared_ptr<modeling::
+							GlobalCageDeformationTool<MESH>> gcdt =
+									global_cage_container_["global_cage"];
+
 									MESH* global_cage = gcdt->global_cage_;
 									MeshData<MESH>& cmd = 
 									mesh_provider_->mesh_data(*global_cage);
@@ -1073,8 +1063,7 @@ private:
 								}
 							}
 						}
-					}
-				});
+					});
 	}
 
 
@@ -1103,18 +1092,7 @@ private:
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 
-		adt->object_influence_area_ = influence_set_;
-		influence_set_.clear();
-
-		if (binding_type == "Rigid")
-		{
-			adt->set_binding_rigid(object, object_vertex_position);
-		}
-
-		if (binding_type == "Loose")
-		{
-			adt->set_binding_loose(object, object_vertex_position);
-		}
+		adt->init_bind_object(object, object_vertex_position);
 
 		adt->axis_attribute_update_connection_ =
 			boost::synapse::connect<typename GraphProvider<GRAPH>::
@@ -1471,6 +1449,17 @@ protected:
 									influence_set_.push_back(v);
 									return true;
 							});
+							
+							std::string last_handle_name = "local_handle" + 
+										std::to_string(handle_container_.size() - 1.0);
+
+							std::shared_ptr<modeling::
+							HandleDeformationTool<MESH>> current_hdt =
+									handle_container_[last_handle_name];
+							
+							current_hdt->object_influence_area_ = influence_set_;
+
+							influence_set_.clear();
 
 							model_p.selected_vertices_set_->clear();
 								mesh_provider_->emit_cells_set_changed(
@@ -1632,6 +1621,17 @@ protected:
 									influence_set_.push_back(v);
 									return true;
 								});
+
+							std::string last_axis_name = "local_axis" + 
+										std::to_string(axis_container_.size() - 1.0);
+
+							std::shared_ptr<modeling::
+							AxisDeformationTool<MESH>> current_adt =
+									axis_container_[last_axis_name];
+							
+							current_adt->object_influence_area_ = influence_set_;
+
+							influence_set_.clear();
 
 							model_p.selected_vertices_set_->clear();
 							mesh_provider_->emit_cells_set_changed(

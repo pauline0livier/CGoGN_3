@@ -88,18 +88,21 @@ public:
 	{
 	}
 
-	/**
-	 * create global cage 
-	 * initialize set of triangles from the square faces
-	*/
+	/// @brief create global cage space tool
+	/// initialize the set of triangles from the square faces
+	/// set the global cage start position used to reset the deformation
+	/// @param m default mesh
+	/// @param m_vertex_position position of the vertices of the default graph 
+	/// @param bb_min minimum coordinates of the model bounding box
+	/// @param bb_max maximum coordinates of the model bounding box
 	void create_global_cage(MESH* m,
-							CMap2::Attribute<Vec3>* vertex_position, 
+							CMap2::Attribute<Vec3>* m_vertex_position, 
 							const Vec3& bb_min, const Vec3& bb_max)
 	{
 		global_cage_ = m;
 
 		global_cage_vertices_ = modeling::create_bounding_box(*m, 
-											vertex_position, bb_min, bb_max);
+											m_vertex_position, bb_min, bb_max);
 
 		global_cage_vertex_position_ = get_attribute<Vec3, Vertex>(*m, 
 																"position");
@@ -115,10 +118,10 @@ public:
 		
 	}
 
-	/**
-	 * update global cage 
-	 * call when spatial tool deformation inside cage goes outside of cage
-	*/
+	/// @brief update the global cage dimensions 
+	/// call when the content spatial tool deformation goes outside the cage
+	/// @param bb_min 
+	/// @param bb_max 
 	void update_global_cage(const Vec3& bb_min, const Vec3& bb_max)
 	{
 		modeling::update_bounding_box(*global_cage_, 
@@ -127,14 +130,16 @@ public:
 									bb_min, bb_max);
 	}
 
-	/**
-	 * set deformation type between MVC and Green
-	*/
+	/// @brief set deformation type
+	/// choice between MVC and Green
+	/// @param new_type MVC or Green
 	void set_deformation_type(const std::string& new_type)
 	{
 		deformation_type_ = new_type; 
 	}
 
+	/// @brief reset global cage deformation
+	/// allow to change binding deformation type 
 	void reset_deformation()
 	{
 		foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
@@ -150,9 +155,11 @@ public:
 		});
 	}
 
-	/**
-	 * initialize binding for object 
-	*/
+	/// @brief initialize binding of the global cage on the model to deform
+	/// call the corresponding binding function relative to chosen type 
+	/// @param object model to deform 
+	/// @param object_vertex_position positions of the vertices of the model 
+	/// @param object_vertex_index indices of the vertices of the model 
 	void init_bind_object(MESH& object, 
 						CMap2::Attribute<Vec3>* object_vertex_position,
 						CMap2::Attribute<uint32>* object_vertex_index)
@@ -180,9 +187,11 @@ public:
 		}
 	}
 
-	/**
-	 * update binding for object
-	*/
+	/// @brief update binding weights 
+	/// call when the deformation type is changed (after reset)
+	/// @param object model to deform 
+	/// @param object_vertex_position positions of the vertices of the model 
+	/// @param object_vertex_index indices of the vertices of the model 
 	void bind_object(MESH& object, 
 					CMap2::Attribute<Vec3>* object_vertex_position,
 					 CMap2::Attribute<uint32>* object_vertex_index)
@@ -207,12 +216,14 @@ public:
 		}
 	}
 
-	/**
-	 * update weights of local area of object 
-	 * call when spatial tools inside global cage is deformed
-	 * then needs to update global cage weights 
-	 * of the deformed influence area
-	*/
+	/// @brief update weights of local area of object 
+	/// call when a content spatial tool is deformed 
+	/// and there is a need to update its zone of influence weights with the ///global cage 
+	/// call the specific deformation type function 
+	/// @param object model to deform 
+	/// @param object_vertex_position positions of the vertices of the model 
+	/// @param object_vertex_index indices of the vertices of the model 
+	/// @param influence_area zone of influence of the content tool 
 	void update_local_area_object(MESH& object, CMap2::Attribute<Vec3>* object_vertex_position, 
 						CMap2::Attribute<uint32>* object_vertex_index, 
 						ui::CellsSet<MESH, Vertex>* influence_area) 
@@ -230,9 +241,11 @@ public:
 		}
 	}
 
-	/**
-	 * deform object 
-	*/
+	/// @brief deform the model 
+	/// call the specific deformation type function 
+	/// @param object model to deform 
+	/// @param object_vertex_position positions of the vertices of the model 
+	/// @param object_vertex_index indices of the vertices of the model 
 	void deform_object(MESH& object, 
 					CMap2::Attribute<Vec3>* object_vertex_position,
 					CMap2::Attribute<uint32>* object_vertex_index)
@@ -251,9 +264,9 @@ public:
 		}
 	}
 
-	/**
-	 * initialize binding for handle tool 
-	*/
+	/// @brief initialize binding for handle tool 
+	/// @param graph_name name of the handle 
+	/// @param handle_position position of the handle 
 	void init_bind_handle(const std::string& graph_name, 
 						const Vec3& handle_position)
 	{
@@ -280,9 +293,10 @@ public:
 		}
 	}
 
-	/**
-	 * update binding for handle
-	*/
+	/// @brief update binding for handle tool 
+	/// used when deformation type is changed
+	/// @param graph_name handle name 
+	/// @param handle_position handle position 
 	void bind_handle(const std::string& graph_name, 
 					const Vec3& handle_position)
 	{
@@ -302,9 +316,11 @@ public:
 		}
 	}
 
-	/**
-	 * deform handle 
-	*/
+	/// @brief deform the handle 
+	/// @param g handle 
+	/// @param graph_name name of the handle  
+	/// @param graph_vertex_position position of the handle's vertex
+	/// @param handle_vertex handle vertex 
 	void deform_handle(Graph& g, const std::string& graph_name, 
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position, 
 					const GraphVertex& handle_vertex)
@@ -322,10 +338,12 @@ public:
 		}
 	}
 
-	
-	/**
-	 * initializing binding for axis
-	*/
+
+	/// @brief initialize binding for axis tool 
+	/// @param g axis
+	/// @param graph_name axis name  
+	/// @param graph_vertex_position position of the axis vertices  
+	/// @param axis_vertices axis vertices 
 	void init_bind_axis(Graph& g, const std::string& graph_name, 
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 						const std::vector<Graph::Vertex>& axis_vertices)
@@ -356,9 +374,11 @@ public:
 		}
 	}
 
-	/**
-	 * update binding for axis
-	*/
+	/// @brief update binding for axis tool 
+	/// @param g axis 
+	/// @param graph_name axis name  
+	/// @param graph_vertex_position position of the axis vertices 
+	/// @param axis_vertices axis vertices 
 	void bind_axis(Graph& g, const std::string& graph_name, 
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 					const std::vector<Graph::Vertex>& axis_vertices)
@@ -382,9 +402,12 @@ public:
 		}
 	}
 
-	/**
-	 * deform axis
-	*/
+	/// @brief deform the axis tool 
+	/// call the corresponding deformation type function 
+	/// @param g axis 
+	/// @param graph_name axis name  
+	/// @param graph_vertex_position position of the axis vertices 
+	/// @param axis_vertices axis vertices
 	void deform_axis(Graph& g, const std::string& graph_name, 
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position, 
 				const std::vector<GraphVertex>& axis_vertices)
@@ -402,9 +425,11 @@ public:
 		}
 	}
 
-	/**
-	 * init binding for local cage
-	*/
+	/// @brief initialize binding for local cage 
+	/// @param local_cage 
+	/// @param cage_name local cage name 
+	/// @param local_cage_vertex_position position of the vertices of the cage
+	/// @param local_cage_vertex_index indices of the vertices of the cage
 	void init_bind_local_cage(MESH& local_cage, 
 							const std::string& cage_name, 
 			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
@@ -436,9 +461,12 @@ public:
 		}
 	}
 
-	/**
-	 * update binding for local cage
-	*/
+	/// @brief update binding for local cage tool 
+	/// used when deformation type is changed (after reset)
+	/// @param local_cage 
+	/// @param cage_name local cage name 
+	/// @param local_cage_vertex_position positions of the vertices of the cage
+	/// @param local_cage_vertex_index indices of the vertices of the cage
 	void bind_local_cage(MESH& local_cage, const std::string& cage_name, 
 	std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
 	std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
@@ -464,9 +492,12 @@ public:
 		}
 	}
 
-	/**
-	 * deform local cage
-	*/
+	/// @brief deform the local cage 
+	/// call the corresponding deformation type function 
+	/// @param local_cage 
+	/// @param cage_name local cage name 
+	/// @param local_cage_vertex_position position of the vertices of the cage 
+	/// @param local_cage_vertex_index indices of the vertices of the cage
 	void deform_local_cage(MESH& local_cage, const std::string& cage_name, 
 	std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
 	std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
@@ -529,10 +560,10 @@ private:
 		});
 	}
 
-	/**
-	 * initialize the global cage triangles from square face 
-	*/
-	void init_triangles(){
+	
+	/// @brief initialize the global cage triangles from the square faces
+	void init_triangles()
+	{
 		foreach_cell(*global_cage_, [&](Face fc) -> bool {
 			std::vector<CMap2::Vertex> face_vertices_ = 
 										incident_vertices(*global_cage_, fc);
@@ -602,9 +633,11 @@ private:
 		});
 	}
 
-	/**
-	 * bind object with MVC deformation type 
-	*/
+
+	/// @brief bind object with MVC
+	/// @param object model to deform 
+	/// @param object_vertex_position positions of the vertices of the model  
+	/// @param object_vertex_index indices of the vertices of the model 
 	void bind_object_mvc(MESH& object, 
 						CMap2::Attribute<Vec3>* object_vertex_position, 
 						CMap2::Attribute<uint32>* object_vertex_index)
@@ -622,9 +655,12 @@ private:
 		});
 	}
 
-	/**
-	 * update local area weights MVC deformation type
-	*/
+	/// @brief update the MVC weights of a local area of the model 
+	/// useful when content spatial tools is deformed and then need to update the weights of its zone of influence
+	/// @param object model to deform 
+	/// @param object_vertex_position positions of the vertices of the model 
+	/// @param object_vertex_index indices of the vertices of the model 
+	/// @param influence_area zone of influence
 	void update_local_area_object_mvc(MESH& object, 
 							CMap2::Attribute<Vec3>* object_vertex_position,
 							CMap2::Attribute<uint32>* object_vertex_index,
@@ -641,9 +677,11 @@ private:
 		});
 	}
 
-	/**
-	 * deform object with MVC deformation type 
-	*/
+ 
+	/// @brief deform model with MVC deformation type
+	/// @param object model to deform 
+	/// @param object_vertex_position positions of the vertices of the model 
+	/// @param object_vertex_index indices of the vertices of the model 
 	void deform_object_mvc(MESH& object, 
 						CMap2::Attribute<Vec3>* object_vertex_position,
 						CMap2::Attribute<uint32>* object_vertex_index)
@@ -673,9 +711,10 @@ private:
 		});
 	}
 
-	/**
-	 * bind object with green deformation type 
-	*/
+	/// @brief bind model with Green deformation type 
+	/// @param object model to deform
+	/// @param object_vertex_position positions of the vertices of the model  
+	/// @param object_vertex_index indices of the vertices of the model 
 	void bind_object_green(MESH& object, 
 						CMap2::Attribute<Vec3>* object_vertex_position, 
 						CMap2::Attribute<uint32>* object_vertex_index)
@@ -694,9 +733,13 @@ private:
 		});
 	}
 
-	/**
-	 * update weights local area of object, green deformation type
-	*/
+
+	/// @brief update the Green weights of a local area of the model 
+	/// useful when content spatial tools is deformed and then need to update the weights of its zone of influence 
+	/// @param object model to deform
+	/// @param object_vertex_position positions of the vertices of the model  
+	/// @param object_vertex_index indices of the vertices of the model 
+	/// @param influence_area zone of influence 
 	void update_local_area_object_green(MESH& object, 
 							CMap2::Attribute<Vec3>* object_vertex_position,
 							CMap2::Attribute<uint32>* object_vertex_index,
@@ -713,9 +756,10 @@ private:
 		});
 	}
 
-	/**
-	 * deform object with green deformation 
-	*/
+	/// @brief deform model with Green deformation model 
+	/// @param object model to deform 
+	/// @param object_vertex_position positions of the vertices of the model 
+	/// @param object_vertex_index indices of the vertices of the model 
 	void deform_object_green(MESH& object, 
 							CMap2::Attribute<Vec3>* object_vertex_position,
 							CMap2::Attribute<uint32>* object_vertex_index)
@@ -782,27 +826,25 @@ private:
 		});
 	}
 
-	/**
-	 * bind handle with MVC deformation type
-	*/
+	/// @brief bind handle with MVC deformation type
 	void bind_handle_mvc(const std::string& graph_name, 
 						const Vec3& handle_position){
 
 		compute_mvc_coordinates_on_handle(graph_name, handle_position);								
 	}
 
-	/**
-	 * bind handle with green deformation type
-	*/
+	/// @brief bind handle with Green deformation type
 	void bind_handle_green(const std::string& graph_name, 
 												const Vec3& handle_position){
 
 		compute_green_coordinates_on_handle(graph_name, handle_position);								
 	}
 
-	/**
-	 * deform handle with MVC deformation type
-	*/
+	/// @brief deform handle with MVC deformation type 
+	/// @param g handle 
+	/// @param graph_name handle name  
+	/// @param graph_vertex_position position of the handle vertex
+	/// @param handle_vertex handle vertex
 	void deform_handle_mvc(Graph& g, const std::string& graph_name, 
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 							const GraphVertex& handle_vertex)
@@ -825,9 +867,12 @@ private:
 		value<Vec3>(g, graph_vertex_position, handle_vertex) = new_position;
 	}
 
-	/**
-	 * deform handle with green deformation type 
-	*/
+	
+	/// @brief deform handle with Green deformation type 
+	/// @param g handle 
+	/// @param graph_name handle name  
+	/// @param graph_vertex_position position of the handle vertex
+	/// @param handle_vertex handle vertex
 	void deform_handle_green(Graph& g, const std::string& graph_name, 
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 							 const GraphVertex& handle_vertex)
@@ -881,9 +926,11 @@ private:
 												new_position + new_normal;
 	}
 
-	/**
-	 * bind axis with MVC deformation type
-	*/
+	/// @brief bind axis with MVC deformation type
+	/// @param g axis
+	/// @param graph_name axis name 
+	/// @param graph_vertex_position positions of the axis vertices 
+	/// @param axis_vertices axis vertices
 	void bind_axis_mvc(Graph& g, const std::string& graph_name, 
 				std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 						const std::vector<Graph::Vertex>& axis_vertices)
@@ -899,13 +946,14 @@ private:
 
 			compute_mvc_coordinates_on_axis_point(graph_name, 
 											axis_point, axis_point_index);
-		}
-
+		} 
 	}
 
-	/**
-	 * bind axis with green deformation type 
-	*/
+	/// @brief bind axis with Green deformation type 
+	/// @param g axis 
+	/// @param graph_name axis name  
+	/// @param graph_vertex_position positions of the axis vertices 
+	/// @param axis_vertices 
 	void bind_axis_green(Graph& g, const std::string& graph_name, 
 				std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 						const std::vector<Graph::Vertex>& axis_vertices)
@@ -921,12 +969,15 @@ private:
 
 			compute_green_coordinates_on_axis_point(graph_name, 
 												axis_point, axis_point_index);
+		 
 		}
 	}
 
-	/**
-	 * deform axis with mvc deformation type 
-	*/
+	/// @brief deform axis with MVC deformation type
+	/// @param g axis
+	/// @param graph_name axis name 
+	/// @param graph_vertex_position positions of the axis vertices 
+	/// @param axis_vertices
 	void deform_axis_mvc(Graph& g, const std::string& graph_name, 
 				std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 						const std::vector<GraphVertex>& axis_vertices)
@@ -960,9 +1011,11 @@ private:
 		}
 	}
 
-	/**
-	 * deform axis with green deformation type 
-	*/
+	/// @brief deform axis with Green deformation type
+	/// @param g axis
+	/// @param graph_name axis name 
+	/// @param graph_vertex_position positions of the axis vertices 
+	/// @param axis_vertices
 	void deform_axis_green(Graph& g, const std::string& graph_name, 
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 						   const std::vector<GraphVertex>& axis_vertices)
@@ -1019,7 +1072,7 @@ private:
 						 	(t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
 									(sqrt8 * area_face);
 
-				new_normal += 
+				new_normal +=  
 					axis_weights.normal_(axis_vertex_index, t) * t_sj * t_normal;
 			}
 
@@ -1028,9 +1081,11 @@ private:
 		}
 	}
 
-	/**
-	 * bind local cage with MVC deformation type 
-	*/
+	/// @brief bind local cage with MVC deformation type 
+	/// @param local_cage 
+	/// @param cage_name local cage name
+	/// @param local_cage_vertex_position positions of the local cage vertices
+	/// @param local_cage_vertex_index indices of the local cage vertices
 	void bind_local_cage_mvc(MESH& local_cage, 
 							const std::string& cage_name, 
 			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
@@ -1051,9 +1106,11 @@ private:
 
 	}
 
-	/**
-	 * bind local cage with green deformation type
-	*/
+	/// @brief bind local cage with Green deformation type 
+	/// @param local_cage 
+	/// @param cage_name local cage name
+	/// @param local_cage_vertex_position positions of the local cage vertices
+	/// @param local_cage_vertex_index indices of the local cage vertices
 	void bind_local_cage_green(MESH& local_cage, 
 							const std::string& cage_name, 
 			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
@@ -1072,9 +1129,11 @@ private:
 		});
 	}
 
-	/**
-	 * deform local cage with mvc deformation type 
-	*/
+	/// @brief deform local cage with MVC deformation type 
+	/// @param local_cage 
+	/// @param cage_name local cage name
+	/// @param local_cage_vertex_position positions of the local cage vertices
+	/// @param local_cage_vertex_index indices of the local cage vertices
 	void deform_local_cage_mvc(MESH& local_cage, 
 							const std::string& cage_name, 
 			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
@@ -1108,9 +1167,11 @@ private:
 		});
 	}
 
-	/**
-	 * deform local cage with green deformation type
-	*/
+	/// @brief deform local cage with Green deformation type 
+	/// @param local_cage 
+	/// @param cage_name local cage name
+	/// @param local_cage_vertex_position positions of the local cage vertices
+	/// @param local_cage_vertex_index indices of the local cage vertices
 	void deform_local_cage_green(MESH& local_cage, 
 								const std::string& cage_name, 
 			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
@@ -1178,13 +1239,13 @@ private:
 			return true;
 		});
 	}
-
-
-	/**
-	 * compute MVC coordinate on a point 
-	 * state-of-the-art method 
-	 * [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
-	*/
+	
+	/// @brief compute MVC coordinate on a point of the object 
+	/// state-of-the-art method 
+	/// [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
+	/// @param surface_point 
+	/// @param surface_point_index 
+	/// @return boolean 
 	bool compute_mvc_coordinates_on_point(const Vec3& surface_point, 
 										const uint32& surface_point_index)
 	{
@@ -1317,9 +1378,12 @@ private:
 		return false;
 	}
 
-	/**
-	 * same as before, except data stored in local_handle_weights[graph_name]
-	*/
+	/// @brief compute MVC coordinate on the handle 
+	/// state-of-the-art method 
+	/// [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
+	/// @param graph_name handle name 
+	/// @param handle_point handle position 
+	/// @return boolean 
 	bool compute_mvc_coordinates_on_handle(const std::string& graph_name, 
 											const Vec3& handle_point)
 	{
@@ -1450,9 +1514,13 @@ private:
 		return false;
 	}
 
-	/**
-	 * same as before, except data stored in local_axis_weights[graph_name]
-	*/
+	/// @brief compute MVC coordinates on a point of the axis
+	/// state-of-the-art method 
+	/// [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
+	/// @param graph_name axis name 
+	/// @param axis_point position of the target point on the axis
+	/// @param axis_point_index index of the target point on the axis 
+	/// @return boolean 
 	bool compute_mvc_coordinates_on_axis_point(const std::string& graph_name, 
 										const Vec3& axis_point, 
 										const uint32& axis_point_index)
@@ -1587,9 +1655,13 @@ private:
 		return false;
 	}
 
-	/**
-	 * same as before, except data stored in local_axis_weights[cage_name]
-	*/
+	/// @brief compute MVC coordinates on a point of the local cage
+	/// state-of-the-art method 
+	/// [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
+	/// @param graph_name cage name 
+	/// @param local_cage_point position of the target point on the cage
+	/// @param local_cage_point_index index of the target point on the cage 
+	/// @return boolean 
 	bool compute_mvc_coordinates_on_local_cage_point(
 				const std::string& cage_name, 
 				const Vec3& local_cage_point, 
@@ -1729,11 +1801,12 @@ private:
 		return false;
 	}
 
-	/**
-	 * compute green coordinates on point
-	 * state-of-the-art method 
-	 * [Green coordinates, Lipman et al. 2008]
-	*/
+	/// @brief compute Green coordinates on a point of the object
+	/// state-of-the-art method 
+	/// [Green coordinates, Lipman et al. 2008]
+	/// @param surface_point position of the target point on the object
+	/// @param surface_point_index index of the target point on the object 
+	/// @return boolean 
 	void compute_green_coordinates_on_point(const Vec3& surface_point, 
 										const uint32& surface_point_index)
 	{
@@ -1802,9 +1875,12 @@ private:
 		}
 	}
 
-	/**
-	 * same as before, except data stored in local_handle_weights[graph_name]
-	*/
+	/// @brief compute Green coordinates on the target handle
+	/// state-of-the-art method 
+	/// [Green coordinates, Lipman et al. 2008]
+	/// @param graph_name handle name 
+	/// @param handle_point position of the handle 
+	/// @return boolean 
 	void compute_green_coordinates_on_handle(const std::string& graph_name, 
 											const Vec3& handle_point)
 	{
@@ -1873,9 +1949,13 @@ private:
 		}
 	}
 
-	/**
-	 * same as before, except data stored in local_axis_weights[graph_name]
-	*/
+	/// @brief compute Green coordinates on a point of the axis
+	/// state-of-the-art method 
+	/// [Green coordinates, Lipman et al. 2008]
+	/// @param graph_name axis name 
+	/// @param axis_point position of the target point on the axis
+	/// @param axis_point_index index of the target point on the axis 
+	/// @return boolean 
 	void compute_green_coordinates_on_axis_point(
 						const std::string& graph_name, 
 						const Vec3& axis_point, 
@@ -1947,9 +2027,13 @@ private:
 		}
 	}
 
-	/**
-	 * same as before, except data stored in local_cage_weights[cage_name]
-	*/
+	/// @brief compute Green coordinates on a point of the local cage
+	/// state-of-the-art method 
+	/// [Green coordinates, Lipman et al. 2008]
+	/// @param cage_name local cage name 
+	/// @param local_cage_point position of the target point on the cage
+	/// @param local_cage_point_index index of the target point on the cage 
+	/// @return boolean 
 	void compute_green_coordinates_on_local_cage_point(
 						const std::string& cage_name, 
 						const Vec3& local_cage_point, 

@@ -82,34 +82,39 @@ public:
 	{
 	}
 
-	/**
-	* create axis space tool 
-	*	set axis from user's selection
-	*  	create clone axis inside the object 
-	*/
+	/// @brief create axis space tool
+	/// set axis from user's selection
+	/// create clone axis inside the model to deform 
+	/// set the tranformations to identity 
+	/// @param g default graph 
+	/// @param g_vertex_position position of the vertices of the default graph
+	/// @param vertex_radius radius of the vertices of the default graph 
+	/// @param vertex_coordinates positions to set on the vertices
+	/// @param vertex_normals normals to set on the vertices 
+	/// @param inside_axis_position positions inside the mesh 
 	void create_space_tool(Graph* g, 
-			Graph::Attribute<Vec3>* vertex_position, 
-			Graph::Attribute<Scalar>* vertex_radius,
-			const std::vector<Vec3>& vertex_coords, 
+			Graph::Attribute<Vec3>* g_vertex_position, 
+			Graph::Attribute<Scalar>* g_vertex_radius,
+			const std::vector<Vec3>& vertex_coordinates, 
 			const std::vector<Vec3>& vertex_normals, 
 			const std::vector<Vec3>& inside_axis_position)
 	{
 		control_axis_ = g;
 		axis_skeleton_ = 
-			cgogn::modeling::create_axis(*g, vertex_position, 
-										vertex_radius, vertex_coords, Scalar(5));
+			cgogn::modeling::create_axis(*g, g_vertex_position, 
+										g_vertex_radius, vertex_coordinates, Scalar(5));
 
 		control_axis_vertex_position_ = 
 				cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
 
 		inside_axis_position_ = inside_axis_position; 
 
-		std::shared_ptr<Graph::Attribute<uint32>> vertex_index =
+		std::shared_ptr<Graph::Attribute<uint32>> a_vertex_index =
 			cgogn::add_attribute<uint32, Graph::Vertex>(*control_axis_,
 															 "vertex_index");
 
 		cgogn::modeling::set_attribute_vertex_index_graph(*control_axis_, 
-														vertex_index.get());
+														a_vertex_index.get());
 
 		axis_transformation_.resize(axis_skeleton_.size() +1); 
 
@@ -118,67 +123,46 @@ public:
 		}
 	}
 
-	/**
-	 * set deformation type 
-	 * so far between rigid or loose deformation 
-	*/
+	/// @brief set deformation type 
+	/// so far between rigid or loose deformation 
+	/// @param new_type 
 	void set_deformation_type(const std::string new_type){
 		deformation_type_ = new_type; 
 	}
 
-	/**
-	 * bind axis to object 
-	 * rigid deformation 
-	 * weights inspired from linear blend skinning weights 
-	*/
-	void set_binding_rigid(MESH& object, 
-				const std::shared_ptr<Attribute<Vec3>>& vertex_position)
+
+	/// @brief bind object 
+	/// so far only rigid deformation type 
+	/// @param object 
+	/// @param object_vertex_position 
+	void init_bind_object(MESH& object, 
+				const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
 	{
 		uint32 nbv_object = nb_cells<MeshVertex>(object);
 
 		uint32 nb_bones = axis_skeleton_.size() +1;
 		axis_weights_ = Eigen::SparseMatrix<double, Eigen::RowMajor>(nbv_object, nb_bones); 
 
-		compute_weights(object, vertex_position);
+		bind_object_rigid(object, object_vertex_position);
 	}
 
-	/**
-	 * bind axis to object 
-	 * loose deformation  
-	*/
-	void set_binding_loose(MESH& object, 
-				const std::shared_ptr<Attribute<Vec3>>& vertex_position)
-	{
-		uint32 nbv_object = nb_cells<MeshVertex>(object);
-
-		uint32 nb_bones = axis_skeleton_.size() +1;
-
-		axis_weights_ = Eigen::SparseMatrix<double,Eigen::RowMajor>(nbv_object, nb_bones); 
-
-		compute_weights(object, vertex_position);
-	}
-
-	/**
-	 * set axis transformation from user's input 
-	 * @param {std::vector<rendering::Transfo3d} axis_transformation
-	 * 	transformation of each axis's bone
-	*/
+	/// @brief set axis transformation from user's input 
+	/// @param axis_transformation set of tranformations (one per bone)
 	void set_axis_transformation(
 			const std::vector<rendering::Transfo3d>& axis_transformation){
 
 		axis_transformation_ = axis_transformation; 
 	}
 
-	/**
-	 * deform the influence area on the object 
-	 * use the weights and Linear Blend Skinning formalism 
-	 * check if weights on virtual bones with axis_fixed_point value
-	*/
+	/// @brief deform the assigned zone of influence of the object
+	/// follow Linear Blend Skinning (LBS) formalism  
+	/// @param object model to deform
+	/// @param object_vertex_position positions of the vertices of the model 
+	/// @param object_vertex_index indices of the vertices of the model 
 	void deform_object(MESH& object, 
 					CMap2::Attribute<Vec3>* object_vertex_position, 
 					CMap2::Attribute<uint32>* object_vertex_index)
 	{
-		 
 		const std::size_t influence_area_length = 
 									this->object_influence_area_.size(); 
 
@@ -205,10 +189,8 @@ public:
 
 	}
 
-	/**
-	* get axis skeleton
-	* @returns {std::vector<Graph::Vertex>} axis vertices 
-	*/
+	/// @brief 
+	/// @return vector composed of the vertices of the axis
 	std::vector<Graph::Vertex> get_axis_skeleton(){
 		return axis_skeleton_; 
 	}
@@ -226,10 +208,11 @@ private:
 
 	std::vector<Vec3> inside_axis_position_; 
 
-	/**
-	 * compute weights of the influence area on the object 
-	*/
-	void compute_weights(MESH& object, 
+	/// @brief bind the zone of influence of the object  
+	/// compute weights using the projection of the points on the axis
+	/// @param object 
+	/// @param vertex_position 
+	void bind_object_rigid(MESH& object, 
 		const std::shared_ptr<Attribute<Vec3>>& vertex_position)
 	{
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
