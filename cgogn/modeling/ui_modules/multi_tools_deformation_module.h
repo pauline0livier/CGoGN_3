@@ -782,6 +782,55 @@ private:
 				});
 	}
 
+	/// @brief update deformation type for global cage
+	/// @param object 
+	/// @param object_vertex_position 
+	/// @param global_cage 
+	/// @param cage_vertex_position 
+	/// @param binding_type 
+	void update_bind_global_cage(MESH& object, 
+		const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
+		MESH& global_cage, 
+		std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position,
+		const std::string& binding_type)
+	{
+		std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> gcdt = 
+									global_cage_container_["global_cage"];
+
+		gcdt->set_deformation_type(binding_type);
+
+		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
+			get_attribute<uint32, MeshVertex>(object, "vertex_index");
+
+		gcdt->bind_object(object, object_vertex_position.get(), 
+												object_vertex_index.get());
+
+		if (handle_container_.size() > 0)
+		{
+			for (auto& [name, hdt] : handle_container_)
+			{
+				Vec3 handle_position = hdt->get_handle_position();
+
+				gcdt->bind_handle(name, handle_position);
+			}
+		}
+
+		if (axis_container_.size())
+		{
+			for (auto& [name, adt] : axis_container_)
+			{
+				modeling::GraphParameters<GRAPH>& p_axis = 
+								*graph_parameters_[adt->control_axis_];
+
+				std::vector<GraphVertex> axis_vertices = 
+												adt->get_axis_skeleton();
+
+				gcdt->bind_axis(*(adt->control_axis_), name, 
+									p_axis.vertex_position_, axis_vertices);
+			}
+		}
+	}
+
 	/// @brief bind local cage to model and surrounding tools 
 	/// initialize connection when local cage vertices are updated 
 	/// 	changes propagating on the model and surrounding tools
@@ -1289,32 +1338,6 @@ protected:
 		}
 	}
 
-	static const char* set_deformation_parameters(const char* items[])
-	{
-		static const char* current_item = "MVC";
-		ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
-
-		ImGuiStyle& style = ImGui::GetStyle();
-		float w = ImGui::CalcItemWidth();
-		float spacing = style.ItemInnerSpacing.x;
-		float button_sz = ImGui::GetFrameHeight();
-		ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
-		if (ImGui::BeginCombo("##custom combo", current_item, 
-									ImGuiComboFlags_NoArrowButton))
-		{
-			for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-			{
-				bool is_selected = (current_item == items[n]);
-					if (ImGui::Selectable(items[n], is_selected))
-						current_item = items[n];
-					if (is_selected)
-						ImGui::SetItemDefaultFocus();
-					}
-			ImGui::EndCombo();
-		}
-		return current_item; 
-	}
-
 	/// @brief left panel used for user interface
 	/// refreshed constantly 
 	/// call the corresponding functions relative to user interaction
@@ -1344,51 +1367,13 @@ protected:
 			if (model_p.vertex_position_)
 			{
 				ImGui::Separator();
-				ImGui::Separator();
-				ImGui::Text("Create one tool");
+				ImGui::Text("Create spatial tool");
 				ImGui::Separator();
 
 				ImGui::Text("Global");
 				if (ImGui::Button("Create global cage"))
 				{
 					create_global_cage_tool(*model_);
-				}
-
-				if (global_cage_container_.size() == 1)
-				{
-					const char* items[] = {"MVC", "Green"};
-
-					static const char* current_item = "MVC";
-					ImGuiComboFlags flags = ImGuiComboFlags_NoArrowButton;
-
-					ImGuiStyle& style = ImGui::GetStyle();
-					float w = ImGui::CalcItemWidth();
-					float spacing = style.ItemInnerSpacing.x;
-					float button_sz = ImGui::GetFrameHeight();
-					ImGui::PushItemWidth(w - spacing * 2.0f - button_sz * 2.0f);
-					if (ImGui::BeginCombo("##custom combo", current_item, 
-									ImGuiComboFlags_NoArrowButton))
-					{
-						for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-						{
-							bool is_selected = (current_item == items[n]);
-							if (ImGui::Selectable(items[n], is_selected))
-								current_item = items[n];
-							if (is_selected)
-								ImGui::SetItemDefaultFocus();
-						}
-				ImGui::EndCombo();
-					}
-
-					if (ImGui::Button("Bind global cage"))
-					{
-						std::shared_ptr<modeling::
-							GlobalCageDeformationTool<MESH>> gcdt =
-							global_cage_container_["global_cage"];
-
-						bind_global_cage(*model_, model_p.vertex_position_, *(gcdt->global_cage_),
-										gcdt->global_cage_vertex_position_, current_item);
-					}
 				}
 
 				ImGui::Separator();
@@ -1934,6 +1919,49 @@ protected:
 								else
 								{
 									selected_gcdt_ = global_cage_container_[cage_name];
+
+									if (ImGui::Button("Reset deformation"))
+									{
+										selected_gcdt_->reset_deformation(); 
+										mesh_provider_->
+											emit_attribute_changed(
+											*(selected_gcdt_->global_cage_), 
+											selected_gcdt_->global_cage_vertex_position_.get());
+									} 
+
+									static ImGuiComboFlags flags = 0;
+									const char* items[] = {"MVC", "Green"};
+
+									static const char* current_item = "MVC";
+				
+									if (ImGui::BeginCombo("##custom combo", current_item, 
+											ImGuiComboFlags_NoArrowButton))
+									{
+										for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+										{
+											bool is_selected = (current_item == items[n]);
+											if (ImGui::Selectable(items[n], is_selected))
+												current_item = items[n];
+											if (is_selected)
+												ImGui::SetItemDefaultFocus();
+										}
+									ImGui::EndCombo();
+									}
+
+									if (ImGui::Button("Bind global cage"))
+									{
+
+										if (selected_gcdt_->deformation_type_.empty()){
+											bind_global_cage(*model_, model_p.vertex_position_, *(selected_gcdt_->global_cage_),
+										selected_gcdt_->global_cage_vertex_position_, current_item);
+										
+										} else if (selected_gcdt_->deformation_type_ != current_item)
+										{
+											update_bind_global_cage(*model_, model_p.vertex_position_, *(selected_gcdt_->global_cage_),
+										selected_gcdt_->global_cage_vertex_position_, current_item); 
+	
+										}
+									}
 								}
 
 								MeshData<MESH>& cage_md = 

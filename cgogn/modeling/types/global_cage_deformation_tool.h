@@ -75,6 +75,8 @@ public:
 	std::unordered_map<std::string, MatrixWeights> local_axis_weights_; 
 	std::unordered_map<std::string, VectorWeights> local_handle_weights_; 
 
+	std::string deformation_type_;
+
 	std::shared_ptr<boost::synapse::connection> 
 										cage_attribute_update_connection_;
 
@@ -108,6 +110,8 @@ public:
 											global_cage_vertex_index_.get());
 
 		init_triangles(); 
+
+		set_start_positions(); 
 		
 	}
 
@@ -129,6 +133,21 @@ public:
 	void set_deformation_type(const std::string& new_type)
 	{
 		deformation_type_ = new_type; 
+	}
+
+	void reset_deformation()
+	{
+		foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
+			const Vec3& cage_point = value<Vec3>(*global_cage_, 
+										global_cage_vertex_position_, cv);
+
+			uint32 cage_point_index = value<uint32>(*global_cage_, 
+											global_cage_vertex_index_, cv);
+
+			value<Vec3>(*global_cage_, global_cage_vertex_position_, cv) = 		start_positions_[cage_point_index]; 
+
+			return true;
+		});
 	}
 
 	/**
@@ -177,6 +196,11 @@ public:
 
 		if (deformation_type_ == "Green")
 		{
+			if (object_weights_.normal_ == Eigen::MatrixXd{}){
+				int32 nbv_object = nb_cells<Vertex>(object);
+				int32 nbt_cage = cage_triangles_.size();
+				object_weights_.normal_.resize(nbv_object, nbt_cage);
+			}
 			object_weights_.normal_.setZero();
 			bind_object_green(object, object_vertex_position,
 										 object_vertex_index);
@@ -268,6 +292,11 @@ public:
 		}
 
 		if (deformation_type_ == "Green"){
+			if (local_handle_weights_[graph_name].normal_ == Eigen::MatrixXd{}){
+				uint32 nbt_cage = cage_triangles_.size();
+				local_handle_weights_[graph_name].normal_.resize(nbt_cage); 
+			} 
+
 			local_handle_weights_[graph_name].normal_.setZero();
 			bind_handle_green(graph_name, handle_position); 
 		}
@@ -341,6 +370,12 @@ public:
 		}
 
 		if (deformation_type_ == "Green"){
+			if (local_axis_weights_[graph_name].normal_ == Eigen::MatrixXd{}){
+				uint32 nbt_cage = cage_triangles_.size();
+				uint32 nbv_axis = axis_vertices.size();
+				local_axis_weights_[graph_name].normal_.resize(nbv_axis, nbt_cage); 
+			} 
+
 			local_axis_weights_[graph_name].normal_.setZero();
 			bind_axis_green(g, graph_name, graph_vertex_position, 
 										axis_vertices); 
@@ -408,6 +443,7 @@ public:
 	std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
 	std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
 	{
+		local_cage_weights_[cage_name].position_.setZero();
 		if (deformation_type_ == "MVC")
 		{
 			bind_local_cage_mvc(local_cage, cage_name, 
@@ -416,6 +452,13 @@ public:
 
 		if (deformation_type_ == "Green")
 		{
+			if (local_axis_weights_[cage_name].normal_ == Eigen::MatrixXd{}){
+				uint32 nbt_cage = cage_triangles_.size();
+				uint32 nbv_local_cage = nb_cells<Vertex>(local_cage);
+
+				local_axis_weights_[cage_name].normal_.resize(nbv_local_cage, nbt_cage); 
+			} 
+			local_cage_weights_[cage_name].normal_.setZero();
 			bind_local_cage_green(local_cage, cage_name, 
 						local_cage_vertex_position, local_cage_vertex_index);
 		}
@@ -462,7 +505,29 @@ private:
 	std::vector<Triangle> cage_triangles_;
 	std::vector<CMap2::Vertex> global_cage_vertices_;
 	std::shared_ptr<Attribute<uint32>> global_cage_vertex_index_;
-	std::string deformation_type_;
+
+	std::vector<Vec3> start_positions_; 
+	
+	/// @brief set start positions to reset the deformation
+	///
+	void set_start_positions()
+	{
+		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
+
+		start_positions_.resize(nbv_cage);
+
+		foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
+			const Vec3& cage_point = value<Vec3>(*global_cage_, 
+										global_cage_vertex_position_, cv);
+
+			uint32 cage_point_index = value<uint32>(*global_cage_, 
+											global_cage_vertex_index_, cv);
+
+			start_positions_[cage_point_index] = cage_point; 
+
+			return true;
+		});
+	}
 
 	/**
 	 * initialize the global cage triangles from square face 
