@@ -149,6 +149,8 @@ public:
 
 	std::vector<Vertex> object_influence_area_;
 
+	std::string deformation_type_;
+
 	CageDeformationTool() : control_cage_vertex_position_(nullptr)
 	{
 		virtual_cubes_.resize(26); 
@@ -193,6 +195,8 @@ public:
 
 		init_triangles();
 
+		set_start_positions(); 
+
 		init_control_cage_plane();
 
 		init_virtual_cubes();
@@ -205,6 +209,18 @@ public:
 		deformation_type_ = new_type;
 	}
 
+
+	void reset_deformation()
+	{
+		foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
+			uint32 cage_point_index = value<uint32>(*control_cage_, 
+											control_cage_vertex_index_, cv);
+
+			value<Vec3>(*control_cage_, control_cage_vertex_position_, cv) = start_positions_[cage_point_index]; 
+
+			return true;
+		});
+	}
 
 	/// @brief set influence cage and object influence area 
 	/// so far default influence area in the influence cage 
@@ -379,7 +395,28 @@ private:
 
 	std::shared_ptr<Attribute<uint32>> control_cage_vertex_index_;
 
-	std::string deformation_type_;
+	std::vector<Vec3> start_positions_;
+
+	/// @brief set start positions to reset the deformation
+	///
+	void set_start_positions()
+	{
+		uint32 nbv_cage = nb_cells<Vertex>(*control_cage_);
+
+		start_positions_.resize(nbv_cage);
+
+		foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
+			const Vec3& cage_point = value<Vec3>(*control_cage_, 
+										control_cage_vertex_position_, cv);
+
+			uint32 cage_point_index = value<uint32>(*control_cage_, 
+											control_cage_vertex_index_, cv);
+
+			start_positions_[cage_point_index] = cage_point; 
+
+			return true;
+		});
+	}
 
 	/// @brief initialize the set of triangles
 	/// from the square faces of the control cage 

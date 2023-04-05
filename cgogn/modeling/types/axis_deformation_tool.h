@@ -74,6 +74,8 @@ public:
 
 	std::vector<MeshVertex> object_influence_area_; 
 
+	std::string deformation_type_; 
+
 	AxisDeformationTool(): control_axis_vertex_position_(nullptr)
 	{
 	}
@@ -121,6 +123,16 @@ public:
 		for (size_t t = 0; t < axis_transformation_.size(); t++){
 			axis_transformation_[t].setIdentity();
 		}
+
+		starting_positions_ = vertex_coordinates; 
+	}
+
+	/// @brief set axis transformation from user's input 
+	/// @param axis_transformation set of tranformations (one per bone)
+	void set_axis_transformation(
+			const std::vector<rendering::Transfo3d>& axis_transformation){
+
+		axis_transformation_ = axis_transformation; 
 	}
 
 	/// @brief set deformation type 
@@ -130,8 +142,14 @@ public:
 		deformation_type_ = new_type; 
 	}
 
+	/// @brief reset deformation
+	/// useful to change deformation type
+	void reset_deformation()
+	{
+		
+	}
 
-	/// @brief bind object 
+	/// @brief initialize binding of object 
 	/// so far only rigid deformation type 
 	/// @param object 
 	/// @param object_vertex_position 
@@ -146,13 +164,19 @@ public:
 		bind_object_rigid(object, object_vertex_position);
 	}
 
-	/// @brief set axis transformation from user's input 
-	/// @param axis_transformation set of tranformations (one per bone)
-	void set_axis_transformation(
-			const std::vector<rendering::Transfo3d>& axis_transformation){
+	/// @brief update binding of object 
+	/// so far only rigid deformation type 
+	/// @param object 
+	/// @param object_vertex_position 
+	void bind_object(MESH& object, 
+				const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+	{
+		axis_weights_.setZero(); 
 
-		axis_transformation_ = axis_transformation; 
+		bind_object_rigid(object, object_vertex_position);
 	}
+
+	
 
 	/// @brief deform the assigned zone of influence of the object
 	/// follow Linear Blend Skinning (LBS) formalism  
@@ -202,11 +226,11 @@ private:
 	Eigen::Matrix3d local_frame_;
 	Eigen::Matrix3d local_frame_inverse_;
 
-	std::string deformation_type_; 
-
 	std::vector<rendering::Transfo3d> axis_transformation_; 
 
 	std::vector<Vec3> inside_axis_position_; 
+
+	std::vector<Vec3> starting_positions_; 
 
 	/// @brief bind the zone of influence of the object  
 	/// compute weights using the projection of the points on the axis

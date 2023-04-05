@@ -155,6 +155,17 @@ public:
 		}
 	
 	}
+
+	/// @brief reset transformations of axis
+	void reset_transformations()
+	{
+		for (size_t t = 0; t < transformations_.size(); t++)
+		{
+			transformations_[t].setIdentity();
+		}
+
+		transformations_valid_indices_.clear(); 
+	}
 	
 	/// @brief H key pressed
 	/// initialize displacement of handle

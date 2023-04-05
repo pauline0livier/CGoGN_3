@@ -117,7 +117,7 @@ public:
 		"MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), 
 			model_(nullptr),selected_mesh_(nullptr), selected_graph_(nullptr), 
 			selected_handle_(nullptr), selected_axis_(nullptr), 
-			selected_cage_(nullptr), new_tool_(false)
+			selected_cage_(nullptr)
 	{
 	}
 
@@ -459,6 +459,8 @@ private:
 			modeling::GraphParameters<GRAPH>& handle_p = 
 												*graph_parameters_[handle];
 
+			handle_p.name_ = handle_name; 
+
 			hdt->create_space_tool(handle, handle_vertex_position.get(), 
 								handle_vertex_radius.get(), handle_position,
 								normal);
@@ -561,6 +563,8 @@ private:
 			axis_p.normal_ = {0.0, 0.0, 1.0}; 
 			axis_p.set_number_of_handles(axis_vertices_position.size()); 
 
+			axis_p.name_ = axis_name; 
+
 			graph_provider_->emit_connectivity_changed(*axis);
 			graph_provider_->emit_attribute_changed(*axis, 
 												axis_vertex_position.get());
@@ -650,6 +654,10 @@ private:
 											l_cage_vertex_normal.get());
 
 			cdt->set_center_control_cage(std::get<2>(extended_boundaries));
+
+			modeling::Parameters<MESH>& cage_p = 
+												*parameters_[l_cage];
+			cage_p.name_ = cage_name; 
 
 			boost::synapse::emit<cage_added>(this, cdt);
 		}
@@ -904,6 +912,33 @@ private:
 				});
 	}
 
+	/// @brief update bind local cage to model and surrounding tools 
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model
+	/// @param local_cage 
+	/// @param cage_vertex_position position of the vertices of the local cage
+	/// @param binding_type chosen binding type (MVC or Green)
+	void update_bind_local_cage(MESH& object, 
+		const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
+		MESH& local_cage, 
+		std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position,
+		std::string binding_type)
+	{
+
+		modeling::Parameters<MESH>& p_cage = *parameters_[&local_cage];
+
+		std::shared_ptr<modeling::
+			CageDeformationTool<MESH>> cdt = cage_container_[p_cage.name_];
+
+		cdt->set_deformation_type(binding_type);
+
+		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
+			get_attribute<uint32, MeshVertex>(object, "vertex_index");
+
+		cdt->bind_object(object, object_vertex_position, 
+								object_vertex_index);
+	}
+
 	/// @brief bind local handle to model and surrounding tools 
 	/// initialize connection when the handle vertex is updated 
 	/// 	changes propagating on the model and surrounding tools
@@ -1066,6 +1101,30 @@ private:
 					});
 	}
 
+	/// @brief update bind local handle to model and surrounding tools 
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model
+	/// @param control_handle local handle
+	/// @param handle_vertex_position position of the vertex of the local handle
+	/// @param binding_type chosen binding type (round or spike)
+	void update_bind_local_handle(MESH& object, 
+		const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
+		GRAPH& control_handle, 
+		const std::shared_ptr<GraphAttribute<Vec3>>& handle_vertex_position,
+		std::string binding_type)
+	{
+
+		modeling::GraphParameters<GRAPH>& p_handle = 
+									*graph_parameters_[&control_handle];
+
+		std::shared_ptr<modeling::HandleDeformationTool<MESH>> hdt = 
+										handle_container_[p_handle.name_];
+
+		hdt->set_deformation_type(binding_type);
+
+		hdt->bind_object(object, object_vertex_position); 
+	}
+
 
 	/// @brief bind local axis to model and surrounding tools 
 	/// initialize connection when local axis vertices are updated 
@@ -1124,6 +1183,32 @@ private:
 					}
 				});
 	}
+
+
+	/// @brief update bind local axis to model and surrounding tools 
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model
+	/// @param control_axis local axis  
+	/// @param axis_vertex_position position of the vertices of the local axis
+	/// @param binding_type chosen binding type (rigid or loose)
+	void update_bind_local_axis(MESH& object, 
+		const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
+		GRAPH& control_axis, 
+		const std::shared_ptr<GraphAttribute<Vec3>>& axis_vertex_position,
+		std::string binding_type)
+	{
+
+		modeling::GraphParameters<GRAPH>& p_axis = 
+										*graph_parameters_[&control_axis];
+
+		std::shared_ptr<modeling::AxisDeformationTool<MESH>> adt = 
+											axis_container_[p_axis.name_];
+
+		adt->set_deformation_type(binding_type);
+
+		adt->bind_object(object, object_vertex_position);
+	}
+
 
 protected:
 
@@ -1403,8 +1488,6 @@ protected:
 								create_handle_tool(*model_, 
 									model_p.vertex_position_, control_set);
 
-								new_tool_ = true;
-
 								model_p.selected_vertices_set_->clear();
 								mesh_provider_->emit_cells_set_changed(
 									*model_, model_p.selected_vertices_set_);
@@ -1451,7 +1534,7 @@ protected:
 							});
 							
 							std::string last_handle_name = "local_handle" + 
-										std::to_string(handle_container_.size() - 1.0);
+										std::to_string(handle_container_.size() - 1);
 
 							std::shared_ptr<modeling::
 							HandleDeformationTool<MESH>> current_hdt =
@@ -1468,74 +1551,6 @@ protected:
 						}
 
 						model_p.object_update_ = false;
-					}
-
-					ImGui::Separator();
-					ImGui::Text("Binding");
-
-					if (new_tool_ && influence_set_.size() > 0)
-					{
-
-						MultiToolsDeformation<MESH, GRAPH>* space_deformation =
-						static_cast<MultiToolsDeformation<MESH, GRAPH>*>(
-							app_.module("MultiToolsDeformation (" + 
-								std::string{mesh_traits<MESH>::name} + ")"));
-
-						if (imgui_handle_selector(space_deformation, 
-										selected_handle_, "Local Handle",
-										[&](GRAPH& g) { 
-											selected_handle_ = &g; }))
-						{
-
-							const std::string handle_name = 
-							graph_provider_->graph_name(*selected_handle_);
-
-							std::string prefix = "local_handle";
-
-							if (handle_name.size() > 0 &&
-								std::mismatch(prefix.begin(), prefix.end(), handle_name.begin()).first == prefix.end())
-							{
-								static ImGuiComboFlags flags = 0;
-
-								const char* items[] = { "Spike", "Round" };
-								static const char* item_current = items[0];       
-
-								if (ImGui::BeginCombo("combo handle", 
-															item_current, flags)) 
-								{
-									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-									{
-										bool is_selected = (item_current == items[n]);
-										if (ImGui::Selectable(items[n], is_selected))
-											item_current = items[n];
-										if (is_selected)
-											ImGui::SetItemDefaultFocus();   
-										}
-									ImGui::EndCombo();
-								}
-
-								if (ImGui::Button("Bind object"))
-								{
-
-									std::shared_ptr<modeling::
-										HandleDeformationTool<MESH>> hdt =
-										handle_container_[handle_name];
-
-									modeling::GraphParameters<GRAPH>& 
-									local_p = *graph_parameters_[selected_handle_];
-
-									local_p.name_ = handle_name;
-
-									bind_local_handle(*model_, 
-										model_p.vertex_position_, 
-										*(hdt->control_handle_),
-										hdt->control_handle_vertex_position_, 
-										item_current);
-
-									new_tool_ = false;
-								}
-							}
-						}
 					}
 				}
 
@@ -1574,7 +1589,6 @@ protected:
 
 								create_axis_tool(*model_, 
 												model_p.vertex_position_);
-								new_tool_ = true;
 
 								model_p.selected_vertices_set_->clear();
 								mesh_provider_->emit_cells_set_changed(
@@ -1623,7 +1637,7 @@ protected:
 								});
 
 							std::string last_axis_name = "local_axis" + 
-										std::to_string(axis_container_.size() - 1.0);
+										std::to_string(axis_container_.size() - 1);
 
 							std::shared_ptr<modeling::
 							AxisDeformationTool<MESH>> current_adt =
@@ -1639,77 +1653,6 @@ protected:
 						}
 
 						model_p.object_update_ = false;
-					}
-
-					ImGui::Separator();
-					ImGui::Text("Binding");
-
-					if (new_tool_ && influence_set_.size() > 0)
-					{
-
-						MultiToolsDeformation<MESH, GRAPH>* 
-						space_deformation =
-						static_cast<MultiToolsDeformation<MESH, GRAPH>*>(
-								app_.module("MultiToolsDeformation (" + 
-								std::string{mesh_traits<MESH>::name} + ")"));
-
-						if (imgui_axis_selector(space_deformation, 
-												selected_axis_, "Local Axis",
-												[&](GRAPH& g) { 
-													selected_axis_ = &g; 
-												}))
-						{
-
-							const std::string axis_name = 
-								graph_provider_->graph_name(*selected_axis_);
-
-							std::string prefix = "local_axis";
-
-							if (axis_name.size() > 0 &&
-								std::mismatch(prefix.begin(), prefix.end(), axis_name.begin()).first == prefix.end())
-							{
-								static ImGuiComboFlags flags = 0;
-
-								const char* items[] = { "Rigid", "Loose" };
-								static const char* item_current = items[0];       
-
-								if (ImGui::BeginCombo("combo local axis", 
-															item_current, flags)) 
-								{
-									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-									{
-										bool is_selected = (item_current == items[n]);
-										if (ImGui::Selectable(items[n], is_selected))
-											item_current = items[n];
-										if (is_selected)
-											ImGui::SetItemDefaultFocus();   
-										}
-									ImGui::EndCombo();
-								}
-
-								if (ImGui::Button("Bind object"))
-								{
-
-									std::shared_ptr<modeling::
-									AxisDeformationTool<MESH>> adt =
-										axis_container_[axis_name];
-
-									modeling::GraphParameters<GRAPH>& 
-										local_p = 
-										*graph_parameters_[selected_axis_];
-
-									local_p.name_ = axis_name;
-
-									bind_local_axis(*model_, 
-												model_p.vertex_position_, 
-												*(adt->control_axis_),
-										adt->control_axis_vertex_position_, 
-												item_current);
-
-									new_tool_ = false;
-								}
-							}
-						}
 					}
 				}
 
@@ -1764,20 +1707,6 @@ protected:
 						create_local_cage_tool(*model_, 
 									model_p.vertex_position_, control_set);
 
-						new_tool_ = true;
-
-						model_p.selected_vertices_set_->clear();
-						mesh_provider_->emit_cells_set_changed(*model_, 
-											model_p.selected_vertices_set_);
-					}
-
-					if (ImGui::Button("Accept cage influence area##vertices_set"))
-					{
-						model_p.selected_vertices_set_->foreach_cell(
-								[&](MeshVertex v) -> bool {
-									influence_set_.push_back(v);
-									return true;
-								});
 						model_p.selected_vertices_set_->clear();
 						mesh_provider_->emit_cells_set_changed(*model_, 
 											model_p.selected_vertices_set_);
@@ -1788,74 +1717,7 @@ protected:
 					ImGui::Separator();
 					ImGui::Text("Binding");
 
-					if (new_tool_ && influence_set_.size() > 0)
-					{
-
-						MultiToolsDeformation<MESH, GRAPH>* 
-						space_deformation =
-							static_cast<MultiToolsDeformation<MESH, GRAPH>*>(
-								app_.module("MultiToolsDeformation (" + 
-								std::string{mesh_traits<MESH>::name} + ")"));
-
-						if (imgui_local_cage_selector(space_deformation, 
-												selected_cage_, "Local Cage",
-												[&](MESH& m) { 
-													selected_cage_ = &m; 
-												}))
-						{
-
-							const std::string cage_name = 
-								mesh_provider_->mesh_name(*selected_cage_);
-
-							std::string prefix = "local_cage";
-
-							if (cage_name.size() > 0 &&
-								std::mismatch(prefix.begin(), prefix.end(), 
-								cage_name.begin()).first == prefix.end())
-							{
-
-								static ImGuiComboFlags flags = 0;
-
-								const char* items[] = { "MVC", "Green" };
-								static const char* item_current = items[0];       
-
-								if (ImGui::BeginCombo("combo local cage", 
-															item_current, flags)) 
-								{
-									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
-									{
-										bool is_selected = (item_current == items[n]);
-										if (ImGui::Selectable(items[n], is_selected))
-											item_current = items[n];
-										if (is_selected)
-											ImGui::SetItemDefaultFocus();   
-										}
-									ImGui::EndCombo();
-								}
 								
-
-								if (ImGui::Button("Bind local cage"))
-								{
-									std::shared_ptr<modeling::
-									CageDeformationTool<MESH>> cdt =
-												cage_container_[cage_name];
-
-									modeling::Parameters<MESH>& local_p = 
-												*parameters_[selected_cage_];
-
-									local_p.name_ = cage_name;
-
-									bind_local_cage(*model_, 
-													model_p.vertex_position_, 
-													*(cdt->control_cage_),
-											cdt->control_cage_vertex_position_,
-													item_current);
-
-									new_tool_ = false;
-								}
-							}
-						}
-					}
 				}
 
 				ImGui::Separator();
@@ -1915,6 +1777,56 @@ protected:
 								cage_name.begin()).first == prefix.end())
 								{
 									selected_cdt_ = cage_container_[cage_name];
+
+									if (ImGui::Button("Reset deformation"))
+									{
+										selected_cdt_->reset_deformation(); 
+										mesh_provider_->
+											emit_attribute_changed(
+											*(selected_cdt_->control_cage_), 
+											selected_cdt_->control_cage_vertex_position_.get());
+									} 
+
+									static ImGuiComboFlags flags = 0;
+
+								const char* items[] = { "MVC", "Green" };
+								static const char* item_current = items[0];       
+
+								if (ImGui::BeginCombo("combo local cage", 
+															item_current, flags)) 
+								{
+									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+									{
+										bool is_selected = (item_current == items[n]);
+										if (ImGui::Selectable(items[n], is_selected))
+											item_current = items[n];
+										if (is_selected)
+											ImGui::SetItemDefaultFocus();   
+										}
+									ImGui::EndCombo();
+								}
+								
+
+								if (ImGui::Button("Bind local cage"))
+								{
+
+									if (selected_cdt_->deformation_type_.empty()){
+										bind_local_cage(*model_, 
+													model_p.vertex_position_, 
+													*(selected_cdt_->control_cage_),
+											selected_cdt_->control_cage_vertex_position_,
+													item_current);
+									}
+									else if (selected_gcdt_->deformation_type_ != item_current)
+									{
+										update_bind_local_cage(*model_, 
+													model_p.vertex_position_, 
+													*(selected_cdt_->control_cage_),
+											selected_cdt_->control_cage_vertex_position_,
+													item_current);
+									}
+								}
+
 								}
 								else
 								{
@@ -1934,8 +1846,7 @@ protected:
 
 									static const char* current_item = "MVC";
 				
-									if (ImGui::BeginCombo("##custom combo", current_item, 
-											ImGuiComboFlags_NoArrowButton))
+									if (ImGui::BeginCombo("##custom combo", current_item, flags))
 									{
 										for (int n = 0; n < IM_ARRAYSIZE(items); n++)
 										{
@@ -2021,7 +1932,8 @@ protected:
 
 						imgui_handle_selector(multi_tools_deformation, 
 									selected_handle_, "Handle",
-								[&](GRAPH& g) { 
+								[&](GRAPH& g) 
+								{ 
 									if (selected_handle_)
 									{
 									modeling::GraphParameters<GRAPH>& old_p = 
@@ -2029,7 +1941,8 @@ protected:
 									old_p.selected_vertices_set_ = nullptr;
 									}
 									
-									selected_handle_ = &g; });
+									selected_handle_ = &g; 
+								});
 
 						if (selected_handle_)
 						{
@@ -2049,15 +1962,61 @@ protected:
 							const std::string handle_name = 
 							graph_provider_->graph_name(*selected_handle_);
 
-							std::string prefix = "local_handle";
 							if (handle_name.size() > 0)
 							{
 								selected_hdt_ = handle_container_
 															[handle_name];
 
+								if (ImGui::Button("Reset deformation"))
+								{
+									selected_hdt_->reset_deformation(); 
+
+									graph_provider_->emit_attribute_changed(
+										*(selected_hdt_->control_handle_),
+									selected_hdt_->control_handle_vertex_position_.get());
+								} 
+
+								static ImGuiComboFlags flags = 0;
+
+								const char* items[] = { "Spike", "Round" };
+								static const char* item_current = items[0];       
+
+								if (ImGui::BeginCombo("combo handle", 
+															item_current, flags)) 
+								{
+									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+									{
+										bool is_selected = (item_current == items[n]);
+										if (ImGui::Selectable(items[n], is_selected))
+											item_current = items[n];
+										if (is_selected)
+											ImGui::SetItemDefaultFocus();   
+										}
+									ImGui::EndCombo();
+								}
+
+								if (ImGui::Button("Bind handle"))
+								{
+
+									if (selected_hdt_->deformation_type_.empty()){
+										bind_local_handle(*model_, 
+										model_p.vertex_position_, 
+										*(selected_hdt_->control_handle_),
+										selected_hdt_->control_handle_vertex_position_, 
+										item_current);
+
+									} else if (selected_hdt_->deformation_type_ != item_current)
+									{
+										update_bind_local_handle(*model_, 
+										model_p.vertex_position_, 
+										*(selected_hdt_->control_handle_),
+										selected_hdt_->control_handle_vertex_position_, 
+										item_current);
+									}
+								}
+
 								GraphData<GRAPH>& handle_gd = 
-								graph_provider_->graph_data(
-														*selected_handle_);
+								graph_provider_->graph_data(*selected_handle_);
 
 								imgui_combo_cells_set_graph(
 									handle_gd, 
@@ -2117,9 +2076,9 @@ protected:
 								[&](GRAPH& g) {
 									if (selected_axis_)
 									{
-									/*modeling::GraphParameters<GRAPH>& old_p = 
+									modeling::GraphParameters<GRAPH>& old_p = 
 												*graph_parameters_[selected_axis_];
-									old_p.selected_vertices_set_ = nullptr;*/
+									old_p.selected_vertices_set_ = nullptr;
 									}
 									selected_axis_ = &g;
 								});
@@ -2128,11 +2087,11 @@ protected:
 						{
 							selected_mesh_ = nullptr;
 
-							/*if (selected_graph_){
+							if (selected_graph_){
 								modeling::GraphParameters<GRAPH>& old_p = 
 												*graph_parameters_[selected_graph_];
 								old_p.selected_vertices_set_ = nullptr;
-							}*/
+							}
 
 							selected_graph_ = selected_axis_;
 							modeling::GraphParameters<GRAPH>& axis_p = 
@@ -2145,6 +2104,55 @@ protected:
 							if (axis_name.size() > 0)
 							{
 								selected_adt_ = axis_container_[axis_name];
+
+								if (ImGui::Button("Reset deformation"))
+								{
+
+									axis_p.reset_transformations(); 
+
+									graph_provider_->emit_attribute_changed(
+										*(selected_adt_->control_axis_), 
+										selected_adt_->control_axis_vertex_position_.get());
+								} 
+
+								static ImGuiComboFlags flags = 0;
+
+								const char* items[] = { "Rigid", "Loose" };
+								static const char* item_current = items[0];       
+
+								if (ImGui::BeginCombo("combo local axis", 
+															item_current, flags)) 
+								{
+									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+									{
+										bool is_selected = (item_current == items[n]);
+										if (ImGui::Selectable(items[n], is_selected))
+											item_current = items[n];
+										if (is_selected)
+											ImGui::SetItemDefaultFocus();   
+										}
+									ImGui::EndCombo();
+								}
+
+								if (ImGui::Button("Bind axis"))
+								{
+
+									if (selected_adt_->deformation_type_.empty()){
+										bind_local_axis(*model_, 
+												model_p.vertex_position_, 
+												*(selected_adt_->control_axis_),
+										selected_adt_->control_axis_vertex_position_, 
+												item_current);
+
+									} else if (selected_adt_->deformation_type_ != item_current){
+
+										update_bind_local_axis(*model_, 
+												model_p.vertex_position_, 
+												*(selected_adt_->control_axis_),
+										selected_adt_->control_axis_vertex_position_, 
+												item_current);
+									}
+								}
 
 								GraphData<GRAPH>& axis_gd = 
 								graph_provider_->graph_data(*selected_axis_);
@@ -2230,8 +2238,6 @@ private:
 	SelectionTool deformed_tool_;
 
 	std::vector<MeshVertex> influence_set_;
-
-	bool new_tool_;
 };
 
 } // namespace ui

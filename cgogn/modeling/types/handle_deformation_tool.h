@@ -72,6 +72,8 @@ public:
 
 	std::vector<MeshVertex> object_influence_area_; 
 
+	std::string deformation_type_;
+
 	HandleDeformationTool(): control_handle_vertex_position_(nullptr)
 	{
 	}
@@ -106,6 +108,8 @@ public:
 
 		handle_normal_ = normal;
 		handle_position_ = center;
+
+		start_position_ = center; 
 	}
 
 	/// @brief set deformation type
@@ -113,6 +117,13 @@ public:
 	/// @param new_type 
 	void set_deformation_type(const std::string new_type){
 		deformation_type_ = new_type; 
+	}
+
+	/// @brief reset deformation
+	void reset_deformation()
+	{
+		value<Vec3>(*control_handle_, 
+							control_handle_vertex_position_, handle_vertex_) = start_position_; 
 	}
 
 	/// @brief set geodesic distance of the points 
@@ -148,6 +159,25 @@ public:
 		uint32 nbv_object = nb_cells<MeshVertex>(object);
 
 		attenuation_.resize(nbv_object);
+		attenuation_.setZero();
+
+		if (deformation_type_ == "Spike")
+		{
+			bind_object_spike(object, object_vertex_position);
+		}
+
+		if (deformation_type_ == "Round")
+		{
+			bind_object_round(object, object_vertex_position);
+		}
+	}
+
+	/// @brief binding for object
+	/// @param object model to deform
+	/// @param object_vertex_position position of the vertices of the model 
+	void bind_object(MESH& object, 
+					const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+	{
 		attenuation_.setZero();
 
 		if (deformation_type_ == "Spike")
@@ -217,7 +247,7 @@ private:
 	Vec3 handle_position_; 
 	Vec3 handle_normal_;
 
-	std::string deformation_type_; 
+	Vec3 start_position_;  
 
 
 	/// @brief bind object with round deformation type 

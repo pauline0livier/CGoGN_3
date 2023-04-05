@@ -143,9 +143,6 @@ public:
 	void reset_deformation()
 	{
 		foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
-			const Vec3& cage_point = value<Vec3>(*global_cage_, 
-										global_cage_vertex_position_, cv);
-
 			uint32 cage_point_index = value<uint32>(*global_cage_, 
 											global_cage_vertex_index_, cv);
 
