@@ -146,10 +146,11 @@ public:
 
 	/// @brief reset deformation
 	/// useful to change deformation type
+	/// TODO: find transformation from current to init positions
 	void reset_deformation()
 	{
 
-		for (size_t v = 0; v < axis_skeleton_.size(); v++)
+		/*for (size_t v = 0; v < axis_skeleton_.size(); v++)
 		{
 
 			Vec3 init_position = starting_positions_[v].normalized(); 
@@ -172,7 +173,7 @@ public:
 
 			
 
-		}  
+		}  */
 
 	}
 

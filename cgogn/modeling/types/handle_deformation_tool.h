@@ -136,6 +136,14 @@ public:
 		geodesic_distance(object, object_vertex_position.get());
 	}
 
+	/// @brief update handle position 
+	/// useful when handle is displaced by other spatial tools 
+	/// @param new_position 
+	void update_handle_position_variable()
+	{
+		handle_position_ = get_handle_position(); 
+	}
+
 	/// @brief 
 	/// @return handle vertex 
 	Graph::Vertex get_handle_vertex(){

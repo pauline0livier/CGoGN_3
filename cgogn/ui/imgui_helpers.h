@@ -138,6 +138,7 @@ bool imgui_combo_cells_set(MeshData<MESH>& md, const CellsSet<MESH, CELL>* selec
 			}
 			return true;
 		}
+		return false; 
 	});
 	return false;
 }
@@ -189,6 +190,7 @@ bool imgui_combo_cells_set_graph(GraphData<GRAPH>& gd, const CellsSet<GRAPH, CEL
 			}
 			return true;
 		}
+		
 	});
 	return false;
 }

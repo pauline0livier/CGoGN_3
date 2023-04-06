@@ -694,9 +694,11 @@ private:
 		{
 			for (auto& [name, hdt] : handle_container_)
 			{
-				Vec3 handle_position = hdt->get_handle_position();
+				if (gcdt->local_handle_weights_.count(name) == 0){
+					Vec3 handle_position = hdt->get_handle_position(); 
 
-				gcdt->init_bind_handle(name, handle_position);
+					gcdt->init_bind_handle(name, handle_position);
+				} 
 			}
 		}
 
@@ -756,6 +758,8 @@ private:
 										*(local_hdt->control_handle_), name,
 										p_handle.vertex_position_,
 										local_hdt->get_handle_vertex());
+
+									local_hdt->update_handle_position_variable(); 
 
 									graph_provider_->emit_attribute_changed(
 										*(local_hdt->control_handle_),
@@ -966,12 +970,15 @@ private:
 
 		if (global_cage_container_.size() > 0)
 		{
-			for (auto& [name, gcdt] : global_cage_container_)
-			{
+			std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> gcdt =
+									global_cage_container_["global_cage"];
+
+			
+			if (gcdt->local_handle_weights_.count(p_handle.name_) == 0){
 				Vec3 handle_position = hdt->get_handle_position(); 
 
 				gcdt->init_bind_handle(p_handle.name_, handle_position);
-			}
+			} 
 		}
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
@@ -998,7 +1005,7 @@ private:
 											object_vertex_index.get());
 
 							mesh_provider_->emit_attribute_changed(object, 
-											object_vertex_position.get());
+											object_vertex_position.get()); 
 
 							md.update_bb();
 							std::tuple<Vec3, Vec3, Vec3> 
@@ -1065,7 +1072,7 @@ private:
 											}
 										}
 
-										if (gcdt->local_axis_weights_
+										/*if (gcdt->local_axis_weights_
 																.size() > 0)
 										{
 											for (auto& [name_axis, mw] : 
@@ -1092,7 +1099,7 @@ private:
 													*(local_adt->control_axis_),
 													local_adt->control_axis_vertex_position_.get());
 											}
-										}
+										}*/
 
 									}
 								}
