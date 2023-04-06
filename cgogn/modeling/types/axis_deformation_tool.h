@@ -102,6 +102,7 @@ public:
 			const std::vector<Vec3>& inside_axis_position)
 	{
 		control_axis_ = g;
+
 		axis_skeleton_ = 
 			cgogn::modeling::create_axis(*g, g_vertex_position, 
 										g_vertex_radius, vertex_coordinates, Scalar(5));
@@ -125,6 +126,7 @@ public:
 		}
 
 		starting_positions_ = vertex_coordinates; 
+		normal_ = {0.0, 0.0, 1.0}; 
 	}
 
 	/// @brief set axis transformation from user's input 
@@ -146,7 +148,32 @@ public:
 	/// useful to change deformation type
 	void reset_deformation()
 	{
-		
+
+		for (size_t v = 0; v < axis_skeleton_.size(); v++)
+		{
+
+			Vec3 init_position = starting_positions_[v].normalized(); 
+			Vec3 current_position = value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[v]).normalized(); 
+
+			if (init_position == current_position)
+			{
+				std::cout << "identity" << std::endl; 
+			} else {
+				Vec3 cross_product = current_position.cross(init_position); 
+
+				double sine = cross_product.norm(); 
+
+				double delta = asin(sine); 
+
+				std::cout << delta << std::endl; 
+
+
+			}
+
+			
+
+		}  
+
 	}
 
 	/// @brief initialize binding of object 
@@ -231,6 +258,8 @@ private:
 	std::vector<Vec3> inside_axis_position_; 
 
 	std::vector<Vec3> starting_positions_; 
+
+	Vec3 normal_; 
 
 	/// @brief bind the zone of influence of the object  
 	/// compute weights using the projection of the points on the axis

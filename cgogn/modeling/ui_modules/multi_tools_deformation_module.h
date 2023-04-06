@@ -1787,6 +1787,16 @@ protected:
 											selected_cdt_->control_cage_vertex_position_.get());
 									} 
 
+									ImGui::Separator();
+									if (!selected_cdt_->deformation_type_.empty()){
+										const char* extension = selected_cdt_->deformation_type_.c_str();
+
+										ImGui::Text("Current binding:");
+										ImGui::SameLine();
+										ImGui::Text(extension);
+									}
+
+								ImGui::Separator();
 									static ImGuiComboFlags flags = 0;
 
 								const char* items[] = { "MVC", "Green" };
@@ -1840,6 +1850,17 @@ protected:
 											*(selected_gcdt_->global_cage_), 
 											selected_gcdt_->global_cage_vertex_position_.get());
 									} 
+
+									ImGui::Separator();
+									if (!selected_gcdt_->deformation_type_.empty()){
+										const char* extension = selected_gcdt_->deformation_type_.c_str();
+
+										ImGui::Text("Current binding:");
+										ImGui::SameLine();
+										ImGui::Text(extension);
+									}
+
+								ImGui::Separator();
 
 									static ImGuiComboFlags flags = 0;
 									const char* items[] = {"MVC", "Green"};
@@ -1944,6 +1965,8 @@ protected:
 									selected_handle_ = &g; 
 								});
 
+						
+
 						if (selected_handle_)
 						{
 							selected_mesh_ = nullptr;
@@ -1976,9 +1999,20 @@ protected:
 									selected_hdt_->control_handle_vertex_position_.get());
 								} 
 
+								ImGui::Separator();
+								if (!selected_hdt_->deformation_type_.empty()){
+									const char* extension = selected_hdt_->deformation_type_.c_str();
+
+									ImGui::Text("Current binding:");
+									ImGui::SameLine();
+									ImGui::Text(extension);
+								}
+
+								ImGui::Separator();
 								static ImGuiComboFlags flags = 0;
 
 								const char* items[] = { "Spike", "Round" };
+
 								static const char* item_current = items[0];       
 
 								if (ImGui::BeginCombo("combo handle", 
@@ -2108,12 +2142,23 @@ protected:
 								if (ImGui::Button("Reset deformation"))
 								{
 
-									axis_p.reset_transformations(); 
+									selected_adt_->reset_deformation(); 
 
 									graph_provider_->emit_attribute_changed(
 										*(selected_adt_->control_axis_), 
 										selected_adt_->control_axis_vertex_position_.get());
 								} 
+
+								ImGui::Separator();
+								if (!selected_adt_->deformation_type_.empty()){
+									const char* extension = selected_adt_->deformation_type_.c_str();
+
+									ImGui::Text("Current binding:");
+									ImGui::SameLine();
+									ImGui::Text(extension);
+								}
+
+								ImGui::Separator();
 
 								static ImGuiComboFlags flags = 0;
 

@@ -517,7 +517,8 @@ private:
 				rendering::Transfo3d inv_camera = 
 									view->camera().frame_.inverse();
 				rendering::Transfo3d 
-				sm(Eigen::AngleAxisd(sign * 1.0 * spinning_speed, normal_)); // 2.0
+				sm(Eigen::AngleAxisd(sign * 1.0 * spinning_speed, normal_)); 
+
 				rendering::Transfo3d 
 					rot((inv_camera * sm * view->camera().frame_).linear());
 
