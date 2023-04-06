@@ -109,7 +109,7 @@ void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position,
 */
 void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, 
 					const Vec3& bb_min, const Vec3& bb_max,
-					const Vec3& center, const Vec3& normal)
+					const std::vector<Vec3> main_directions)
 {
 	CMap2::Volume v = add_prism(m, 4);
 	Dart f1 = v.dart;
@@ -120,29 +120,25 @@ void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position,
 		CMap2::Vertex(f2), CMap2::Vertex(phi1(m, f2)), 
 		CMap2::Vertex(phi<1, 1>(m, f2)), CMap2::Vertex(phi_1(m, f2))};
 
-	float d_min = -(normal.dot(bb_min));
-
-	float alpha_min = -d_min - (normal.dot(center));
-
-	Eigen::Vector3d center_min_plane = center + alpha_min * normal;
-
-	Vec3 local_frame_x = bb_min - center_min_plane;
-	local_frame_x.normalize();
-
-	Vec3 local_frame_y = normal.cross(local_frame_x);
-	local_frame_y.normalize();
-
 	Eigen::Matrix3d local_frame, frame_inverse;
 
-	local_frame.row(0) = local_frame_x;
-	local_frame.row(1) = local_frame_y;
-	local_frame.row(2) = normal;
+	local_frame.row(0) = main_directions[0];
+	local_frame.row(1) = main_directions[1];
+	local_frame.row(2) = main_directions[2];
 	frame_inverse = local_frame.inverse();
 
-	const Vec3 local_bb_min = local_frame * (bb_min - center);
-	const Vec3 local_bb_max = local_frame * (bb_max - center);
+	Vec3 cross_product = main_directions[0].cross(main_directions[1]); 
 
-	const double radius = local_bb_min.norm();
+	Vec3 center = (bb_min + bb_max) / Scalar(2); 
+
+	const Vec3 local_bb_min = {0.0, 0.0, 0.0};
+	const Vec3 local_bb_max = local_frame * (bb_max - bb_min);
+
+	const Vec3 local_bb_min_center = local_frame * (bb_min - center); 
+
+	const double radius = local_bb_min_center.norm();
+
+	std::cout << "radius " << radius << std::endl; 
 
 	double min_n, max_n;
 	if (local_bb_min[2] > local_bb_max[2])
@@ -156,40 +152,23 @@ void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position,
 		max_n = local_bb_max[2];
 	}
 
-	Eigen::Vector3d local_vertex0 = 
-		{radius * std::cos(0), radius * std::sin(0), max_n};
-	Eigen::Vector3d local_vertex1 =	
-		{radius * std::cos(M_PI / 2), radius * std::sin(M_PI / 2), max_n};
-	Eigen::Vector3d local_vertex2 = 
-		{radius * std::cos(M_PI), radius * std::sin(M_PI), max_n};
-	Eigen::Vector3d local_vertex3 = 
-		{radius * std::cos(3 * M_PI / 2), radius * std::sin(3 * M_PI / 2), max_n};
+	std::vector<Eigen::Vector3d> local_positions(8);
+	local_positions[0] = {0.0, 0.0, 0.0}; 
+	local_positions[1] = {0.0, local_bb_max[1], 0.0}; 
+	local_positions[2] = {local_bb_max[0], local_bb_max[1], 0.0}; 
+	local_positions[3] = {local_bb_max[0], 0.0, 0.0};
+	local_positions[4] = {0.0, local_bb_max[1], local_bb_max[2]};
+	local_positions[5] = {0.0, 0.0, local_bb_max[2]};
+	local_positions[6] = {local_bb_max[0], 0.0, local_bb_max[2]};
+	local_positions[7] = local_bb_max;
 
-	Eigen::Vector3d local_vertex4 = 
-		{radius * std::cos(-3 * M_PI / 2), radius * std::sin(-3 * M_PI / 2), min_n};
-	Eigen::Vector3d local_vertex5 = 
-		{radius * std::cos(0), radius * std::sin(0), min_n};
-	Eigen::Vector3d local_vertex6 = 
-		{radius * std::cos(-M_PI / 2), radius * std::sin(-M_PI / 2), min_n};
-	Eigen::Vector3d local_vertex7 = 
-		{radius * std::cos(-M_PI), radius * std::sin(-M_PI), min_n};
+	for (size_t p = 0; p < 8; p++){
+ 
+		value<Vec3>(m, vertex_position, vertices[p]) = 
+					(frame_inverse * local_positions[p]) + bb_min;
 
-	value<Vec3>(m, vertex_position, vertices[0]) = 
-					(frame_inverse * local_vertex0) + center;
-	value<Vec3>(m, vertex_position, vertices[1]) = 
-					(frame_inverse * local_vertex1) + center;
-	value<Vec3>(m, vertex_position, vertices[2]) = 
-					frame_inverse * local_vertex2 + center;
-	value<Vec3>(m, vertex_position, vertices[3]) = 
-					frame_inverse * local_vertex3 + center;
-	value<Vec3>(m, vertex_position, vertices[4]) = 
-					frame_inverse * local_vertex4 + center;
-	value<Vec3>(m, vertex_position, vertices[5]) = 
-					frame_inverse * local_vertex5 + center;
-	value<Vec3>(m, vertex_position, vertices[6]) = 
-					frame_inverse * local_vertex6 + center;
-	value<Vec3>(m, vertex_position, vertices[7]) = 
-					frame_inverse * local_vertex7 + center;
+	}
+
 }
 
 /**

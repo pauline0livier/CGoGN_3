@@ -142,7 +142,6 @@ public:
 												picked[1], 
 									vertex_base_size_ * sphere_scale_factor_, 
 									vertex_position_.get());
-
 							selected_depth_vertices_
 								.push_back(std::make_pair(picked[0], picked[1]));
 						}

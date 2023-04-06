@@ -51,12 +51,21 @@ double getAngleBetweenUnitVectors(const Vec3& a, const Vec3& b);
 */
 double distance_vec3(const Vec3& p1, const Vec3& p2); 
 
+
+/**
+ * find main direction from user defined set 
+*/
+std::vector<Vec3> find_main_directions_from_set(const CMap2& m, 
+                            const CMap2::Attribute<Vec3>* attribute, 
+                        cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set,
+                        const Vec3& center);
+
 /**
  * sort eigen vectors by minimal eigen values
 */
-Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, 
+Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> sort_eigen_vectors(const Eigen::Matrix<double, 1, 
             Eigen::Dynamic>& eigen_values, 
-    const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors);
+    const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors);
 
 /**
  * scale the bounding box by extension factor
@@ -72,11 +81,24 @@ Vec3 get_mean_value_attribute_from_set(const CMap2& m,
                         cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set); 
 
 /**
+ * get mean value of Vec3 array
+*/
+Vec3 get_mean_value_in_array_Vec3(const std::vector<Vec3> positions); 
+
+/**
  * get extrema values in set 
 */
 std::pair<Vec3,Vec3> get_border_values_in_set(const CMap2& m, 
                     const CMap2::Attribute<Vec3>* attribute, 
                     cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set); 
+
+/**
+ * get extrema values in provided set, in local frame  
+*/
+std::pair<Vec3,Vec3> get_border_values_in_set_along_local_frame(const CMap2& m, 
+                    const CMap2::Attribute<Vec3>* attribute, 
+                    cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set, 
+                    std::vector<Vec3> local_frame); 
 
 /**
  * get extrema values in array of Vec3

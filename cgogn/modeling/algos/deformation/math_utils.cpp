@@ -45,10 +45,73 @@ double distance_vec3(const Vec3& p1, const Vec3& p2)
 }
 
 /**
+ * compute main direction from provided set
+ * use Principal Component Analysis (PCA)
+*/
+std::vector<Vec3> find_main_directions_from_set(const CMap2& m, 
+                            const CMap2::Attribute<Vec3>* attribute, 
+                        cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set,
+						const Vec3& center)
+{
+	Eigen::Matrix3d covariance_matrix;
+	for (int i = 0; i < 3; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			covariance_matrix(i, j) = 0.0;
+
+			control_set->foreach_cell([&](CMap2::Vertex v) {
+				const Vec3& position = value<Vec3>(m, attribute, v);
+
+					covariance_matrix(i, j) += 
+							(center[i] - position[i]) * (center[j] - position[j]);
+				});
+
+			covariance_matrix(i, j) /= control_set->size() - 1;
+		}
+	}
+
+	Eigen::SelfAdjointEigenSolver<
+	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>> 
+												eigen_solver(covariance_matrix);
+	
+	Eigen::Matrix<double, 1, Eigen::Dynamic> eigen_values = 
+													eigen_solver.eigenvalues();
+
+	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> eigen_vectors = 
+													eigen_solver.eigenvectors();
+
+	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> sorted_eigen_vectors = 
+								sort_eigen_vectors(eigen_values, eigen_vectors);
+	
+	Eigen::Vector3d main_eigen_vector = sorted_eigen_vectors.col(0); 
+	main_eigen_vector.normalize();
+
+	Eigen::Vector3d second_eigen_vector = sorted_eigen_vectors.col(1); 
+	second_eigen_vector.normalize();
+
+	Eigen::Vector3d third_eigen_vector = sorted_eigen_vectors.col(2); 
+	third_eigen_vector.normalize();
+
+	std::vector<Eigen::Vector3d> local_frame; 
+	local_frame.push_back(main_eigen_vector); 
+	local_frame.push_back(second_eigen_vector); 
+
+	const Vec3 cross_product = main_eigen_vector.cross(second_eigen_vector);  
+	if (cross_product == third_eigen_vector){
+		local_frame.push_back(third_eigen_vector); 
+	} else {
+		local_frame.push_back(-third_eigen_vector);
+	}
+
+	return local_frame;
+}
+
+/**
  * sort eigen vectors by their eigen values
 */
-Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>& eigen_values,
-		const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors)
+Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> sort_eigen_vectors(const Eigen::Matrix<double, 1, Eigen::Dynamic>& eigen_values,
+		const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors)
 {
 	std::vector<std::pair<int, int>> eigen_value_index_vector;
 	for (int i = 0; i < eigen_values.size(); ++i)
@@ -58,12 +121,12 @@ Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>
 
 	std::sort(std::begin(eigen_value_index_vector), 
 				std::end(eigen_value_index_vector),
-			  	std::greater<std::pair<int, int>>());
+				std::greater<std::pair<int, int>>());
 
-	auto sorted_eigen_values = Eigen::Matrix<float, 1, 
+	auto sorted_eigen_values = Eigen::Matrix<double, 1, 
 											Eigen::Dynamic>(eigen_values.cols());
 	auto sorted_eigen_vectors =
-		Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>(
+		Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>(
 									eigen_vectors.rows(), eigen_vectors.cols());
 	for (int i = 0; i < eigen_values.size(); ++i)
 	{
@@ -72,7 +135,7 @@ Eigen::Vector3f sort_eigen_vectors(const Eigen::Matrix<float, 1, Eigen::Dynamic>
 		sorted_eigen_vectors.col(i) = eigen_vectors.col(eigen_value_index_vector[i].second);
 	}
 
-	return sorted_eigen_vectors.col(0);
+	return sorted_eigen_vectors;
 }
 
 /**
@@ -116,6 +179,28 @@ Vec3 get_mean_value_attribute_from_set(const CMap2& m, const CMap2::Attribute<Ve
 	return mean_value;
 }
 
+/// @brief mean value of std vector of Vec3
+/// @param positions 
+/// @return mean value 
+Vec3 get_mean_value_in_array_Vec3(const std::vector<Vec3> positions)
+{
+	if (positions.empty())
+	{
+		return Vec3();
+	}
+
+	std::size_t count = positions.size(); 
+
+	Vec3 mean_value = {0.0, 0.0, 0.0}; 
+	for (std::size_t p = 0; p < count ; p++)
+	{
+		mean_value += positions[p]; 
+	}
+
+	mean_value /= count; 
+	return mean_value; 
+}
+
 /**
  * loop on the CMap2 vertices to compute the extrema values of a set
  * valid for attribute in Vec3
@@ -129,23 +214,65 @@ std::pair<Vec3, Vec3> get_border_values_in_set(const CMap2& m,
 	Vec3 local_max = {0.0, 0.0, 0.0};
 
 	control_set->foreach_cell([&](CMap2::Vertex v) {
-		const Vec3& pos = value<Vec3>(m, attribute, v);
+		const Vec3& position = value<Vec3>(m, attribute, v);
 
 		for (size_t j = 0; j < 3; j++)
 		{
-			if (pos[j] < local_min[j])
+			if (position[j] < local_min[j])
 			{
-				local_min[j] = pos[j];
+				local_min[j] = position[j];
 			}
 
-			if (pos[j] > local_max[j])
+			if (position[j] > local_max[j])
 			{
-				local_max[j] = pos[j];
+				local_max[j] = position[j];
 			}
 		}
 	});
 
 	return std::make_pair(local_min, local_max);
+}
+
+/**
+ * get extrema values in provided set, in local frame  
+*/
+std::pair<Vec3,Vec3> get_border_values_in_set_along_local_frame(const CMap2& m, 
+                    const CMap2::Attribute<Vec3>* attribute, 
+                    cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set, 
+                    std::vector<Vec3> main_directions)
+{
+	Vec3 local_min = {1000.0, 1000.0, 1000.0};
+	Vec3 local_max = {-1000.0, -1000.0, -1000.0};
+
+	control_set->foreach_cell([&](CMap2::Vertex v) {
+		const Vec3& position = value<Vec3>(m, attribute, v);
+
+		for (size_t j = 0; j < 3; j++)
+		{
+			const double projection_j = position.dot(main_directions[j]);
+			 
+			if (projection_j < local_min[j])
+			{
+				local_min[j] = projection_j;
+			}
+
+			if (projection_j > local_max[j])
+			{
+				local_max[j] = projection_j;
+			}
+		}
+	});
+
+	Vec3 min_position = {0.0, 0.0, 0.0}, 
+	max_position = {0.0, 0.0, 0.0};
+
+	for (size_t j = 0; j < 3; j++)
+	{
+		min_position += local_min[j]*main_directions[j]; 
+		max_position += local_max[j]*main_directions[j]; 	
+	} 
+
+	return std::make_pair(min_position, max_position);
 }
 
 /**
@@ -204,7 +331,7 @@ CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m,
 		}
 	});
 
-    return closest_vertex; 
+	return closest_vertex; 
 }
 
 /**
@@ -214,8 +341,8 @@ CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m,
 float projection_on_segment(const Vec3& A, const Vec3& B, const Vec3& P){
 
 	const Vec3 AB = B - A;
- 	const Vec3 AP = P - A; 
-  	return AB.dot(AP) / AB.squaredNorm(); 
+	const Vec3 AP = P - A; 
+	return AB.dot(AP) / AB.squaredNorm(); 
 }
 
 } // namespace modeling

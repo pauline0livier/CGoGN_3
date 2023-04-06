@@ -166,18 +166,15 @@ public:
 	/// @param m_vertex_position position of the vertices of the default mesh 
 	/// @param bb_min bounding box minimum position
 	/// @param bb_max bounding box maximum position
-	/// @param center bounding box center
 	/// @param normal bounding box normal 
 	void create_space_tool(MESH* m, 
 					CMap2::Attribute<Vec3>* m_vertex_position, 
 					const Vec3& bb_min, const Vec3& bb_max,
-					const Vec3& center, const Vec3& normal, 
-					const Vec3& object_bb_min, 
-					const Vec3& object_bb_max)
+					const std::vector<Vec3>& main_directions)
 	{
 		control_cage_ = m;
-		cgogn::modeling::create_bounding_box(*m, m_vertex_position, 
-											bb_min, bb_max);
+		//create_bounding_box(*m, m_vertex_position, bb_min, bb_max);
+		create_cage_box(*m, m_vertex_position, bb_min, bb_max, main_directions); 
 
 		control_cage_vertex_position_ = 
 						cgogn::get_attribute<Vec3, Vertex>(*m, "position");
@@ -192,13 +189,14 @@ public:
 		cgogn::modeling::set_attribute_vertex_index(*control_cage_, 
 										control_cage_vertex_index_.get());
 
-		init_triangles();
 
-		set_start_positions(); 
+		//init_triangles();
 
-		init_control_cage_plane(object_bb_min, object_bb_max);
+		//set_start_positions(); 
 
-		init_virtual_cubes();
+		//init_control_cage_plane(2.0);
+
+		//init_virtual_cubes();
 	}
 
 	/// @brief set the deformation type 
@@ -253,6 +251,23 @@ public:
 					local_z_direction_control_planes_.shift_after_d_max);
 
 				} 
+			}
+		}
+	}
+
+	/// @brief update virtual cages after local cage deformation
+	/// update only local cage points
+	void update_virtual_cages_bis()
+	{
+		for (size_t c = 0; c < virtual_cubes_.size(); c++){
+			for (size_t p = 0; p < virtual_cubes_[c].points.size(); p++){
+				Point local_point = virtual_cubes_[c].points[p]; 
+
+				if (local_point.inside_control_cage)
+				{
+					virtual_cubes_[c].points[p].position = value<Vec3>(*control_cage_, 
+						control_cage_vertex_position_, local_point.vertex);
+				}   
 			}
 		}
 	}
@@ -422,7 +437,7 @@ private:
 	/// delimit the control cage area in terms of planes
 	/// Plane of equation ax + by + cz = d
 	/// Create the three local direction control planes 
-	void init_control_cage_plane(const Vec3& object_bb_min, const Vec3& object_bb_max)
+	void init_control_cage_plane(const double& scale)
 	{
 		const Vec3 x_dir = {1.0, 0.0, 0.0}, 
 		y_dir = {0.0, 1.0, 0.0}, 
@@ -491,7 +506,7 @@ private:
 			}
 		}
 
-		const double gap_x = 3.0*(d_x_max - d_x_min); 
+		const double gap_x = scale*(d_x_max - d_x_min); 
 		local_x_direction_control_planes_.d_min = d_x_min;
 		local_x_direction_control_planes_.d_max = d_x_max;
 		local_x_direction_control_planes_.d_gap = gap_x;
@@ -501,7 +516,7 @@ private:
 		local_x_direction_control_planes_.shift_after_d_max = (gap_x)*x_dir;
 		local_x_direction_control_planes_.shift_before_d_min = (-gap_x)*x_dir; 
 
-		const double gap_y = 3.0*(d_y_max - d_y_min);
+		const double gap_y = scale*(d_y_max - d_y_min);
 		local_y_direction_control_planes_.d_min = d_y_min;
 		local_y_direction_control_planes_.d_max = d_y_max;
 		local_y_direction_control_planes_.d_gap = gap_y;
@@ -511,7 +526,7 @@ private:
 		local_y_direction_control_planes_.shift_after_d_max = (gap_y)*y_dir;
 		local_y_direction_control_planes_.shift_before_d_min = (-gap_y)*y_dir;
 
-		const double gap_z = 3.0*(d_z_max - d_z_min); 
+		const double gap_z = scale*(d_z_max - d_z_min); 
 		local_z_direction_control_planes_.d_min = d_z_min;
 		local_z_direction_control_planes_.d_max = d_z_max;
 		local_z_direction_control_planes_.d_gap = gap_z;

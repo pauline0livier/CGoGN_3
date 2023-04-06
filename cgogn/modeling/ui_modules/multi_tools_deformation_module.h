@@ -618,30 +618,26 @@ private:
 
 			Vec3 center = 
 				modeling::get_mean_value_attribute_from_set(object, 
-									object_vertex_position.get(), control_set);
+									object_vertex_position.get(), control_set); 
 
-			Vec3 normal = {0.0, 1.0, 0.0};
+			std::vector<Vec3> main_directions = 
+				modeling::find_main_directions_from_set(object, 
+										object_vertex_position.get(), 
+										control_set, center); 
 
-			std::pair<Vec3, Vec3> local_boundaries =
-				modeling::get_border_values_in_set(object, 
-										object_vertex_position.get(), control_set);
+			std::pair<Vec3, Vec3> local_boundaries = 
+				modeling::get_border_values_in_set_along_local_frame(object, 
+										object_vertex_position.get(), 
+										control_set, main_directions); 
 
 			std::tuple<Vec3, Vec3, Vec3> extended_boundaries =
 				modeling::get_extended_bounding_box(local_boundaries.first, 
-											local_boundaries.second, 1.2f);
-
-			MeshData<MESH>& md = mesh_provider_->mesh_data(object);
-
-			std::tuple<Vec3, Vec3, Vec3> extended_object_bounding_box =
-				modeling::get_extended_bounding_box(md.bb_min_, 
-													md.bb_max_, 1.2);
+											local_boundaries.second, 1.1f);
 
 			cdt->create_space_tool(l_cage, l_cage_vertex_position.get(), 
 									std::get<0>(extended_boundaries),
 									std::get<1>(extended_boundaries), 
-									center, normal,
-									std::get<0>(extended_object_bounding_box),
-									std::get<1>(extended_object_bounding_box));
+									main_directions);
 
 			mesh_provider_->emit_connectivity_changed(*l_cage);
 			mesh_provider_->emit_attribute_changed(*l_cage, 
@@ -1720,8 +1716,10 @@ protected:
 									model_p.vertex_position_, control_set);
 
 						model_p.selected_vertices_set_->clear();
+						
 						mesh_provider_->emit_cells_set_changed(*model_, 
 											model_p.selected_vertices_set_);
+					
 					}
 
 					model_p.object_update_ = false;
