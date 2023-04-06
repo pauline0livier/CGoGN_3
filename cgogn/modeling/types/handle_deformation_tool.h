@@ -60,7 +60,7 @@ class HandleDeformationTool
 public:
 
 	Graph* control_handle_;
-	Eigen::VectorXd attenuation_;
+	Eigen::VectorXd object_weights_;
 
 	std::shared_ptr<Graph::Attribute<Vec3>> 
 									control_handle_vertex_position_;
@@ -142,6 +142,7 @@ public:
 	void update_handle_position_variable()
 	{
 		handle_position_ = get_handle_position(); 
+		start_position_ = get_handle_position(); 
 	}
 
 	/// @brief 
@@ -166,8 +167,8 @@ public:
 	{
 		uint32 nbv_object = nb_cells<MeshVertex>(object);
 
-		attenuation_.resize(nbv_object);
-		attenuation_.setZero();
+		object_weights_.resize(nbv_object);
+		object_weights_.setZero();
 
 		if (deformation_type_ == "Spike")
 		{
@@ -186,7 +187,7 @@ public:
 	void bind_object(MESH& object, 
 					const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
 	{
-		attenuation_.setZero();
+		object_weights_.setZero();
 
 		if (deformation_type_ == "Spike")
 		{
@@ -220,7 +221,7 @@ public:
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
 			value<Vec3>(object, object_vertex_position, v) 
-									+= attenuation_[vidx] * new_deformation;
+									+= object_weights_[vidx] * new_deformation;
 		}
 	}
 
@@ -296,7 +297,7 @@ private:
 				max_dist = i_dist;
 			}
 
-			attenuation_(surface_point_idx) = i_dist;
+			object_weights_(surface_point_idx) = i_dist;
 			
 		}
 
@@ -306,9 +307,9 @@ private:
 			uint32 surface_point_idx = 
 					value<uint32>(object, object_vertex_index, v);
 
-			attenuation_[surface_point_idx] = 
-						exp(-(attenuation_[surface_point_idx]*
-				attenuation_[surface_point_idx]) / (max_dist*max_dist));
+			object_weights_[surface_point_idx] = 
+						exp(-(object_weights_[surface_point_idx]*
+				object_weights_[surface_point_idx]) / (max_dist*max_dist));
 			
 		}
 	}
@@ -351,7 +352,7 @@ private:
 				max_dist = i_dist;
 			}
 
-			attenuation_(surface_point_idx) = i_dist;
+			object_weights_(surface_point_idx) = i_dist;
 			
 		}
 
@@ -360,8 +361,8 @@ private:
 			MeshVertex v = this->object_influence_area_[i]; 
 			uint32 surface_point_idx = 
 					value<uint32>(object, object_vertex_index, v);
-			attenuation_[surface_point_idx] = 
-					exp(-sqrt(attenuation_[surface_point_idx]/max_dist)); 
+			object_weights_[surface_point_idx] = 
+					exp(-sqrt(object_weights_[surface_point_idx]/max_dist)); 
 			
 		}
 	}

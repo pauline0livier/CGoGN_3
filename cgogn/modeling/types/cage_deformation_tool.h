@@ -111,10 +111,9 @@ class CageDeformationTool
 	 * Each local_direction_control_planes is specific to a direction
 	 * line equation a*x + b*y + c*z = d
 	 * d_min and d_max for the extrema heights 
-	 * d_gap = d_max - d_min, gap between the extrema values
 	 * triangles_d_min and triangles_d_max represent the square faces 
-	 * shift_after_d_max = (d_gap)*direction, 
-	 * shift_before_d_min = (- d_gap) *direction
+	 * shift_after_d_max, translation  
+	 * shift_before_d_min, translation 
 	 * 	that is the position of the next virtual cube planes along this direction
 	*/
 	struct Local_direction_control_planes
@@ -142,12 +141,10 @@ public:
 
 	Eigen::VectorXd attenuation_;
 
-	MESH* influence_cage_;
-
 	MatrixWeights object_weights_;
 	Eigen::VectorXi activation_cage_;  
 
-	std::vector<Vertex> object_influence_area_;
+	//std::vector<Vertex> object_influence_area_;
 
 	std::string deformation_type_;
 
@@ -174,7 +171,9 @@ public:
 	void create_space_tool(MESH* m, 
 					CMap2::Attribute<Vec3>* m_vertex_position, 
 					const Vec3& bb_min, const Vec3& bb_max,
-					const Vec3& center, const Vec3& normal)
+					const Vec3& center, const Vec3& normal, 
+					const Vec3& object_bb_min, 
+					const Vec3& object_bb_max)
 	{
 		control_cage_ = m;
 		cgogn::modeling::create_bounding_box(*m, m_vertex_position, 
@@ -197,7 +196,7 @@ public:
 
 		set_start_positions(); 
 
-		init_control_cage_plane();
+		init_control_cage_plane(object_bb_min, object_bb_max);
 
 		init_virtual_cubes();
 	}
@@ -222,50 +221,6 @@ public:
 		});
 	}
 
-	/// @brief set influence cage and object influence area 
-	/// so far default influence area in the influence cage 
-	/// defined as 3X the size of the control cage 
-	/// @param object model to deform 
-	/// @param object_vertex_position position of the vertices of the model
-	/// @param m default mesh for the influence cage 
-	/// @param m_vertex_position position of the vertices of the mesh 
-	void set_influence_cage(MESH& object, 
-				const CMap2::Attribute<Vec3>* object_vertex_position, 
-							MESH* m,
-							CMap2::Attribute<Vec3>* m_vertex_position)
-	{
-		influence_cage_ = m;
-
-		std::tuple<Vec3, Vec3, Vec3> res_extended_bounding_box =
-			cgogn::modeling::get_extended_bounding_box(control_cage_bb_min_, 
-													control_cage_bb_max_, 
-													10.0);
-
-		influence_cage_bb_min_ = std::get<0>(res_extended_bounding_box);
-		influence_cage_bb_max_ = std::get<1>(res_extended_bounding_box);
-
-		cgogn::modeling::create_bounding_box(*m, m_vertex_position, 
-							influence_cage_bb_min_, influence_cage_bb_max_);
-
-		influence_cage_vertex_position_ = 
-						cgogn::get_attribute<Vec3, Vertex>(*m, "position");
-
-		foreach_cell(object, [&](Vertex v) -> bool {
-			const Vec3& surface_point = value<Vec3>(object, 
-												object_vertex_position, v);
-
-			bool inside_cage = 
-							check_point_inside_influence_cage(surface_point);
-
-			if (inside_cage)
-			{
-				object_influence_area_.push_back(v);
-			}
-
-			return true;
-		});
-	}
-
 	/// @brief set the center of the control cage 
 	/// @param center 
 	void set_center_control_cage(Vec3& center)
@@ -273,8 +228,8 @@ public:
 		control_cage_center_ = center;
 	}
 
-	/// @brief update influence cage after local cage deformation
-	void update_influence_cage()
+	/// @brief update virtual cages after local cage deformation
+	void update_virtual_cages()
 	{
 		for (size_t c = 0; c < virtual_cubes_.size(); c++){
 			for (size_t p = 0; p < virtual_cubes_[c].points.size(); p++){
@@ -467,7 +422,7 @@ private:
 	/// delimit the control cage area in terms of planes
 	/// Plane of equation ax + by + cz = d
 	/// Create the three local direction control planes 
-	void init_control_cage_plane()
+	void init_control_cage_plane(const Vec3& object_bb_min, const Vec3& object_bb_max)
 	{
 		const Vec3 x_dir = {1.0, 0.0, 0.0}, 
 		y_dir = {0.0, 1.0, 0.0}, 
@@ -1321,7 +1276,7 @@ private:
 		}
 	}
 
-	/// @brief bind influence area of object with MVC deformation type
+	/// @brief bind object with MVC deformation type
 	/// loop on each point of the influence area 
 	/// check if point inside control cage => classical MVC binding 
 	/// otherwise: find corresponding virtual cube, compute MVC inside it
@@ -1332,12 +1287,8 @@ private:
 			const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
 			const std::shared_ptr<Attribute<uint32>>& object_vertex_index)
 	{
-		const std::size_t influence_area_length = 
-											object_influence_area_.size();
+		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 
-		for (std::size_t i = 0; i < influence_area_length; i++)
-		{
-			Vertex v = object_influence_area_[i];
 			const Vec3& surface_point = 
 							value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_index = 
@@ -1381,7 +1332,8 @@ private:
 												surface_point_index, 
 												virtual_cube_target);
 			}
-		}
+			return true; 
+		}); 
 	}
 
 	/// @brief deform the influence area of the object with MVC deformation type
@@ -1393,15 +1345,16 @@ private:
 						CMap2::Attribute<Vec3>* object_vertex_position,
 						CMap2::Attribute<uint32>* object_vertex_index)
 	{
-		const std::size_t influence_area_length = 
+		/*const std::size_t influence_area_length = 
 											object_influence_area_.size();
 
 		for (std::size_t i = 0; i < influence_area_length; i++)
 		{
-			Vertex v = object_influence_area_[i];
+			Vertex v = object_influence_area_[i];*/
+
+		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			uint32 object_point_index = 
 							value<uint32>(object, object_vertex_index, v);
-
 			
 			if (activation_cage_[object_point_index] == 27)
 			{
@@ -1442,8 +1395,8 @@ private:
 			 
 			}
 
-			
-		}
+			return true; 
+		}); 
 	}
 
 	/// @brief compute MVC on point inside the cage 
@@ -1737,12 +1690,8 @@ private:
 			const std::shared_ptr<Attribute<Vec3>>& object_vertex_position,
 			const std::shared_ptr<Attribute<uint32>>& object_vertex_index)
 	{
-		const std::size_t influence_area_length = 
-											object_influence_area_.size();
-
-		for (std::size_t i = 0; i < influence_area_length; i++)
-		{
-			Vertex v = object_influence_area_[i];
+		
+		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			const Vec3& surface_point = 
 							value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_index = 
@@ -1786,7 +1735,8 @@ private:
 												surface_point_index, 
 												virtual_cube_target);
 			}
-		}
+			return true;
+		}); 
 	}
 
 	/// @brief deform the influence area of the object with Green deformation type
@@ -1798,12 +1748,13 @@ private:
 						CMap2::Attribute<Vec3>* object_vertex_position,
 						CMap2::Attribute<uint32>* object_vertex_index)
 	{
-		const std::size_t influence_area_length = 
+		/*const std::size_t influence_area_length = 
 											object_influence_area_.size();
 
 		for (std::size_t i = 0; i < influence_area_length; i++)
 		{
-			Vertex v = object_influence_area_[i];
+			Vertex v = object_influence_area_[i];*/
+		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			uint32 object_point_index = 
 							value<uint32>(object, object_vertex_index, v);
 
@@ -1918,8 +1869,8 @@ private:
 			 
 			}
 
-			
-		}
+			return true; 
+		}); 
 	}
 
 

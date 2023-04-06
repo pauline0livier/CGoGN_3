@@ -63,7 +63,7 @@ public:
 
 	Graph* control_axis_;
 
-	Eigen::SparseMatrix<double, Eigen::RowMajor> axis_weights_; 
+	Eigen::SparseMatrix<double, Eigen::RowMajor> object_weights_; 
 
 	std::shared_ptr<Graph::Attribute<Vec3>> control_axis_vertex_position_;
 	std::shared_ptr<boost::synapse::connection> 
@@ -187,7 +187,7 @@ public:
 		uint32 nbv_object = nb_cells<MeshVertex>(object);
 
 		uint32 nb_bones = axis_skeleton_.size() +1;
-		axis_weights_ = Eigen::SparseMatrix<double, Eigen::RowMajor>(nbv_object, nb_bones); 
+		object_weights_ = Eigen::SparseMatrix<double, Eigen::RowMajor>(nbv_object, nb_bones); 
 
 		bind_object_rigid(object, object_vertex_position);
 	}
@@ -199,7 +199,7 @@ public:
 	void bind_object(MESH& object, 
 				const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
 	{
-		axis_weights_.setZero(); 
+		object_weights_.setZero(); 
 
 		bind_object_rigid(object, object_vertex_position);
 	}
@@ -230,7 +230,7 @@ public:
  
 				Vec3 local_transformation = axis_transformation_[t]*v_position; 
 
-				new_position += axis_weights_.coeff(v_index, t)*
+				new_position += object_weights_.coeff(v_index, t)*
 											local_transformation;
 
 			}
@@ -283,7 +283,7 @@ private:
 			uint32 surface_point_index = 
 							value<uint32>(object, object_vertex_index, v);
 
-			axis_weights_.row(surface_point_index) = 
+			object_weights_.row(surface_point_index) = 
 				cgogn::modeling::weight_partial_skeleton(inside_axis_position_, 
 												surface_point);
 		

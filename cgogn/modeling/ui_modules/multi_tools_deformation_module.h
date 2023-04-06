@@ -630,10 +630,18 @@ private:
 				modeling::get_extended_bounding_box(local_boundaries.first, 
 											local_boundaries.second, 1.2f);
 
+			MeshData<MESH>& md = mesh_provider_->mesh_data(object);
+
+			std::tuple<Vec3, Vec3, Vec3> extended_object_bounding_box =
+				modeling::get_extended_bounding_box(md.bb_min_, 
+													md.bb_max_, 1.2);
+
 			cdt->create_space_tool(l_cage, l_cage_vertex_position.get(), 
 									std::get<0>(extended_boundaries),
 									std::get<1>(extended_boundaries), 
-									center, normal);
+									center, normal,
+									std::get<0>(extended_object_bounding_box),
+									std::get<1>(extended_object_bounding_box));
 
 			mesh_provider_->emit_connectivity_changed(*l_cage);
 			mesh_provider_->emit_attribute_changed(*l_cage, 
@@ -876,9 +884,6 @@ private:
 
 		set_vertex_position(*i_cage, i_cage_vertex_position);
 
-		cdt->set_influence_cage(object, object_vertex_position.get(), 
-									i_cage, i_cage_vertex_position.get());
-
 		mesh_provider_->emit_connectivity_changed(*i_cage);
 		mesh_provider_->emit_attribute_changed(*i_cage, 
 												i_cage_vertex_position.get());
@@ -904,7 +909,7 @@ private:
 						get_attribute<uint32, MeshVertex>(object, 
 														"vertex_index");
 
-						current_cdt->update_influence_cage(); 
+						current_cdt->update_virtual_cages(); 
 						
 						current_cdt->deform_object(object, 
 											object_vertex_position.get(), 
@@ -1039,7 +1044,7 @@ private:
 											*global_cage, 
 											gcdt->global_cage_vertex_position_.get());
 
-				
+										// check if init bind object has been called first 
 										gcdt->bind_object(object, 
 												object_vertex_position.get(),
 												object_vertex_index.get());
