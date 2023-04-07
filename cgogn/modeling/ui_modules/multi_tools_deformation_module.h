@@ -1060,6 +1060,26 @@ private:
 							mesh_provider_->emit_attribute_changed(object, 
 											object_vertex_position.get()); 
 
+							if (cage_container_.size() > 0)
+							{
+								for (auto& [name, cdt] : cage_container_)
+								{
+									std::shared_ptr<modeling::CageDeformationTool<MESH>> cdt =
+									cage_container_[name];
+
+									int cage_index = cdt->local_handle_data[name].cage_index_;
+
+									if (cage_index == 27){
+										// check if outside the cage 
+
+										cdt->update_virtual_cages(); 
+									} else {
+										// check if outside virtual cage 
+									}
+								}
+
+							}
+							
 							md.update_bb();
 							std::tuple<Vec3, Vec3, Vec3> 
 							extended_bounding_box =
