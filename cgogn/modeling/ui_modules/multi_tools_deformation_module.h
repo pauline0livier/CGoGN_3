@@ -1763,6 +1763,7 @@ protected:
 									old_p.selected_vertices_set_ = nullptr;
 								}
 								selected_cage_ = &m;
+								mesh_provider_->mesh_data(m).outlined_until_ = App::frame_time_ + 1.0;
 							});
 
 						if (selected_cage_)
