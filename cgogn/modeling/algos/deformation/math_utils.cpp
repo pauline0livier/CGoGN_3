@@ -349,6 +349,202 @@ float projection_on_segment(const Vec3& A, const Vec3& B, const Vec3& P){
 	return AB.dot(AP) / AB.squaredNorm(); 
 }
 
+/// @brief get projection of point on direction 
+/// @param point 
+/// @param direction 
+/// @return dot product of point and direction 
+double get_projection_on_direction(const Vec3& point, const Vec3& direction)
+{
+	return point.dot(direction); 
+}
+
+/// @brief check if target projection is inside delimited area
+/// @param projection_value 
+/// @param min_border 
+/// @param max_border 
+/// @return true if inside or on the borders of area, false otherwise 
+bool check_projection_in_area(const double& projection_value, const double& min_border, const double& max_border)
+{
+	return (projection_value >= min_border && projection_value <= max_border); 
+}
+
+/// @brief get index of virtual cube 
+/// cubes already assigned an index 
+/// @param projection_values 
+/// @param valid_values 
+/// @param max_area_values 
+/// @return 
+size_t get_index_virtual_cube(const std::vector<double> projection_values, const std::vector<bool> valid_values, const std::vector<double> max_area_values)
+{
+	if (valid_values[0])
+		{
+			if (valid_values[1])
+			{
+				if (projection_values[2] > max_area_values[2])
+				{
+					return 5;
+				}
+				else
+				{
+					return 4;
+				}
+			}
+			else if (valid_values[2])
+			{
+				if (projection_values[1] > max_area_values[1])
+				{
+					return 3;
+				}
+				else
+				{
+					return 2;
+				}
+			}
+			else
+			{
+				if (projection_values[1] > max_area_values[1])
+				{
+					if (projection_values[2] > max_area_values[2])
+					{
+						return 17;
+					}
+					else
+					{
+						return 15;
+					}
+				}
+				else
+				{
+					if (projection_values[2] > max_area_values[2])
+					{
+						return 16;
+					}
+					else
+					{
+						return 14;
+					}
+				}
+			}
+		}
+		else if (valid_values[1])
+		{
+			if (valid_values[2])
+			{
+				if (projection_values[0] > max_area_values[0])
+				{
+					return 1;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+			else
+			{
+				if (projection_values[0] > max_area_values[0])
+				{
+					if (projection_values[2] > max_area_values[2])
+					{
+						return 9;
+					}
+					else
+					{
+						return 7;
+					}
+				}
+				else
+				{
+					if (projection_values[2] > max_area_values[2])
+					{
+						return 8;
+					}
+					else
+					{
+						return 6;
+					}
+				}
+			}
+		}
+		else if (valid_values[2])
+		{
+			if (projection_values[1] > max_area_values[1])
+			{
+				if (projection_values[0] > max_area_values[0])
+				{
+					return 13;
+				}
+				else
+				{
+					return 11;
+				}
+			}
+			else
+			{
+				if (projection_values[0] > max_area_values[0])
+				{
+					return 12;
+				}
+				else
+				{
+					return 10;
+				}
+			}
+		}
+		else
+		{
+			if (projection_values[0] > max_area_values[0])
+			{
+				if (projection_values[1] > max_area_values[1])
+				{
+					if (projection_values[2] > max_area_values[2])
+					{
+						return 25;
+					}
+					else
+					{
+						return 23;
+					}
+				}
+				else
+				{
+					if (projection_values[2] > max_area_values[2])
+					{
+						return 21;
+					}
+					else
+					{
+						return 19;
+					}
+				}
+			}
+			else
+			{
+				if (projection_values[1] > max_area_values[1])
+				{
+					if (projection_values[2] > max_area_values[2])
+					{
+						return 24;
+					}
+					else
+					{
+						return 22;
+					}
+				}
+				else
+				{
+					if (projection_values[2] > max_area_values[2])
+					{
+						return 20;
+					}
+					else
+					{
+						return 18;
+					}
+				}
+			}
+		}
+}
+
 } // namespace modeling
 
 } // namespace cgogn

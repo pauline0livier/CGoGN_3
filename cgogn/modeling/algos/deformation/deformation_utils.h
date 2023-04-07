@@ -80,8 +80,7 @@ std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A,
 /// @param axis_positions array of Vector3
 /// @param target_point point on the model to deform 
 /// @return weights of the target point relative to the partial skeleton
-Eigen::SparseVector<double> weight_partial_skeleton(const std::vector<Vec3> axis_positions,
-									 const Vec3& target_point); 
+Eigen::SparseVector<double> weight_partial_skeleton(const std::vector<Vec3> axis_positions, const Vec3& target_point);
 
 } // namespace modeling
 

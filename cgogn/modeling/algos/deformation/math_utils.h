@@ -120,6 +120,21 @@ CMap2::Vertex closest_vertex_in_set_from_value(const CMap2& m,
 float projection_on_segment(const Vec3& A, const Vec3& B, const Vec3& P); 
 
 
+/**
+ * projection of point on direction 
+*/
+double get_projection_on_direction(const Vec3& point, const Vec3& direction); 
+
+/**
+ * check if target projection is inside the delimited area
+*/
+bool check_projection_in_area(const double& projection_value, const double& min_border, const double& max_border); 
+
+/**
+ * get index of virtual cube that contains the target point  
+*/
+size_t get_index_virtual_cube(const std::vector<double> projection_values, const std::vector<bool> valid_values, const std::vector<double> max_area_values); 
+
 } // namespace modeling
 
 } // namespace cgogn

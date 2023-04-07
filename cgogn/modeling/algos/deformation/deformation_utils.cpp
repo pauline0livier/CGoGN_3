@@ -341,6 +341,8 @@ Eigen::SparseVector<double> weight_partial_skeleton(const std::vector<Vec3> axis
 	return weights; 
 }
 
+
+
 } // namespace modeling
 
 } // namespace cgogn

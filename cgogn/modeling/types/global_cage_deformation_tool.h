@@ -645,8 +645,11 @@ private:
 			const uint32& surface_point_index = 
 							value<uint32>(object, object_vertex_index, v);
 
+			Eigen::VectorXd local_row_weights; 
 			compute_mvc_coordinates_on_point(surface_point, 
-														surface_point_index);
+														local_row_weights);
+			
+			object_weights_.position_.row(surface_point_index) = local_row_weights;
 
 			return true;
 		});
@@ -669,8 +672,11 @@ private:
 			uint32 surface_point_index = value<uint32>(object, 
 													object_vertex_index, v);
 
+			Eigen::VectorXd local_row_weights; 
 			compute_mvc_coordinates_on_point(surface_point, 
-													surface_point_index);
+													local_row_weights);
+			
+			object_weights_.position_.row(surface_point_index) = local_row_weights;
 		});
 	}
 
@@ -823,14 +829,23 @@ private:
 		});
 	}
 
-	/// @brief bind handle with MVC deformation type
+	/// @brief bind handle MVC deformation type
+	/// @param graph_name handle name 
+	/// @param handle_position position of  handle vertex 
 	void bind_handle_mvc(const std::string& graph_name, 
 						const Vec3& handle_position){
 
-		compute_mvc_coordinates_on_handle(graph_name, handle_position);								
+		Eigen::VectorXd local_row_weights; 
+
+		compute_mvc_coordinates_on_point(handle_position, local_row_weights); 
+
+		local_handle_weights_[graph_name]
+				.position_ = local_row_weights; 							
 	}
 
-	/// @brief bind handle with Green deformation type
+	/// @brief bind handle Green deformation type
+	/// @param graph_name handle name 
+	/// @param handle_position position of handle vertex 
 	void bind_handle_green(const std::string& graph_name, 
 												const Vec3& handle_position){
 
@@ -941,8 +956,11 @@ private:
 												graph_vertex_position, v);
 			const uint32 axis_point_index = v.index_;
 
-			compute_mvc_coordinates_on_axis_point(graph_name, 
-											axis_point, axis_point_index);
+			Eigen::VectorXd local_row_weights; 
+			compute_mvc_coordinates_on_point(axis_point, local_row_weights);
+
+			local_axis_weights_[graph_name]
+				.position_.row(axis_point_index) = local_row_weights; 
 		} 
 	}
 
@@ -1095,8 +1113,11 @@ private:
 			const uint32& local_cage_point_index = 
 					value<uint32>(local_cage, local_cage_vertex_index, v);
 
-			compute_mvc_coordinates_on_local_cage_point(cage_name, 
-								local_cage_point, local_cage_point_index);
+			Eigen::VectorXd local_row_weights; 
+			compute_mvc_coordinates_on_local_cage_point(local_cage_point, local_row_weights);
+
+			local_cage_weights_[cage_name]
+				.position_.row(local_cage_point_index) = local_row_weights; 		 			
 
 			return true;
 		});
@@ -1241,13 +1262,15 @@ private:
 	/// state-of-the-art method 
 	/// [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
 	/// @param surface_point 
-	/// @param surface_point_index 
+	/// @param result_weights  
 	/// @return boolean 
 	bool compute_mvc_coordinates_on_point(const Vec3& surface_point, 
-										const uint32& surface_point_index)
+										Eigen::VectorXd& result_weights)
 	{
 
 		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
+
+		result_weights.resize(nbv_cage); 
 
 		double epsilon = 0.00000001;
 		double sumWeights = 0.0;
@@ -1270,8 +1293,7 @@ private:
 			d[cage_point_index] = (surface_point - cage_point).norm();
 			if (d[cage_point_index] < epsilon)
 			{
-				object_weights_
-					.position_(surface_point_index, cage_point_index) = 1.0;
+				result_weights[cage_point_index] = 1.0;
 				return true;
 			}
 
@@ -1366,431 +1388,8 @@ private:
 			uint32 cage_point_index = value<uint32>(*global_cage_, 
 											global_cage_vertex_index_, v);
 
-			object_weights_.position_(surface_point_index, cage_point_index) =
+			result_weights[cage_point_index] =
 				w_global_cage_weights_[cage_point_index] / sumWeights;
-
-			return true;
-		});
-
-		return false;
-	}
-
-	/// @brief compute MVC coordinate on the handle 
-	/// state-of-the-art method 
-	/// [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
-	/// @param graph_name handle name 
-	/// @param handle_point handle position 
-	/// @return boolean 
-	bool compute_mvc_coordinates_on_handle(const std::string& graph_name, 
-											const Vec3& handle_point)
-	{
-
-		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
-
-		double epsilon = 0.00000001;
-		double sumWeights = 0.0;
-
-		Eigen::VectorXd w_global_cage_weights_;
-
-		w_global_cage_weights_.resize(nbv_cage);
-		w_global_cage_weights_.setZero();
-
-		std::vector<double> d(nbv_cage);
-		std::vector<Vec3> u(nbv_cage);
-
-		parallel_foreach_cell(*global_cage_, [&](Vertex v) -> bool {
-			const Vec3& cage_point = value<Vec3>(*global_cage_, 
-										global_cage_vertex_position_, v);
-
-			uint32 cage_point_idx = value<uint32>(*global_cage_, 
-											global_cage_vertex_index_, v);
-
-			d[cage_point_idx] = (handle_point - cage_point).norm();
-			if (d[cage_point_idx] < epsilon)
-			{
-				local_handle_weights_[graph_name]
-									.position_[cage_point_idx] = 1.0;
-				return true;
-			}
-
-			u[cage_point_idx] = 
-						(cage_point - handle_point) / d[cage_point_idx];
-
-			return true;
-		});
-
-		double l[3], theta[3], w[3], c[3], s[3];
-
-		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
-		{
-			std::vector<uint32> triangle_index = 
-											cage_triangles_[t].indices_; 
-
-			for (std::size_t i = 0; i < 3; i++)
-			{
-				l[i] = 
-					(u[triangle_index[(i + 1) % 3]] 
-					- u[triangle_index[(i + 2) % 3]])
-					.norm();
-			}
-
-			for (std::size_t i = 0; i < 3; i++)
-			{
-				theta[i] = 2.0 * asin(l[i] / 2.0);
-			}
-
-			double h = (theta[0] + theta[1] + theta[2]) / 2.0;
-			if (M_PI - h < epsilon)
-			{
-				for (std::size_t i = 0; i < 3; i++)
-				{
-					w[i] = 
-						sin(theta[i]) * l[(i + 2) % 3] * l[(i + 1) % 3];
-				}
-
-				sumWeights = w[0] + w[1] + w[2];
-				w_global_cage_weights_[triangle_index[0]] = w[0] / sumWeights;
-				w_global_cage_weights_[triangle_index[1]] = w[1] / sumWeights;
-				w_global_cage_weights_[triangle_index[2]] = w[2] / sumWeights;
-
-				return true;
-			}
-
-			for (std::size_t i = 0; i < 3; i++)
-			{
-				c[i] = (2.0 * sin(h) * sin(h - theta[i])) / (sin(theta[(i + 1) % 3]) * sin(theta[(i + 2) % 3])) - 1.0;
-			}
-
-			double sign_Basis_u0u1u2 = 1;
-			Vec3 crossVec = 
-				u[triangle_index[0]].cross(u[triangle_index[1]]);
-
-			if (crossVec.dot(u[triangle_index[2]]) < 0.0)
-			{
-				sign_Basis_u0u1u2 = -1;
-			}
-
-			for (std::size_t i = 0; i < 3; i++)
-			{
-				s[i] = sign_Basis_u0u1u2 * 
-					sqrt(std::max<double>(0.0, 1.0 - c[i] * c[i]));
-			}
-
-			if (fabs(s[0]) < epsilon || fabs(s[1]) < epsilon || 
-										fabs(s[2]) < epsilon)
-			{
-				continue; 
-			}
-
-			for (std::size_t i = 0; i < 3; ++i)
-			{
-				w[i] = 
-					(theta[i] - c[(i + 1) % 3] * theta[(i + 2) % 3] 
-						- c[(i + 2) % 3] * theta[(i + 1) % 3]) /
-					(2.0 * d[triangle_index[i]] * sin(theta[(i + 1) % 3]) 
-					* s[(i + 2) % 3]);
-			}
-
-			sumWeights += (w[0] + w[1] + w[2]);
-			w_global_cage_weights_[triangle_index[0]] += w[0];
-			w_global_cage_weights_[triangle_index[1]] += w[1];
-			w_global_cage_weights_[triangle_index[2]] += w[2];
-		}
-
-		parallel_foreach_cell(*global_cage_, [&](Vertex v) -> bool {
-			uint32 cage_point_index = value<uint32>(*global_cage_, 
-											global_cage_vertex_index_, v);
-
-			local_handle_weights_[graph_name]
-				.position_[cage_point_index] = 
-					w_global_cage_weights_[cage_point_index] / sumWeights;
-
-			return true;
-		});
-
-		return false;
-	}
-
-	/// @brief compute MVC coordinates on a point of the axis
-	/// state-of-the-art method 
-	/// [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
-	/// @param graph_name axis name 
-	/// @param axis_point position of the target point on the axis
-	/// @param axis_point_index index of the target point on the axis 
-	/// @return boolean 
-	bool compute_mvc_coordinates_on_axis_point(const std::string& graph_name, 
-										const Vec3& axis_point, 
-										const uint32& axis_point_index)
-	{
-		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
-
-		double epsilon = 0.00000001;
-		double sumWeights = 0.0;
-
-		Eigen::VectorXd w_global_cage_weights_;
-
-		w_global_cage_weights_.resize(nbv_cage);
-		w_global_cage_weights_.setZero();
-
-		std::vector<double> d(nbv_cage);
-		std::vector<Vec3> u(nbv_cage);
-
-		parallel_foreach_cell(*global_cage_, [&](Vertex v) -> bool {
-			const Vec3& cage_point = value<Vec3>(*global_cage_, 
-											global_cage_vertex_position_, v);
-
-			uint32 cage_point_index = value<uint32>(*global_cage_, 
-											global_cage_vertex_index_, v);
-
-			d[cage_point_index] = (axis_point - cage_point).norm();
-			if (d[cage_point_index] < epsilon)
-			{
-				local_axis_weights_[graph_name]
-					.position_(axis_point_index, cage_point_index) = 1.0;
-				return true;
-			}
-
-			u[cage_point_index] = 
-				(cage_point - axis_point) / d[cage_point_index];
-
-			return true;
-		});
-
-		double l[3], theta[3], w[3], c[3], s[3];
-
-		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
-		{
-
-			std::vector<uint32> triangle_index = 
-											cage_triangles_[t].indices_; 
-
-			for (std::size_t i = 0; i < 3; i++)
-			{
-				l[i] = 
-					(u[triangle_index[(i + 1) % 3]] 
-					- u[triangle_index[(i + 2) % 3]])
-					.norm();
-			}
-
-			for (std::size_t i = 0; i < 3; i++)
-			{
-				theta[i] = 2.0 * asin(l[i] / 2.0);
-			}
-
-			double h = (theta[0] + theta[1] + theta[2]) / 2.0;
-			if (M_PI - h < epsilon)
-			{
-				for (std::size_t i = 0; i < 3; i++)
-				{
-					w[i] = 
-						sin(theta[i]) * l[(i + 2) % 3] * l[(i + 1) % 3];
-				}
-
-				sumWeights = w[0] + w[1] + w[2];
-				w_global_cage_weights_[triangle_index[0]] = w[0] / sumWeights;
-				w_global_cage_weights_[triangle_index[1]] = w[1] / sumWeights;
-				w_global_cage_weights_[triangle_index[2]] = w[2] / sumWeights;
-
-				return true;
-			}
-
-			for (std::size_t i = 0; i < 3; i++)
-			{
-				c[i] = 
-					(2.0 * sin(h) * sin(h - theta[i])) / 
-						(sin(theta[(i + 1) % 3]) * 
-					sin(theta[(i + 2) % 3])) 
-					- 1.0;
-			}
-
-			double sign_Basis_u0u1u2 = 1;
-			Vec3 crossVec = 
-				u[triangle_index[0]].cross(u[triangle_index[1]]);
-
-			if (crossVec.dot(u[triangle_index[2]]) < 0.0)
-			{
-				sign_Basis_u0u1u2 = -1;
-			}
-
-			for (std::size_t i = 0; i < 3; i++)
-			{
-				s[i] = sign_Basis_u0u1u2 * 
-					sqrt(std::max<double>(0.0, 1.0 - c[i] * c[i]));
-			}
-
-			if (fabs(s[0]) < epsilon || fabs(s[1]) < epsilon || 
-										fabs(s[2]) < epsilon)
-			{
-				continue; 
-			}
-
-			for (std::size_t i = 0; i < 3; ++i)
-			{
-				w[i] = (theta[i] - c[(i + 1) % 3] * 
-					theta[(i + 2) % 3] - c[(i + 2) % 3] * 
-						theta[(i + 1) % 3]) /
-					(2.0 * d[triangle_index[i]] * sin(theta[(i + 1) % 3]) *
-					 	s[(i + 2) % 3]);
-			}
-
-			sumWeights += (w[0] + w[1] + w[2]);
-			w_global_cage_weights_[triangle_index[0]] += w[0];
-			w_global_cage_weights_[triangle_index[1]] += w[1];
-			w_global_cage_weights_[triangle_index[2]] += w[2];
-		}
-
-		parallel_foreach_cell(*global_cage_, [&](Vertex v) -> bool {
-			uint32 cage_point_index = value<uint32>(*global_cage_, 
-											global_cage_vertex_index_, v);
-
-			local_axis_weights_[graph_name]
-				.position_(axis_point_index, cage_point_index) = 
-					w_global_cage_weights_[cage_point_index] / sumWeights;
-			return true;
-		});
-
-		return false;
-	}
-
-	/// @brief compute MVC coordinates on a point of the local cage
-	/// state-of-the-art method 
-	/// [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
-	/// @param graph_name cage name 
-	/// @param local_cage_point position of the target point on the cage
-	/// @param local_cage_point_index index of the target point on the cage 
-	/// @return boolean 
-	bool compute_mvc_coordinates_on_local_cage_point(
-				const std::string& cage_name, 
-				const Vec3& local_cage_point, 
-				const uint32& local_cage_point_index)
-	{
-
-		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
-
-		double epsilon = 0.00000001;
-		double sumWeights = 0.0;
-
-		Eigen::VectorXd w_global_cage_weights_;
-
-		w_global_cage_weights_.resize(nbv_cage);
-		w_global_cage_weights_.setZero();
-
-		std::vector<double> d(nbv_cage);
-		std::vector<Vec3> u(nbv_cage);
-
-		parallel_foreach_cell(*global_cage_, [&](Vertex v) -> bool {
-			const Vec3& cage_point = value<Vec3>(*global_cage_, 
-											global_cage_vertex_position_, v);
-
-			uint32 cage_point_index = value<uint32>(*global_cage_, 
-											global_cage_vertex_index_, v);
-
-			d[cage_point_index] = (local_cage_point - cage_point).norm();
-			if (d[cage_point_index] < epsilon)
-			{
-				local_cage_weights_[cage_name]
-					.position_(local_cage_point_index, cage_point_index) = 1.0;
-				return true;
-			}
-
-			u[cage_point_index] = 
-				(cage_point - local_cage_point) / d[cage_point_index];
-
-			return true;
-		});
-
-		double l[3];
-		double theta[3];
-		double w[3];
-		double c[3];
-		double s[3];
-
-		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
-		{
-
-			std::vector<uint32> triangle_index = 
-				cage_triangles_[t].indices_; 
-
-			for (std::size_t i = 0; i < 3; i++)
-			{
-				l[i] = 
-					(u[triangle_index[(i + 1) % 3]] 
-					- u[triangle_index[(i + 2) % 3]])
-					.norm();
-			}
-
-			for (std::size_t i = 0; i < 3; i++)
-			{
-				theta[i] = 2.0 * asin(l[i] / 2.0);
-			}
-
-			double h = (theta[0] + theta[1] + theta[2]) / 2.0;
-			if (M_PI - h < epsilon)
-			{
-				for (std::size_t i = 0; i < 3; i++)
-				{
-					w[i] = 
-						sin(theta[i]) * l[(i + 2) % 3] * l[(i + 1) % 3];
-				}
-
-				sumWeights = w[0] + w[1] + w[2];
-				w_global_cage_weights_[triangle_index[0]] = w[0] / sumWeights;
-				w_global_cage_weights_[triangle_index[1]] = w[1] / sumWeights;
-				w_global_cage_weights_[triangle_index[2]] = w[2] / sumWeights;
-
-				return true;
-			}
-
-			for (std::size_t i = 0; i < 3; i++)
-			{
-				c[i] = 
-					(2.0 * sin(h) * sin(h - theta[i])) / 
-						(sin(theta[(i + 1) % 3]) * sin(theta[(i + 2) % 3])) 
-					- 1.0;
-			}
-
-			double sign_Basis_u0u1u2 = 1;
-			Vec3 crossVec = 
-				u[triangle_index[0]].cross(u[triangle_index[1]]);
-
-			if (crossVec.dot(u[triangle_index[2]]) < 0.0)
-			{
-				sign_Basis_u0u1u2 = -1;
-			}
-
-			for (std::size_t i = 0; i < 3; i++)
-			{
-				s[i] = sign_Basis_u0u1u2 * sqrt(std::max<double>(0.0, 1.0 - c[i] * c[i]));
-			}
-
-			if (fabs(s[0]) < epsilon || fabs(s[1]) < epsilon || 
-										fabs(s[2]) < epsilon)
-			{
-				continue; 
-			}
-
-			for (std::size_t i = 0; i < 3; ++i)
-			{
-				w[i] = 
-					(theta[i] - c[(i + 1) % 3] * theta[(i + 2) % 3] 
-						- c[(i + 2) % 3] * theta[(i + 1) % 3]) /
-					(2.0 * d[triangle_index[i]] * sin(theta[(i + 1) % 3]) * 
-						s[(i + 2) % 3]);
-			}
-
-			sumWeights += (w[0] + w[1] + w[2]);
-			w_global_cage_weights_[triangle_index[0]] += w[0];
-			w_global_cage_weights_[triangle_index[1]] += w[1];
-			w_global_cage_weights_[triangle_index[2]] += w[2];
-		}
-
-		parallel_foreach_cell(*global_cage_, [&](Vertex v) -> bool {
-			uint32 cage_point_index = value<uint32>(*global_cage_, 
-											global_cage_vertex_index_, v);
-
-			local_cage_weights_[cage_name]
-				.position_(local_cage_point_index, cage_point_index) =
-					w_global_cage_weights_[cage_point_index] / sumWeights;
 
 			return true;
 		});

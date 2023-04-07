@@ -54,6 +54,15 @@ class CageDeformationTool
 	using Vertex = typename mesh_traits<MESH>::Vertex;
 	using Face = typename mesh_traits<MESH>::Face;
 
+	using Graph = IncidenceGraph;
+
+	template <typename T>
+	using GraphAttribute = typename mesh_traits<IncidenceGraph>::
+													template Attribute<T>;
+	using GraphVertex = IncidenceGraph::Vertex;
+	using GraphEdge = IncidenceGraph::Edge;
+	using GraphFace = IncidenceGraph::Face;
+
 	using Vec2 = geometry::Vec2;
 	using Vec3 = geometry::Vec3;
 
@@ -130,6 +139,12 @@ class CageDeformationTool
 		Vec3 shift_before_d_min;
 	};
 
+	struct Handle_data
+	{
+		VectorWeights weights_; 
+		Eigen::VectorXi cage_index_; 
+	}; 
+
 public:
 	MESH* control_cage_;
 	std::shared_ptr<Attribute<Vec3>> control_cage_vertex_position_;
@@ -142,9 +157,10 @@ public:
 	Eigen::VectorXd attenuation_;
 
 	MatrixWeights object_weights_;
-	Eigen::VectorXi activation_cage_;  
+	Eigen::VectorXi object_activation_cage_;  
 
-	//std::vector<Vertex> object_influence_area_;
+	std::unordered_map<std::string, Handle_data> local_handle_data_;
+	
 
 	std::string deformation_type_;
 
@@ -287,8 +303,8 @@ public:
 		object_weights_.position_.resize(nbv_object, nbv_cage);
 		object_weights_.position_.setZero();
 
-		activation_cage_.resize(nbv_object); 
-		activation_cage_.setZero(); 
+		object_activation_cage_.resize(nbv_object); 
+		object_activation_cage_.setZero(); 
 
 		if (deformation_type_ == "MVC")
 		{
@@ -341,6 +357,62 @@ public:
 			deform_object_green(object, object_vertex_position, 
 								object_vertex_index);
 		}
+	}
+
+	// @brief initialize binding for handle tool 
+	/// @param graph_name name of the handle 
+	/// @param handle_position position of the handle 
+	void init_bind_handle(const std::string& graph_name, 
+						const Vec3& handle_position)
+	{
+		uint32 nbv_cage = nb_cells<Vertex>(*control_cage_);
+
+		Handle_data handle_data; 
+
+		VectorWeights handle_weights; 
+		 
+		handle_weights.position_.resize(nbv_cage);
+		handle_weights.position_.setZero();
+
+		handle_data.weights_ = handle_weights; 
+
+		local_handle_data_[graph_name] = handle_data;
+
+		if (deformation_type_ == "MVC"){
+			bind_handle_mvc(graph_name, handle_position); 
+		}
+
+	}
+
+	/// @brief update binding for handle tool 
+	/// used when deformation type is changed
+	/// @param graph_name handle name 
+	/// @param handle_position handle position 
+	void bind_handle(const std::string& graph_name, 
+					const Vec3& handle_position)
+	{
+		local_handle_data_[graph_name].weights_.position_.setZero();
+
+		if (deformation_type_ == "MVC"){
+			bind_handle_mvc(graph_name, handle_position); 
+		}
+	}
+
+	/// @brief deform the handle 
+	/// @param g handle 
+	/// @param graph_name name of the handle  
+	/// @param graph_vertex_position position of the handle's vertex
+	/// @param handle_vertex handle vertex 
+	void deform_handle(Graph& g, const std::string& graph_name, 
+			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position, 
+					const GraphVertex& handle_vertex)
+	{
+		if (deformation_type_ == "MVC")
+		{
+			deform_handle_mvc(g, graph_name, graph_vertex_position, 
+								handle_vertex); 
+		}
+
 	}
 
 private:
@@ -1084,216 +1156,6 @@ private:
 		return new_virtual_cube;
 	}
 
-	/// @brief find the virtual cube that contains the target point
-	/// point defined by its height on the three axis
-	/// @param d_x target point height on the x-direction
-	/// @param d_y target point height on the y-direction
-	/// @param d_z d_z target point height on the z-direction
-	/// @param valid_x_dir target point inside the plane boundaries x-direction
-	/// @param valid_y_dir target point inside the plane boundaries y-direction
-	/// @param valid_z_dir target point inside the plane boundaries z-direction
-	/// @return 
-	Virtual_cube find_virtual_cube_target(const double& d_x, 
-									const double& d_y, const double& d_z, 
-									const bool& valid_x_dir, 
-									const bool& valid_y_dir, 
-									const bool& valid_z_dir, 
-									const uint32& surface_point_index)
-	{
-		if (valid_x_dir)
-		{
-			if (valid_y_dir)
-			{
-				if (d_z > local_z_direction_control_planes_.d_max)
-				{
-					activation_cage_[surface_point_index] = 5; 
-					return virtual_cubes_[5];
-				}
-				else
-				{
-					activation_cage_[surface_point_index] = 4;
-					return virtual_cubes_[4];
-				}
-			}
-			else if (valid_z_dir)
-			{
-				if (d_y > local_y_direction_control_planes_.d_max)
-				{
-					activation_cage_[surface_point_index] = 3;
-					return virtual_cubes_[3];
-				}
-				else
-				{
-					activation_cage_[surface_point_index] = 2;
-					return virtual_cubes_[2];
-				}
-			}
-			else
-			{
-				if (d_y > local_y_direction_control_planes_.d_max)
-				{
-					if (d_z > local_z_direction_control_planes_.d_max)
-					{
-						activation_cage_[surface_point_index] = 17;
-						return virtual_cubes_[17];
-					}
-					else
-					{
-						activation_cage_[surface_point_index] = 15;
-						return virtual_cubes_[15];
-					}
-				}
-				else
-				{
-					if (d_z > local_z_direction_control_planes_.d_max)
-					{
-						activation_cage_[surface_point_index] = 16;
-						return virtual_cubes_[16];
-					}
-					else
-					{
-						activation_cage_[surface_point_index] = 14;
-						return virtual_cubes_[14];
-					}
-				}
-			}
-		}
-		else if (valid_y_dir)
-		{
-			if (valid_z_dir)
-			{
-				if (d_x > local_x_direction_control_planes_.d_max)
-				{
-					activation_cage_[surface_point_index] = 1;
-					return virtual_cubes_[1];
-				}
-				else
-				{
-					activation_cage_[surface_point_index] = 0;
-					return virtual_cubes_[0];
-				}
-			}
-			else
-			{
-				if (d_x > local_x_direction_control_planes_.d_max)
-				{
-					if (d_z > local_z_direction_control_planes_.d_max)
-					{
-						activation_cage_[surface_point_index] = 9;
-						return virtual_cubes_[9];
-					}
-					else
-					{
-						activation_cage_[surface_point_index] = 7;
-						return virtual_cubes_[7];
-					}
-				}
-				else
-				{
-					if (d_z > local_z_direction_control_planes_.d_max)
-					{
-						activation_cage_[surface_point_index] = 8;
-						return virtual_cubes_[8];
-					}
-					else
-					{
-						activation_cage_[surface_point_index] = 6;
-						return virtual_cubes_[6];
-					}
-				}
-			}
-		}
-		else if (valid_z_dir)
-		{
-			if (d_y > local_y_direction_control_planes_.d_max)
-			{
-				if (d_x > local_x_direction_control_planes_.d_max)
-				{
-					activation_cage_[surface_point_index] = 13;
-					return virtual_cubes_[13];
-				}
-				else
-				{
-					activation_cage_[surface_point_index] = 11;
-					return virtual_cubes_[11];
-				}
-			}
-			else
-			{
-				if (d_x > local_x_direction_control_planes_.d_max)
-				{
-					activation_cage_[surface_point_index] = 12;
-					return virtual_cubes_[12];
-				}
-				else
-				{
-					activation_cage_[surface_point_index] = 10;
-					return virtual_cubes_[10];
-				}
-			}
-		}
-		else
-		{
-			if (d_x > local_x_direction_control_planes_.d_max)
-			{
-				if (d_y > local_y_direction_control_planes_.d_max)
-				{
-					if (d_z > local_z_direction_control_planes_.d_max)
-					{
-						activation_cage_[surface_point_index] = 25;
-						return virtual_cubes_[25];
-					}
-					else
-					{
-						activation_cage_[surface_point_index] = 23;
-						return virtual_cubes_[23];
-					}
-				}
-				else
-				{
-					if (d_z > local_z_direction_control_planes_.d_max)
-					{
-						activation_cage_[surface_point_index] = 21;
-						return virtual_cubes_[21];
-					}
-					else
-					{
-						activation_cage_[surface_point_index] = 19;
-						return virtual_cubes_[19];
-					}
-				}
-			}
-			else
-			{
-				if (d_y > local_y_direction_control_planes_.d_max)
-				{
-					if (d_z > local_z_direction_control_planes_.d_max)
-					{
-						activation_cage_[surface_point_index] = 24;
-						return virtual_cubes_[24];
-					}
-					else
-					{
-						activation_cage_[surface_point_index] = 22;
-						return virtual_cubes_[22];
-					}
-				}
-				else
-				{
-					if (d_z > local_z_direction_control_planes_.d_max)
-					{
-						activation_cage_[surface_point_index] = 20;
-						return virtual_cubes_[20];
-					}
-					else
-					{
-						activation_cage_[surface_point_index] = 18;
-						return virtual_cubes_[18];
-					}
-				}
-			}
-		}
-	}
 
 	/// @brief bind object with MVC deformation type
 	/// loop on each point of the influence area 
@@ -1308,48 +1170,60 @@ private:
 	{
 		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 
-			const Vec3& surface_point = 
+			const Vec3& surface_point_position = 
 							value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_index = 
 							value<uint32>(object, object_vertex_index, v);
 
-			const double d_x = surface_point
-							.dot(local_x_direction_control_planes_.direction),
-						 
-						d_y = surface_point
-							.dot(local_y_direction_control_planes_.direction),
-						
-						d_z = surface_point
-							.dot(local_z_direction_control_planes_.direction);
+			const double d_x = get_projection_on_direction(surface_point_position, local_x_direction_control_planes_.direction), 
+			
+			d_y = get_projection_on_direction(surface_point_position, local_y_direction_control_planes_.direction),
+		
+			d_z = get_projection_on_direction(surface_point_position, local_z_direction_control_planes_.direction); 
+					
 
-			const bool valid_x_dir = 
-						(d_x <= local_x_direction_control_planes_.d_max &&
-						d_x >= local_x_direction_control_planes_.d_min),
-
-					   valid_y_dir = 
-					   (d_y <= local_y_direction_control_planes_.d_max &&
-						d_y >= local_y_direction_control_planes_.d_min),
-
-					   valid_z_dir = 
-					   (d_z <= local_z_direction_control_planes_.d_max &&
-						d_z >= local_z_direction_control_planes_.d_min);
+			const bool valid_x_dir = check_projection_in_area(d_x, local_x_direction_control_planes_.d_min, local_x_direction_control_planes_.d_max), 
+					
+			valid_y_dir = check_projection_in_area(d_y, local_y_direction_control_planes_.d_min, local_y_direction_control_planes_.d_max), 
+					   
+			valid_z_dir = check_projection_in_area(d_z, local_z_direction_control_planes_.d_min, local_z_direction_control_planes_.d_max); 
 
 			if (valid_x_dir && valid_y_dir && valid_z_dir)
 			{
-				activation_cage_[surface_point_index] = 27; 
-				compute_mvc_on_point_inside_cage(surface_point, 
-												surface_point_index);
+				object_activation_cage_[surface_point_index] = 27; 
+				Eigen::VectorXd local_row_weights; 
+				compute_mvc_on_point_inside_cage(surface_point_position, 
+												local_row_weights);
+
+				object_weights_.position_.row(surface_point_index) = local_row_weights; 
 			}
 			else
 			{
-				Virtual_cube virtual_cube_target = 
-					find_virtual_cube_target(d_x, d_y, d_z, 
-									valid_x_dir, valid_y_dir, valid_z_dir,
-									surface_point_index);
+				std::vector<double> projection_values(3); 
+				projection_values[0] = d_x,
+				projection_values[1] = d_y,
+				projection_values[2] = d_z; 
+				std::vector<bool> valid_values(3); 
+				valid_values[0] = valid_x_dir, valid_values[1] = valid_y_dir, 
+				valid_values[2] = valid_z_dir; 
 
-				compute_mvc_on_point_outside_cage(surface_point, 
-												surface_point_index, 
+				std::vector<double> max_area(3); 
+				max_area[0] = local_x_direction_control_planes_.d_max,
+				max_area[1] = local_y_direction_control_planes_.d_max,
+				max_area[2] = local_z_direction_control_planes_.d_max; 
+
+				std::size_t virtual_cube_index = get_index_virtual_cube(projection_values, valid_values, max_area); 
+
+				object_activation_cage_[surface_point_index] = virtual_cube_index; 
+
+				Virtual_cube virtual_cube_target = virtual_cubes_[virtual_cube_index]; 
+
+				Eigen::VectorXd local_row_value; 
+				compute_mvc_on_point_outside_cage(surface_point_position, 
+												local_row_value, 
 												virtual_cube_target);
+
+				object_weights_.position_.row(surface_point_index) = local_row_value; 
 			}
 			return true; 
 		}); 
@@ -1375,7 +1249,7 @@ private:
 			uint32 object_point_index = 
 							value<uint32>(object, object_vertex_index, v);
 			
-			if (activation_cage_[object_point_index] == 27)
+			if (object_activation_cage_[object_point_index] == 27)
 			{
 				Vec3 new_position = {0.0, 0.0, 0.0};
 
@@ -1398,7 +1272,7 @@ private:
 			} else {
 				
 				Virtual_cube virtual_cube_target = 
-						virtual_cubes_[activation_cage_[object_point_index]];  
+						virtual_cubes_[object_activation_cage_[object_point_index]];  
 
 				Vec3 new_position = {0.0, 0.0, 0.0};
 				for (size_t p = 0; p < virtual_cube_target.points.size(); p++){
@@ -1418,16 +1292,89 @@ private:
 		}); 
 	}
 
+	// @brief bind handle with MVC deformation type
+	void bind_handle_mvc(const std::string& graph_name, 
+						const Vec3& handle_position){
+
+		const double d_x = get_projection_on_direction(handle_position, local_x_direction_control_planes_.direction), 
+			
+		d_y = get_projection_on_direction(handle_position, local_y_direction_control_planes_.direction),
+		
+			d_z = get_projection_on_direction(handle_position, local_z_direction_control_planes_.direction); 
+
+		const bool valid_x_dir = check_projection_in_area(d_x, local_x_direction_control_planes_.d_min, local_x_direction_control_planes_.d_max), 
+					
+			valid_y_dir = check_projection_in_area(d_y, local_y_direction_control_planes_.d_min, local_y_direction_control_planes_.d_max), 
+					   
+			valid_z_dir = check_projection_in_area(d_z, local_z_direction_control_planes_.d_min, local_z_direction_control_planes_.d_max); 
+
+		
+		/*if (valid_x_dir && valid_y_dir && valid_z_dir)
+		{
+			local_handle_data_[graph_name].cage_index = 27; 
+			compute_mvc_on_handle_inside_cage(graph_name, handle_position);
+		}
+		else
+		{
+			const Vec3 projection_values = {d_x, d_y, d_z}; 
+				std::vector<bool> valid_values(3); 
+				valid_values[0] = valid_x_dir, valid_values[1] = valid_y_dir, 
+				valid_values[2] = valid_z_dir; 
+
+				const Vec3 max_area = {local_x_direction_control_planes_.d_max, local_y_direction_control_planes_.d_max, local_z_direction_control_planes_.d_max}; 
+				std::size_t virtual_cube_index = get_index_virtual_cube(projection_values, valid_values, max_area); 
+
+				object_activation_cage_[surface_point_index] = virtual_cube_index; 
+
+				Virtual_cube virtual_cube_target = virtual_cubes_[virtual_cube_index]; 
+
+				compute_mvc_on_handle_outside_cage(graph_name, handle_position, 
+												virtual_cube_target);
+		}*/								
+	}
+
+	/// @brief deform handle with MVC deformation type 
+	/// @param g handle 
+	/// @param graph_name handle name  
+	/// @param graph_vertex_position position of the handle vertex
+	/// @param handle_vertex handle vertex
+	void deform_handle_mvc(Graph& g, const std::string& graph_name, 
+			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
+							const GraphVertex& handle_vertex)
+	{
+		Handle_data handle_data = local_handle_data_[graph_name];
+		VectorWeights handle_weights =  handle_data.weights_; 
+
+		Vec3 new_position = {0.0, 0.0, 0.0};
+
+		foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
+			const Vec3& cage_point = value<Vec3>(*control_cage_, 
+										control_cage_vertex_position_, cv);
+			uint32 cage_point_index = value<uint32>(*control_cage_, 
+											control_cage_vertex_index_, cv);
+
+			new_position += 
+					handle_data.weights_.position_[cage_point_index] * cage_point;
+
+			return true;
+		});
+
+		value<Vec3>(g, graph_vertex_position, handle_vertex) = new_position;
+	}
+
+
 	/// @brief compute MVC on point inside the cage 
 	/// state-of-the-art method 
 	/// [Mean Value Coordinates for Closed Triangular Meshes, Ju et al. 2005]
 	/// @param surface_point 
-	/// @param surface_point_index 
+	/// @param result_weights 
 	/// @return 
 	bool compute_mvc_on_point_inside_cage(const Vec3& surface_point, 
-										const uint32& surface_point_index)
+										Eigen::VectorXd& result_weights)
 	{
 		uint32 nbv_cage = nb_cells<Vertex>(*control_cage_);
+
+		result_weights.resize(nbv_cage); 
 
 		double sumWeights = 0.0;
 		double epsilon = 0.00000001;
@@ -1450,8 +1397,7 @@ private:
 			d[cage_point_index] = (surface_point - cage_point).norm();
 			if (d[cage_point_index] < epsilon)
 			{
-				object_weights_
-					.position_(surface_point_index, cage_point_index) = 1.0;
+				result_weights[cage_point_index] = 1.0; 
 				return true;
 			}
 
@@ -1543,7 +1489,7 @@ private:
 			uint32 cage_point_index = value<uint32>(*control_cage_, 
 											control_cage_vertex_index_, v);
 
-			object_weights_.position_(surface_point_index, cage_point_index) =
+			result_weights[cage_point_index] =
 				w_control_cage_coords_[cage_point_index] / sumWeights;
 
 			return true;
@@ -1569,10 +1515,12 @@ private:
 	/// @param object 
 	/// @return 
 	bool compute_mvc_on_point_outside_cage(const Vec3& surface_point, 
-								const uint32& surface_point_index,
+								Eigen::VectorXd& result_weights,
 								const Virtual_cube& virtual_cube_target)
 	{
 		uint32 nbv_cage = nb_cells<Vertex>(*control_cage_);
+
+		result_weights.resize(nbv_cage); 
 
 		double sumWeights = 0.0;
 		double epsilon = 0.00000001;
@@ -1597,8 +1545,7 @@ private:
 				(surface_point - cage_point.position).norm();
 			if (d[cage_point_index] < epsilon)
 			{
-				object_weights_.position_(surface_point_index, 
-													cage_point_index) = 1.0;
+				result_weights[cage_point_index] = 1.0;
 				return true;
 			}
 
@@ -1689,7 +1636,7 @@ private:
 		{
 			uint32 cage_point_index = p;
 
-			object_weights_.position_(surface_point_index, cage_point_index) =
+			result_weights[cage_point_index] =
 				w_control_cage_coords_[cage_point_index] / sumWeights;
 
 		}
@@ -1710,7 +1657,7 @@ private:
 			const std::shared_ptr<Attribute<uint32>>& object_vertex_index)
 	{
 		
-		parallel_foreach_cell(object, [&](Vertex v) -> bool {
+		/*parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			const Vec3& surface_point = 
 							value<Vec3>(object, object_vertex_position, v);
 			uint32 surface_point_index = 
@@ -1739,7 +1686,7 @@ private:
 
 			if (valid_x_dir && valid_y_dir && valid_z_dir)
 			{
-				activation_cage_[surface_point_index] = 27; 
+				object_activation_cage_[surface_point_index] = 27; 
 				compute_green_on_point_inside_cage(surface_point, 
 												surface_point_index);
 			}
@@ -1755,7 +1702,7 @@ private:
 												virtual_cube_target);
 			}
 			return true;
-		}); 
+		}); */
 	}
 
 	/// @brief deform the influence area of the object with Green deformation type
@@ -1778,7 +1725,7 @@ private:
 							value<uint32>(object, object_vertex_index, v);
 
 			
-			if (activation_cage_[object_point_index] == 27)
+			if (object_activation_cage_[object_point_index] == 27)
 			{
 				Vec3 new_position = {0.0, 0.0, 0.0};
 
@@ -1836,7 +1783,7 @@ private:
 			} else {
 				
 				Virtual_cube virtual_cube_target = 
-						virtual_cubes_[activation_cage_[object_point_index]];  
+						virtual_cubes_[object_activation_cage_[object_point_index]];  
 
 				Vec3 new_position = {0.0, 0.0, 0.0};
 				for (size_t p = 0; p < virtual_cube_target.points.size(); p++){
@@ -2228,7 +2175,6 @@ private:
 								const Vec3& shiftVector, const Vec3& unit_dir)
 	{
 		
-		std::cout << intersect_points.size() << std::endl; 
 		const Point face_point0 = intersect_points[0];
 		const Point face_point1 = intersect_points[1];
 
