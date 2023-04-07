@@ -95,21 +95,15 @@ void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position,
 	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0], bb_max[1], bb_max[2]};
 }
 
-/**
- * Set m as a volume of type generalized cube 
- * Compute local frame of this cube from normal and center
- * Assign the positions of the vertices of this volume 
- * from the provided bounding box values
- * @param {CMap2} m 
- * @param {CMap2::Attribute<Vec3>} vertex_position
- * @param {Vec3} bb_min 
- * @param {Vec3} bb_max
- * @param {Vec3} center
- * @param {Vec3} normal
-*/
-void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, 
+/// @brief Create hexahedron from bounding values and main directions 
+/// @param m mesh to set to hexahedron
+/// @param m_vertex_position positions of the vertices of the mesh to set
+/// @param bb_min Vec3 minimum values in local frame
+/// @param bb_max Vec3 maximum values in local frame
+/// @param main_directions tuple storing the local frame directions 
+void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* m_vertex_position, 
 					const Vec3& bb_min, const Vec3& bb_max,
-					const std::vector<Vec3> main_directions)
+					const std::tuple<Vec3, Vec3, Vec3>& main_directions)
 {
 	CMap2::Volume v = add_prism(m, 4);
 	Dart f1 = v.dart;
@@ -122,12 +116,10 @@ void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position,
 
 	Eigen::Matrix3d local_frame, frame_inverse;
 
-	local_frame.row(0) = main_directions[0];
-	local_frame.row(1) = main_directions[1];
-	local_frame.row(2) = main_directions[2];
+	local_frame.row(0) = std::get<0>(main_directions);
+	local_frame.row(1) = std::get<1>(main_directions);
+	local_frame.row(2) = std::get<2>(main_directions);
 	frame_inverse = local_frame.inverse();
-
-	Vec3 cross_product = main_directions[0].cross(main_directions[1]); 
 
 	Vec3 center = (bb_min + bb_max) / Scalar(2); 
 
@@ -137,8 +129,6 @@ void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position,
 	const Vec3 local_bb_min_center = local_frame * (bb_min - center); 
 
 	const double radius = local_bb_min_center.norm();
-
-	std::cout << "radius " << radius << std::endl; 
 
 	double min_n, max_n;
 	if (local_bb_min[2] > local_bb_max[2])
@@ -164,7 +154,7 @@ void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position,
 
 	for (size_t p = 0; p < 8; p++){
  
-		value<Vec3>(m, vertex_position, vertices[p]) = 
+		value<Vec3>(m, m_vertex_position, vertices[p]) = 
 					(frame_inverse * local_positions[p]) + bb_min;
 
 	}

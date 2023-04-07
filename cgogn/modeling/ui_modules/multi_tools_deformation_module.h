@@ -620,7 +620,7 @@ private:
 				modeling::get_mean_value_attribute_from_set(object, 
 									object_vertex_position.get(), control_set); 
 
-			std::vector<Vec3> main_directions = 
+			std::tuple<Vec3, Vec3, Vec3> main_directions = 
 				modeling::find_main_directions_from_set(object, 
 										object_vertex_position.get(), 
 										control_set, center); 

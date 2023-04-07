@@ -59,7 +59,7 @@ void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position,
 */
 void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, 
                                     const Vec3& bb_min, const Vec3& bb_max, 
-                                    const std::vector<Vec3> main_directions); 
+                            const std::tuple<Vec3, Vec3, Vec3>& main_directions); 
 /**
  * set attribute vertex index for CMap2
 */

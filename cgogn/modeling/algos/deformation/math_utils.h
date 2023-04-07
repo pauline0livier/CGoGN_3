@@ -55,7 +55,7 @@ double distance_vec3(const Vec3& p1, const Vec3& p2);
 /**
  * find main direction from user defined set 
 */
-std::vector<Vec3> find_main_directions_from_set(const CMap2& m, 
+std::tuple<Vec3, Vec3, Vec3> find_main_directions_from_set(const CMap2& m, 
                             const CMap2::Attribute<Vec3>* attribute, 
                         cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set,
                         const Vec3& center);
@@ -98,7 +98,7 @@ std::pair<Vec3,Vec3> get_border_values_in_set(const CMap2& m,
 std::pair<Vec3,Vec3> get_border_values_in_set_along_local_frame(const CMap2& m, 
                     const CMap2::Attribute<Vec3>* attribute, 
                     cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set, 
-                    std::vector<Vec3> local_frame); 
+                    const std::tuple<Vec3, Vec3, Vec3>& main_directions); 
 
 /**
  * get extrema values in array of Vec3

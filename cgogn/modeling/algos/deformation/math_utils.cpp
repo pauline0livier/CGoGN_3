@@ -48,9 +48,9 @@ double distance_vec3(const Vec3& p1, const Vec3& p2)
  * compute main direction from provided set
  * use Principal Component Analysis (PCA)
 */
-std::vector<Vec3> find_main_directions_from_set(const CMap2& m, 
-                            const CMap2::Attribute<Vec3>* attribute, 
-                        cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set,
+std::tuple<Vec3, Vec3, Vec3> find_main_directions_from_set(const CMap2& m, 
+							const CMap2::Attribute<Vec3>* attribute, 
+						cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set,
 						const Vec3& center)
 {
 	Eigen::Matrix3d covariance_matrix;
@@ -93,25 +93,24 @@ std::vector<Vec3> find_main_directions_from_set(const CMap2& m,
 	Eigen::Vector3d third_eigen_vector = sorted_eigen_vectors.col(2); 
 	third_eigen_vector.normalize();
 
-	std::vector<Eigen::Vector3d> local_frame; 
-	local_frame.push_back(main_eigen_vector); 
-	local_frame.push_back(second_eigen_vector); 
-
 	const Vec3 cross_product = main_eigen_vector.cross(second_eigen_vector);  
-	if (cross_product == third_eigen_vector){
-		local_frame.push_back(third_eigen_vector); 
-	} else {
-		local_frame.push_back(-third_eigen_vector);
+	if (cross_product == third_eigen_vector)
+	{
+		return std::make_tuple(main_eigen_vector, second_eigen_vector, third_eigen_vector);  
+	} 
+	else 
+	{
+		return std::make_tuple(main_eigen_vector, second_eigen_vector, -third_eigen_vector);
 	}
 
-	return local_frame;
 }
 
 /**
  * sort eigen vectors by their eigen values
 */
-Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> sort_eigen_vectors(const Eigen::Matrix<double, 1, Eigen::Dynamic>& eigen_values,
-		const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors)
+Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> sort_eigen_vectors(
+				const Eigen::Matrix<double, 1, Eigen::Dynamic>& eigen_values,
+	const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& eigen_vectors)
 {
 	std::vector<std::pair<int, int>> eigen_value_index_vector;
 	for (int i = 0; i < eigen_values.size(); ++i)
@@ -237,19 +236,24 @@ std::pair<Vec3, Vec3> get_border_values_in_set(const CMap2& m,
  * get extrema values in provided set, in local frame  
 */
 std::pair<Vec3,Vec3> get_border_values_in_set_along_local_frame(const CMap2& m, 
-                    const CMap2::Attribute<Vec3>* attribute, 
-                    cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set, 
-                    std::vector<Vec3> main_directions)
+					const CMap2::Attribute<Vec3>* attribute, 
+					cgogn::ui::CellsSet<CMap2, CMap2::Vertex>* control_set, 
+					const std::tuple<Vec3, Vec3, Vec3>& main_directions)
 {
 	Vec3 local_min = {1000.0, 1000.0, 1000.0};
 	Vec3 local_max = {-1000.0, -1000.0, -1000.0};
+
+	std::vector<Vec3> main_directions_vector(3); 
+	main_directions_vector[0] = std::get<0>(main_directions); 
+	main_directions_vector[1] = std::get<1>(main_directions); 
+	main_directions_vector[2] = std::get<2>(main_directions);
 
 	control_set->foreach_cell([&](CMap2::Vertex v) {
 		const Vec3& position = value<Vec3>(m, attribute, v);
 
 		for (size_t j = 0; j < 3; j++)
 		{
-			const double projection_j = position.dot(main_directions[j]);
+			const double projection_j = position.dot(main_directions_vector[j]);
 			 
 			if (projection_j < local_min[j])
 			{
@@ -268,8 +272,8 @@ std::pair<Vec3,Vec3> get_border_values_in_set_along_local_frame(const CMap2& m,
 
 	for (size_t j = 0; j < 3; j++)
 	{
-		min_position += local_min[j]*main_directions[j]; 
-		max_position += local_max[j]*main_directions[j]; 	
+		min_position += local_min[j]*main_directions_vector[j]; 
+		max_position += local_max[j]*main_directions_vector[j]; 	
 	} 
 
 	return std::make_pair(min_position, max_position);

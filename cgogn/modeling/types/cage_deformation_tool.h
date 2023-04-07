@@ -67,7 +67,7 @@ class CageDeformationTool
 	 * 		- inside_control_cage = false, 
 	 * 		- vertex of closest control cage point 
 	 * 		- shift_vector defined (a,b,c)
-	 * 		a,b,c = {-1, 0, 1}, direction and if after or before  
+	 * 		a,b,c in {-1, 0, 1}, encode the direction and if after or before  
 	 * 		TODO: check if update is activated if the point is common to 
 	 * 				at least two cages 
 	*/
@@ -170,7 +170,7 @@ public:
 	void create_space_tool(MESH* m, 
 					CMap2::Attribute<Vec3>* m_vertex_position, 
 					const Vec3& bb_min, const Vec3& bb_max,
-					const std::vector<Vec3>& main_directions)
+					const std::tuple<Vec3, Vec3, Vec3>& main_directions)
 	{
 		control_cage_ = m;
 		//create_bounding_box(*m, m_vertex_position, bb_min, bb_max);
@@ -190,13 +190,13 @@ public:
 										control_cage_vertex_index_.get());
 
 
-		//init_triangles();
+		init_triangles();
 
-		//set_start_positions(); 
+		set_start_positions(); 
 
-		//init_control_cage_plane(2.0);
+		init_control_cage_plane(main_directions, 2.0);
 
-		//init_virtual_cubes();
+		init_virtual_cubes();
 	}
 
 	/// @brief set the deformation type 
@@ -392,12 +392,11 @@ private:
 	/// from the square faces of the control cage 
 	void init_triangles()
 	{
-
 		foreach_cell(*control_cage_, [&](Face fc) -> bool {
 			std::vector<CMap2::Vertex> face_vertices_ = 
 								incident_vertices(*control_cage_, fc);
 
-			std::vector<Point> points;
+			std::vector<Point> points(4);
 			for (std::size_t p = 0; p < 4; p++)
 			{
 				Point point_i;
@@ -409,12 +408,12 @@ private:
 									control_cage_vertex_index_, point_i.vertex);
 				point_i.inside_control_cage = true;
 				point_i.shift_vector = {0.0, 0.0, 0.0}; 
-				points.push_back(point_i);
+				points[p] = point_i; 
 			}
 
 			Triangle triangle1;
 			triangle1.points = {points[1], points[3], points[0]};
-			triangle1.normal = get_normal_from_triangle(triangle1); 
+			triangle1.normal = get_normal_from_triangle(triangle1);  
 			triangle1.edges = get_edges_from_triangle(triangle1); 
 			
 			std::make_pair(triangle1.points[1].position 
@@ -437,11 +436,12 @@ private:
 	/// delimit the control cage area in terms of planes
 	/// Plane of equation ax + by + cz = d
 	/// Create the three local direction control planes 
-	void init_control_cage_plane(const double& scale)
+	void init_control_cage_plane(const std::tuple<Vec3,Vec3,Vec3>& main_directions, 
+									const double& scale)
 	{
-		const Vec3 x_dir = {1.0, 0.0, 0.0}, 
-		y_dir = {0.0, 1.0, 0.0}, 
-		z_dir = {0.0, 0.0, 1.0};
+		const Vec3 x_dir = std::get<0>(main_directions), 
+		y_dir = std::get<1>(main_directions), 
+		z_dir = std::get<2>(main_directions);
 
 		double d_x_min = 1000.0, d_x_max = -1000.0, 
 		d_y_min = 1000.0, d_y_max = -1000.0, 
@@ -457,10 +457,14 @@ private:
 
 			const Vec3 normal = triangle1.normal;
 
-			const Vec3 triangle_point = triangle1.points[0].position;
+			const Vec3 triangle_point = triangle1.points[0].position; 
 
-			if (normal.dot(x_dir) != 0.0)
-			{
+			const double x_projection = normal.dot(x_dir), 
+			y_projection = normal.dot(y_dir), 
+			z_projection = normal.dot(z_dir); 
+
+			if (abs(x_projection) > 0.5)
+			{ 
 				const double d = triangle_point.dot(x_dir);
 				if (d < d_x_min)
 				{
@@ -474,8 +478,8 @@ private:
 					face_x_max = std::make_pair(triangle1, triangle2);
 				}
 			}
-			else if (normal.dot(y_dir) != 0.0)
-			{
+			else if (abs(y_projection) > 0.5)
+			{ 
 				const double d = triangle_point.dot(y_dir);
 				if (d < d_y_min)
 				{
@@ -489,7 +493,7 @@ private:
 					face_y_max = std::make_pair(triangle1, triangle2);
 				}
 			}
-			else
+			else if (abs(z_projection) > 0.5)
 			{
 				const double d = triangle_point.dot(z_dir);
 				if (d < d_z_min)
@@ -503,7 +507,7 @@ private:
 					d_z_max = d;
 					face_z_max = std::make_pair(triangle1, triangle2);
 				}
-			}
+			}	
 		}
 
 		const double gap_x = scale*(d_x_max - d_x_min); 
@@ -955,7 +959,7 @@ private:
 		Triangle triangle2 = face.second;
 		triangle2.virtual_cage_indices = {3, 2, 1};
 		virtual_cube_triangles.push_back(triangle1);
-		virtual_cube_triangles.push_back(triangle2);
+		virtual_cube_triangles.push_back(triangle2); 
 
 		Point point4;
 		point4.position = triangle1.points[2].position + shift_vector;
@@ -2224,6 +2228,7 @@ private:
 								const Vec3& shiftVector, const Vec3& unit_dir)
 	{
 		
+		std::cout << intersect_points.size() << std::endl; 
 		const Point face_point0 = intersect_points[0];
 		const Point face_point1 = intersect_points[1];
 
