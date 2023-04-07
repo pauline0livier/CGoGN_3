@@ -729,8 +729,13 @@ private:
 			const uint32& surface_point_index = 
 								value<uint32>(object, object_vertex_index, v);
 
+			VectorWeights local_row_vector_weights; 
 			compute_green_coordinates_on_point(surface_point, 
-														surface_point_index);
+												local_row_vector_weights);
+			
+			object_weights_.position_.row(surface_point_index) = local_row_vector_weights.position_;
+
+			object_weights_.normal_.row(surface_point_index) = local_row_vector_weights.normal_;
 
 			return true;
 		});
@@ -849,7 +854,14 @@ private:
 	void bind_handle_green(const std::string& graph_name, 
 												const Vec3& handle_position){
 
-		compute_green_coordinates_on_handle(graph_name, handle_position);								
+		VectorWeights local_row_vector_weights; 											
+		compute_green_coordinates_on_point(handle_position, local_row_vector_weights);
+
+		local_handle_weights_[graph_name]
+				.position_ = local_row_vector_weights.position_;
+
+		local_handle_weights_[graph_name]
+				.normal_ = local_row_vector_weights.normal_;
 	}
 
 	/// @brief deform handle with MVC deformation type 
@@ -982,8 +994,14 @@ private:
 													graph_vertex_position, v);
 			const uint32& axis_point_index = v.index_;
 
-			compute_green_coordinates_on_axis_point(graph_name, 
-												axis_point, axis_point_index);
+			VectorWeights local_row_vector_weights; 
+			compute_green_coordinates_on_point(axis_point, local_row_vector_weights);
+
+			local_axis_weights_[graph_name]
+				.position_.row(axis_point_index) = local_row_vector_weights.position_;
+
+			local_axis_weights_[graph_name]
+				.normal_.row(axis_point_index) = local_row_vector_weights.normal_;
 		 
 		}
 	}
@@ -1114,7 +1132,7 @@ private:
 					value<uint32>(local_cage, local_cage_vertex_index, v);
 
 			Eigen::VectorXd local_row_weights; 
-			compute_mvc_coordinates_on_local_cage_point(local_cage_point, local_row_weights);
+			compute_mvc_coordinates_on_point(local_cage_point, local_row_weights);
 
 			local_cage_weights_[cage_name]
 				.position_.row(local_cage_point_index) = local_row_weights; 		 			
@@ -1140,8 +1158,14 @@ private:
 			const uint32& local_cage_point_index = 
 					value<uint32>(local_cage, local_cage_vertex_index, v);
 
-			compute_green_coordinates_on_local_cage_point(cage_name, 
-								local_cage_point, local_cage_point_index);
+			VectorWeights local_row_vector_weights; 
+			compute_green_coordinates_on_point(local_cage_point, local_row_vector_weights);
+
+			local_cage_weights_[cage_name]
+				.position_.row(local_cage_point_index) = local_row_vector_weights.position_; 
+
+			local_cage_weights_[cage_name]
+				.normal_.row(local_cage_point_index) = local_row_vector_weights.normal_; 
 
 			return true;
 		});
@@ -1404,10 +1428,17 @@ private:
 	/// @param surface_point_index index of the target point on the object 
 	/// @return boolean 
 	void compute_green_coordinates_on_point(const Vec3& surface_point, 
-										const uint32& surface_point_index)
+										VectorWeights& result_weights)
 	{
+		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
+		size_t nbt_cage = cage_triangles_.size(); 
 
-		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
+		result_weights.position_.resize(nbv_cage); 
+		result_weights.position_.setZero(); 
+
+		result_weights.normal_.resize(nbt_cage); 
+
+		for (std::size_t t = 0; t < nbt_cage; t++)
 		{
 			const std::vector<Vec3> triangle_position = 
 											cage_triangles_[t].positions_; 
@@ -1443,7 +1474,7 @@ private:
 
 			const double t_I_ = -abs(t_s.dot(t_I));
 
-			object_weights_.normal_(surface_point_index, t) = -t_I_;
+			result_weights.normal_[t] = -t_I_;
 
 			Vec3 t_w = t_I_ * t_normal;
 
@@ -1463,243 +1494,17 @@ private:
 					const double num = Nl.dot(t_w);
 					const double denom = Nl.dot(t_vj[l]);
 
-					object_weights_
-						.position_(surface_point_index, cage_point_index) 
+					result_weights
+						.position_[cage_point_index] 
 							+= num / denom;
 				}
 			}
 		}
 	}
 
-	/// @brief compute Green coordinates on the target handle
-	/// state-of-the-art method 
-	/// [Green coordinates, Lipman et al. 2008]
-	/// @param graph_name handle name 
-	/// @param handle_point position of the handle 
-	/// @return boolean 
-	void compute_green_coordinates_on_handle(const std::string& graph_name, 
-											const Vec3& handle_point)
-	{
+	
 
-		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
-		{
-			const std::vector<Vec3> triangle_position = 
-											cage_triangles_[t].positions_; 
-
-			const Vec3 t_normal = cage_triangles_[t].normal_; 
-
-			std::vector<Vec3> t_vj(3);
-			for (std::size_t l = 0; l < 3; ++l)
-			{
-				t_vj[l] = triangle_position[l] - handle_point;
-			}
-
-			const Vec3 t_p_ = (t_vj[0].dot(t_normal)) * t_normal;
-
-			Vec3 t_I = {0.0, 0.0, 0.0};
-			std::vector<double> t_II(3);
-			Vec3 t_s = {0.0, 0.0, 0.0};
-			std::vector<Vec3> t_N(3);
-
-			for (std::size_t l = 0; l < 3; ++l)
-			{
-				const Vec3 t_v0 = t_vj[l];
-				const Vec3 t_v1 = t_vj[(l + 1) % 3];
-
-				const auto t_vjpt = 
-					((t_v0 - t_p_).cross((t_v1 - t_p_))).dot(t_normal);
-				t_s[l] = t_vjpt < 0 ? -1.0 : 1.0;
-
-				t_I[l] = modeling::GCTriInt2(t_p_, t_v0, t_v1);
-				t_II[l] = modeling::GCTriInt2(NULL_VECTOR, t_v1, t_v0);
-				t_N[l] = (t_v1.cross(t_v0)).normalized();
-			}
-
-			const auto t_I_ = -abs(t_s.dot(t_I));
-
-			local_handle_weights_[graph_name].normal_[t] = -t_I_;
-
-			Vec3 t_w = t_I_ * t_normal;
-
-			for (std::size_t k = 0; k < 3; ++k)
-			{
-				t_w += (t_II[k] * t_N[k]);
-			}
-
-			if (t_w.norm() > DBL_EPSILON)
-			{
-				for (size_t l = 0; l < 3; l++)
-				{
-					const uint32 cage_vertex_idx = 
-						cage_triangles_[t].indices_[l]; 
-
-					const Vec3 Nl = t_N[(l + 1) % 3];
-					const double num = Nl.dot(t_w);
-					const double denom = Nl.dot(t_vj[l]);
-
-					local_handle_weights_[graph_name]
-						.position_[cage_vertex_idx] 
-							+= num / denom;
-				}
-			}
-		}
-	}
-
-	/// @brief compute Green coordinates on a point of the axis
-	/// state-of-the-art method 
-	/// [Green coordinates, Lipman et al. 2008]
-	/// @param graph_name axis name 
-	/// @param axis_point position of the target point on the axis
-	/// @param axis_point_index index of the target point on the axis 
-	/// @return boolean 
-	void compute_green_coordinates_on_axis_point(
-						const std::string& graph_name, 
-						const Vec3& axis_point, 
-						const uint32& axis_point_index)
-	{
-
-		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
-		{
-			const std::vector<Vec3> triangle_position = 
-											cage_triangles_[t].positions_; 
-
-			const Vec3 t_normal = cage_triangles_[t].normal_; 
-
-			std::vector<Vec3> t_vj(3);
-			for (std::size_t l = 0; l < 3; ++l)
-			{
-				t_vj[l] = triangle_position[l] - axis_point;
-			}
-
-			const Vec3 t_p_ = (t_vj[0].dot(t_normal)) * t_normal;
-
-			Vec3 t_I = {0.0, 0.0, 0.0};
-			std::vector<double> t_II(3);
-			Vec3 t_s = {0.0, 0.0, 0.0};
-			std::vector<Vec3> t_N(3);
-
-			for (std::size_t l = 0; l < 3; ++l)
-			{
-				const Vec3 t_v0 = t_vj[l];
-				const Vec3 t_v1 = t_vj[(l + 1) % 3];
-
-				const auto t_vjpt = 
-					((t_v0 - t_p_).cross((t_v1 - t_p_))).dot(t_normal);
-				t_s[l] = t_vjpt < 0 ? -1.0 : 1.0;
-
-				t_I[l] = modeling::GCTriInt2(t_p_, t_v0, t_v1);
-				t_II[l] = modeling::GCTriInt2(NULL_VECTOR, t_v1, t_v0);
-				t_N[l] = (t_v1.cross(t_v0)).normalized();
-			}
-
-			const auto t_I_ = -abs(t_s.dot(t_I));
-
-			local_axis_weights_[graph_name]
-							.normal_(axis_point_index, t) = -t_I_;
-
-			Vec3 t_w = t_I_ * t_normal;
-
-			for (std::size_t k = 0; k < 3; ++k)
-			{
-				t_w += (t_II[k] * t_N[k]);
-			}
-
-			if (t_w.norm() > DBL_EPSILON)
-			{
-				for (size_t l = 0; l < 3; l++)
-				{
-					const uint32 cage_point_index = 
-									cage_triangles_[t].indices_[l]; 
-
-					const Vec3 Nl = t_N[(l + 1) % 3];
-					const double num = Nl.dot(t_w);
-					const double denom = Nl.dot(t_vj[l]);
-
-					local_axis_weights_[graph_name]
-						.position_(axis_point_index, cage_point_index) 
-							+= num / denom;
-				}
-			}
-		}
-	}
-
-	/// @brief compute Green coordinates on a point of the local cage
-	/// state-of-the-art method 
-	/// [Green coordinates, Lipman et al. 2008]
-	/// @param cage_name local cage name 
-	/// @param local_cage_point position of the target point on the cage
-	/// @param local_cage_point_index index of the target point on the cage 
-	/// @return boolean 
-	void compute_green_coordinates_on_local_cage_point(
-						const std::string& cage_name, 
-						const Vec3& local_cage_point, 
-						const uint32& local_cage_point_index)
-	{
-
-		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
-		{
-			const std::vector<Vec3> triangle_position = 
-									cage_triangles_[t].positions_; 
-
-			const Vec3 t_normal = cage_triangles_[t].normal_; 
-
-			std::vector<Vec3> t_vj(3);
-			for (std::size_t l = 0; l < 3; ++l)
-			{
-				t_vj[l] = triangle_position[l] - local_cage_point;
-			}
-
-			const Vec3 t_p_ = (t_vj[0].dot(t_normal)) * t_normal;
-
-			Vec3 t_I = {0.0, 0.0, 0.0};
-			std::vector<double> t_II(3);
-			Vec3 t_s = {0.0, 0.0, 0.0};
-			std::vector<Vec3> t_N(3);
-
-			for (std::size_t l = 0; l < 3; ++l)
-			{
-				const Vec3 t_v0 = t_vj[l];
-				const Vec3 t_v1 = t_vj[(l + 1) % 3];
-
-				const auto t_vjpt = 
-					((t_v0 - t_p_).cross((t_v1 - t_p_))).dot(t_normal);
-				t_s[l] = t_vjpt < 0 ? -1.0 : 1.0;
-
-				t_I[l] = modeling::GCTriInt2(t_p_, t_v0, t_v1);
-				t_II[l] = modeling::GCTriInt2(NULL_VECTOR, t_v1, t_v0);
-				t_N[l] = (t_v1.cross(t_v0)).normalized();
-			}
-
-			const auto t_I_ = -abs(t_s.dot(t_I));
-
-			local_cage_weights_[cage_name]
-				.normal_(local_cage_point_index, t) = -t_I_;
-
-			Vec3 t_w = t_I_ * t_normal;
-
-			for (std::size_t k = 0; k < 3; ++k)
-			{
-				t_w += (t_II[k] * t_N[k]);
-			}
-
-			if (t_w.norm() > DBL_EPSILON)
-			{
-				for (size_t l = 0; l < 3; l++)
-				{
-					const uint32 cage_point_index = 
-						cage_triangles_[t].indices_[l]; 
-
-					const Vec3 Nl = t_N[(l + 1) % 3];
-					const double num = Nl.dot(t_w);
-					const double denom = Nl.dot(t_vj[l]);
-
-					local_cage_weights_[cage_name]
-						.position_(local_cage_point_index, cage_point_index) 
-							+= num / denom;
-				}
-			}
-		}
-	}
+	
 };
 
 } // namespace modeling
