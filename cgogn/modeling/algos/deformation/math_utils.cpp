@@ -368,13 +368,28 @@ bool check_projection_in_area(const double& projection_value, const double& min_
 	return (projection_value >= min_border && projection_value <= max_border); 
 }
 
+/// @brief check if target point is inside delimited area in 3D
+/// @param point 
+/// @param min_border 
+/// @param max_border 
+/// @return 
+bool check_triple_projection_in_area(const Vec3& point, const Vec3& min_border, const Vec3& max_border)
+{
+
+	bool valid_x = (point[0] >= min_border[0] && point[0] <= max_border[0]);
+	bool valid_y = (point[1] >= min_border[1] && point[1] <= max_border[1]);
+	bool valid_z = (point[2] >= min_border[2] && point[2] <= max_border[2]); 
+
+	return (valid_x && valid_y && valid_z);  
+}
+
 /// @brief get index of virtual cube 
 /// cubes already assigned an index 
 /// @param projection_values 
 /// @param valid_values 
 /// @param max_area_values 
 /// @return 
-size_t get_index_virtual_cube(const std::vector<double> projection_values, const std::vector<bool> valid_values, const std::vector<double> max_area_values)
+size_t get_index_virtual_cube(const Vec3& projection_values, const std::vector<bool>& valid_values, const Vec3& max_area_values)
 {
 	if (valid_values[0])
 		{

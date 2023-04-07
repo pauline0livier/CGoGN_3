@@ -157,7 +157,12 @@ public:
 	Eigen::VectorXd attenuation_;
 
 	MatrixWeights object_weights_;
-	Eigen::VectorXi object_activation_cage_;  
+	Eigen::VectorXi object_activation_cage_; 
+
+	Eigen::Matrix3d local_frame_;  
+
+	Vec3 cage_local_bb_min_; 
+	Vec3 cage_local_bb_max_; 
 
 	std::unordered_map<std::string, Handle_data> local_handle_data_;
 	
@@ -189,14 +194,21 @@ public:
 					const std::tuple<Vec3, Vec3, Vec3>& main_directions)
 	{
 		control_cage_ = m;
-		//create_bounding_box(*m, m_vertex_position, bb_min, bb_max);
-		create_cage_box(*m, m_vertex_position, bb_min, bb_max, main_directions); 
+
+		local_frame_.row(0) = std::get<0>(main_directions);
+		local_frame_.row(1) = std::get<1>(main_directions);
+		local_frame_.row(2) = std::get<2>(main_directions);
+
+		create_cage_box(*m, m_vertex_position, bb_min, bb_max, local_frame_); 
 
 		control_cage_vertex_position_ = 
 						cgogn::get_attribute<Vec3, Vertex>(*m, "position");
 
 		control_cage_bb_min_ = bb_min;
 		control_cage_bb_max_ = bb_max;
+
+		cage_local_bb_min_ = local_frame_ * bb_min; 
+		cage_local_bb_max_ = local_frame_ * bb_max; 
 
 		control_cage_vertex_index_ = 
 					cgogn::add_attribute<uint32, Vertex>(*control_cage_, 
@@ -1199,18 +1211,13 @@ private:
 			}
 			else
 			{
-				std::vector<double> projection_values(3); 
-				projection_values[0] = d_x,
-				projection_values[1] = d_y,
-				projection_values[2] = d_z; 
+				Vec3 projection_values = {d_x, d_y, d_z};  
+				
 				std::vector<bool> valid_values(3); 
 				valid_values[0] = valid_x_dir, valid_values[1] = valid_y_dir, 
 				valid_values[2] = valid_z_dir; 
 
-				std::vector<double> max_area(3); 
-				max_area[0] = local_x_direction_control_planes_.d_max,
-				max_area[1] = local_y_direction_control_planes_.d_max,
-				max_area[2] = local_z_direction_control_planes_.d_max; 
+				Vec3 max_area = {local_x_direction_control_planes_.d_max, local_y_direction_control_planes_.d_max, local_z_direction_control_planes_.d_max}; 
 
 				std::size_t virtual_cube_index = get_index_virtual_cube(projection_values, valid_values, max_area); 
 
@@ -1295,7 +1302,7 @@ private:
 	// @brief bind handle with MVC deformation type
 	void bind_handle_mvc(const std::string& graph_name, 
 						const Vec3& handle_position){
-
+ 
 		const double d_x = get_projection_on_direction(handle_position, local_x_direction_control_planes_.direction), 
 			
 		d_y = get_projection_on_direction(handle_position, local_y_direction_control_planes_.direction),
@@ -1321,30 +1328,25 @@ private:
 		}
 		else
 		{
-			std::vector<double> projection_values(3); 
-				projection_values[0] = d_x,
-				projection_values[1] = d_y,
-				projection_values[2] = d_z; 
-				std::vector<bool> valid_values(3); 
-				valid_values[0] = valid_x_dir, valid_values[1] = valid_y_dir, 
-				valid_values[2] = valid_z_dir; 
+			Vec3 projection_values = {d_x, d_y, d_z};  
+			
+			std::vector<bool> valid_values(3); 
+			valid_values[0] = valid_x_dir, valid_values[1] = valid_y_dir, 
+			valid_values[2] = valid_z_dir; 
 
-				std::vector<double> max_area(3); 
-				max_area[0] = local_x_direction_control_planes_.d_max,
-				max_area[1] = local_y_direction_control_planes_.d_max,
-				max_area[2] = local_z_direction_control_planes_.d_max;
+			Vec3 max_area = {local_x_direction_control_planes_.d_max, local_y_direction_control_planes_.d_max, local_z_direction_control_planes_.d_max}; 
 
-				std::size_t virtual_cube_index = get_index_virtual_cube(projection_values, valid_values, max_area); 
+			std::size_t virtual_cube_index = get_index_virtual_cube(projection_values, valid_values, max_area); 
 
-				local_handle_data_[graph_name].cage_index_ = virtual_cube_index; 
+			local_handle_data_[graph_name].cage_index_ = virtual_cube_index; 
 
-				Virtual_cube virtual_cube_target = virtual_cubes_[virtual_cube_index]; 
+			Virtual_cube virtual_cube_target = virtual_cubes_[virtual_cube_index]; 
 
-				Eigen::VectorXd local_row_weights;
-				compute_mvc_on_point_outside_cage(handle_position, 			local_row_weights, virtual_cube_target);
+			Eigen::VectorXd local_row_weights;
+			compute_mvc_on_point_outside_cage(handle_position, 			local_row_weights, virtual_cube_target);
 
-				local_handle_data_[graph_name].weights_.position_ = local_row_weights;
-		}								
+			local_handle_data_[graph_name].weights_.position_ = local_row_weights;
+		} 								
 	}
 
 	/// @brief deform handle with MVC deformation type 

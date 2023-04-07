@@ -100,10 +100,10 @@ void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position,
 /// @param m_vertex_position positions of the vertices of the mesh to set
 /// @param bb_min Vec3 minimum values in local frame
 /// @param bb_max Vec3 maximum values in local frame
-/// @param main_directions tuple storing the local frame directions 
+/// @param local_frame matrice   
 void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* m_vertex_position, 
 					const Vec3& bb_min, const Vec3& bb_max,
-					const std::tuple<Vec3, Vec3, Vec3>& main_directions)
+					const Eigen::Matrix3d& local_frame)
 {
 	CMap2::Volume v = add_prism(m, 4);
 	Dart f1 = v.dart;
@@ -114,11 +114,8 @@ void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* m_vertex_position,
 		CMap2::Vertex(f2), CMap2::Vertex(phi1(m, f2)), 
 		CMap2::Vertex(phi<1, 1>(m, f2)), CMap2::Vertex(phi_1(m, f2))};
 
-	Eigen::Matrix3d local_frame, frame_inverse;
+	Eigen::Matrix3d frame_inverse;
 
-	local_frame.row(0) = std::get<0>(main_directions);
-	local_frame.row(1) = std::get<1>(main_directions);
-	local_frame.row(2) = std::get<2>(main_directions);
 	frame_inverse = local_frame.inverse();
 
 	Vec3 center = (bb_min + bb_max) / Scalar(2); 

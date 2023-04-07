@@ -973,7 +973,7 @@ private:
 			{
 				Vec3 handle_position = hdt->get_handle_position();
 
-				gcdt->bind_handle(name, handle_position);
+				cdt->bind_handle(name, handle_position);
 			}
 		}
 	}
@@ -1020,9 +1020,6 @@ private:
 		{
 			for (auto& [name, cdt] : cage_container_)
 			{
-				std::shared_ptr<modeling::CageDeformationTool<MESH>> cdt =
-									cage_container_[name];
-
 			
 				if (cdt->local_handle_data_.count(p_handle.name_) == 0)
 				{
@@ -1064,15 +1061,23 @@ private:
 							{
 								for (auto& [name, cdt] : cage_container_)
 								{
-									std::shared_ptr<modeling::CageDeformationTool<MESH>> cdt =
-									cage_container_[name];
 
-									int cage_index = cdt->local_handle_data[name].cage_index_;
+									int cage_index = cdt->local_handle_data_[p_handle.name_].cage_index_; 
 
-									if (cage_index == 27){
+									if (cage_index == 27)
+									{
 										// check if outside the cage 
+										const Vec3 handle_position = current_hdt->get_handle_position(); 
 
-										cdt->update_virtual_cages(); 
+										const Vec3 local_position = cdt->local_frame_*handle_position;  
+
+										if (!(modeling::check_triple_projection_in_area(local_position, cdt->cage_local_bb_min_, cdt->cage_local_bb_max_)))
+										{
+											// need resize cage 
+											//cdt->update_virtual_cages(); 
+										}
+
+										
 									} else {
 										// check if outside virtual cage 
 									}

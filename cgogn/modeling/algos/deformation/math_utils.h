@@ -131,9 +131,14 @@ double get_projection_on_direction(const Vec3& point, const Vec3& direction);
 bool check_projection_in_area(const double& projection_value, const double& min_border, const double& max_border); 
 
 /**
+ * check if the target point is inside the bounding box 
+*/
+bool check_triple_projection_in_area(const Vec3& point, const Vec3& min_border, const Vec3& max_border); 
+
+/**
  * get index of virtual cube that contains the target point  
 */
-size_t get_index_virtual_cube(const std::vector<double> projection_values, const std::vector<bool> valid_values, const std::vector<double> max_area_values); 
+size_t get_index_virtual_cube(const Vec3& projection_values, const std::vector<bool>& valid_values, const Vec3& max_area_values); 
 
 } // namespace modeling
 
