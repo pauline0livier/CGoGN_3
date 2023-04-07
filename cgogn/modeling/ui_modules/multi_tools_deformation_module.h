@@ -869,26 +869,23 @@ private:
 
 		cdt->set_deformation_type(binding_type);
 
-		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
-
-		std::string cage_name = "influence_cage";
-		MESH* i_cage = mesh_provider_->add_mesh(cage_name);
-
-		std::shared_ptr<MeshAttribute<Vec3>> i_cage_vertex_position =
-			add_attribute<Vec3, MeshVertex>(*i_cage, "position");
-		mesh_provider_->set_mesh_bb_vertex_position(*i_cage, i_cage_vertex_position);
-
-		set_vertex_position(*i_cage, i_cage_vertex_position);
-
-		mesh_provider_->emit_connectivity_changed(*i_cage);
-		mesh_provider_->emit_attribute_changed(*i_cage, 
-												i_cage_vertex_position.get());
-
 		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
 			get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
 		cdt->init_bind_object(object, object_vertex_position, 
 								object_vertex_index);
+
+		if (handle_container_.size() > 0)
+		{
+			for (auto& [name, hdt] : handle_container_)
+			{
+				if (cdt->local_handle_data_.count(name) == 0){
+					Vec3 handle_position = hdt->get_handle_position(); 
+
+					cdt->init_bind_handle(name, handle_position);
+				} 
+			}
+		}
 
 		cdt->cage_attribute_update_connection_ =
 			boost::synapse::connect<typename MeshProvider<MESH>::
@@ -913,6 +910,33 @@ private:
 
 						mesh_provider_->emit_attribute_changed(object, 
 											object_vertex_position.get());
+
+						if (current_cdt->local_handle_data_.size() > 0)
+							{
+								for (auto& [name, handle_data] : 
+										current_cdt->local_handle_data_)
+								{
+									std::shared_ptr<modeling::
+										HandleDeformationTool<MESH>> local_hdt =
+											handle_container_[name];
+
+									modeling::GraphParameters<GRAPH>& p_handle =
+									*graph_parameters_[local_hdt->control_handle_];
+
+									current_cdt->deform_handle(
+										*(local_hdt->control_handle_), name,
+										p_handle.vertex_position_,
+										local_hdt->get_handle_vertex());
+
+									local_hdt->update_handle_position_variable(); 
+
+									// see update handle weights on object 
+
+									graph_provider_->emit_attribute_changed(
+										*(local_hdt->control_handle_),
+									local_hdt->control_handle_vertex_position_.get());
+								}
+							}
 					}
 				});
 	}
@@ -942,6 +966,16 @@ private:
 
 		cdt->bind_object(object, object_vertex_position, 
 								object_vertex_index);
+
+		if (handle_container_.size() > 0)
+		{
+			for (auto& [name, hdt] : handle_container_)
+			{
+				Vec3 handle_position = hdt->get_handle_position();
+
+				gcdt->bind_handle(name, handle_position);
+			}
+		}
 	}
 
 	/// @brief bind local handle to model and surrounding tools 
@@ -980,6 +1014,24 @@ private:
 
 				gcdt->init_bind_handle(p_handle.name_, handle_position);
 			} 
+		}
+
+		if (cage_container_.size() > 0)
+		{
+			for (auto& [name, cdt] : cage_container_)
+			{
+				std::shared_ptr<modeling::CageDeformationTool<MESH>> cdt =
+									cage_container_[name];
+
+			
+				if (cdt->local_handle_data_.count(p_handle.name_) == 0)
+				{
+					Vec3 handle_position = hdt->get_handle_position(); 
+
+					cdt->init_bind_handle(p_handle.name_, handle_position);
+				} 
+			}
+			
 		}
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);

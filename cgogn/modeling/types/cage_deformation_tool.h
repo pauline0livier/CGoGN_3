@@ -142,7 +142,7 @@ class CageDeformationTool
 	struct Handle_data
 	{
 		VectorWeights weights_; 
-		Eigen::VectorXi cage_index_; 
+		int cage_index_; 
 	}; 
 
 public:
@@ -1218,12 +1218,12 @@ private:
 
 				Virtual_cube virtual_cube_target = virtual_cubes_[virtual_cube_index]; 
 
-				Eigen::VectorXd local_row_value; 
+				Eigen::VectorXd local_row_weights; 
 				compute_mvc_on_point_outside_cage(surface_point_position, 
-												local_row_value, 
+												local_row_weights, 
 												virtual_cube_target);
 
-				object_weights_.position_.row(surface_point_index) = local_row_value; 
+				object_weights_.position_.row(surface_point_index) = local_row_weights; 
 			}
 			return true; 
 		}); 
@@ -1309,28 +1309,42 @@ private:
 			valid_z_dir = check_projection_in_area(d_z, local_z_direction_control_planes_.d_min, local_z_direction_control_planes_.d_max); 
 
 		
-		/*if (valid_x_dir && valid_y_dir && valid_z_dir)
+		if (valid_x_dir && valid_y_dir && valid_z_dir)
 		{
-			local_handle_data_[graph_name].cage_index = 27; 
-			compute_mvc_on_handle_inside_cage(graph_name, handle_position);
+			local_handle_data_[graph_name].cage_index_ = 27; 
+
+			Eigen::VectorXd local_row_weights;
+			compute_mvc_on_point_inside_cage(handle_position, local_row_weights);
+
+			local_handle_data_[graph_name].weights_.position_ = local_row_weights; 
+
 		}
 		else
 		{
-			const Vec3 projection_values = {d_x, d_y, d_z}; 
+			std::vector<double> projection_values(3); 
+				projection_values[0] = d_x,
+				projection_values[1] = d_y,
+				projection_values[2] = d_z; 
 				std::vector<bool> valid_values(3); 
 				valid_values[0] = valid_x_dir, valid_values[1] = valid_y_dir, 
 				valid_values[2] = valid_z_dir; 
 
-				const Vec3 max_area = {local_x_direction_control_planes_.d_max, local_y_direction_control_planes_.d_max, local_z_direction_control_planes_.d_max}; 
+				std::vector<double> max_area(3); 
+				max_area[0] = local_x_direction_control_planes_.d_max,
+				max_area[1] = local_y_direction_control_planes_.d_max,
+				max_area[2] = local_z_direction_control_planes_.d_max;
+
 				std::size_t virtual_cube_index = get_index_virtual_cube(projection_values, valid_values, max_area); 
 
-				object_activation_cage_[surface_point_index] = virtual_cube_index; 
+				local_handle_data_[graph_name].cage_index_ = virtual_cube_index; 
 
 				Virtual_cube virtual_cube_target = virtual_cubes_[virtual_cube_index]; 
 
-				compute_mvc_on_handle_outside_cage(graph_name, handle_position, 
-												virtual_cube_target);
-		}*/								
+				Eigen::VectorXd local_row_weights;
+				compute_mvc_on_point_outside_cage(handle_position, 			local_row_weights, virtual_cube_target);
+
+				local_handle_data_[graph_name].weights_.position_ = local_row_weights;
+		}								
 	}
 
 	/// @brief deform handle with MVC deformation type 
@@ -1342,24 +1356,44 @@ private:
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 							const GraphVertex& handle_vertex)
 	{
-		Handle_data handle_data = local_handle_data_[graph_name];
-		VectorWeights handle_weights =  handle_data.weights_; 
+		VectorWeights handle_weights = local_handle_data_[graph_name].weights_;
 
-		Vec3 new_position = {0.0, 0.0, 0.0};
+		int handle_cage_index = local_handle_data_[graph_name].cage_index_; 
 
-		foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
-			const Vec3& cage_point = value<Vec3>(*control_cage_, 
+		if (handle_cage_index == 27)
+		{
+			Vec3 new_position = {0.0, 0.0, 0.0};
+
+			foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
+				const Vec3& cage_point = value<Vec3>(*control_cage_, 
 										control_cage_vertex_position_, cv);
-			uint32 cage_point_index = value<uint32>(*control_cage_, 
+				uint32 cage_point_index = value<uint32>(*control_cage_, 
 											control_cage_vertex_index_, cv);
 
-			new_position += 
-					handle_data.weights_.position_[cage_point_index] * cage_point;
+				new_position += 
+					handle_weights.position_[cage_point_index] * cage_point;
 
 			return true;
-		});
+			});
 
-		value<Vec3>(g, graph_vertex_position, handle_vertex) = new_position;
+			value<Vec3>(g, graph_vertex_position, handle_vertex) = new_position;
+		} else {
+			Virtual_cube virtual_cube_target =  
+				virtual_cubes_[handle_cage_index];  
+
+			Vec3 new_position = {0.0, 0.0, 0.0};
+			for (size_t p = 0; p < virtual_cube_target.points.size(); p++){
+				const Point& cage_point = virtual_cube_target.points[p];
+				uint32 cage_point_index = p;
+
+				new_position += 
+					handle_weights.position_[p] * 
+									cage_point.position;
+
+				}
+				value<Vec3>(g, graph_vertex_position, handle_vertex) = new_position;
+		}
+		
 	}
 
 
