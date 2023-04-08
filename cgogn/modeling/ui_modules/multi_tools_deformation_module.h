@@ -1218,7 +1218,7 @@ private:
 	/// @param object_vertex_position position of the vertices of the model
 	/// @param control_axis local axis  
 	/// @param axis_vertex_position position of the vertices of the local axis
-	/// @param binding_type chosen binding type (rigid or loose)
+	/// @param binding_type chosen binding type (LBS or DQS)
 	void bind_local_axis(MESH& object, 
 		const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 		GRAPH& control_axis, 
@@ -1255,8 +1255,17 @@ private:
 								get_attribute<uint32, MeshVertex>(object, 
 															"vertex_index");
 
-							current_adt->set_axis_transformation(
+							if (current_adt->deformation_type_ == "LBS"){
+								current_adt->set_axis_transformation(
 													p_axis.transformations_);
+							}
+
+							if (current_adt ->deformation_type_ == "DQS")
+							{
+								current_adt->set_dual_quaternions_transformation(
+													p_axis.dual_quaternion_transformations_);
+							}
+							
 
 							current_adt->deform_object(object, 
 											object_vertex_position.get(), 
@@ -1275,7 +1284,7 @@ private:
 	/// @param object_vertex_position position of the vertices of the model
 	/// @param control_axis local axis  
 	/// @param axis_vertex_position position of the vertices of the local axis
-	/// @param binding_type chosen binding type (rigid or loose)
+	/// @param binding_type chosen binding type (LBS or DQS)
 	void update_bind_local_axis(MESH& object, 
 		const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 		GRAPH& control_axis, 
@@ -2209,11 +2218,11 @@ protected:
 						{
 							selected_mesh_ = nullptr;
 
-							if (selected_graph_){
+							/*if (selected_graph_){
 								modeling::GraphParameters<GRAPH>& old_p = 
 												*graph_parameters_[selected_graph_];
 								old_p.selected_vertices_set_ = nullptr;
-							}
+							}*/
 
 							selected_graph_ = selected_axis_;
 							modeling::GraphParameters<GRAPH>& axis_p = 
@@ -2250,7 +2259,7 @@ protected:
 
 								static ImGuiComboFlags flags = 0;
 
-								const char* items[] = { "Rigid", "Loose" };
+								const char* items[] = { "LBS", "DQS" };
 								static const char* item_current = items[0];       
 
 								if (ImGui::BeginCombo("combo local axis", 

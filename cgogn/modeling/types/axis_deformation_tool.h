@@ -33,6 +33,8 @@
 #include <cgogn/modeling/algos/deformation/deformation_utils.h>
 #include <cgogn/rendering/types.h>
 
+#include <cgogn/modeling/types/dual_quaternion.h>
+
 namespace cgogn
 {
 
@@ -119,10 +121,14 @@ public:
 		cgogn::modeling::set_attribute_vertex_index_graph(*control_axis_, 
 														a_vertex_index.get());
 
-		axis_transformation_.resize(axis_skeleton_.size() +1); 
+		size_t number_of_transformations = axis_skeleton_.size() +1; 
+		axis_transformation_.resize(number_of_transformations); 
+		dual_quaternion_transformations_.resize(number_of_transformations); 
 
 		for (size_t t = 0; t < axis_transformation_.size(); t++){
 			axis_transformation_[t].setIdentity();
+
+			dual_quaternion_transformations_[t] = modeling::DualQuaternion(); 
 		}
 
 		starting_positions_ = vertex_coordinates; 
@@ -137,8 +143,13 @@ public:
 		axis_transformation_ = axis_transformation; 
 	}
 
+	void set_dual_quaternions_transformation(const std::vector<DualQuaternion>& dual_quat_transformation)
+	{
+		dual_quaternion_transformations_ = dual_quat_transformation; 
+	}
+
 	/// @brief set deformation type 
-	/// so far between rigid or loose deformation 
+	/// so far between LBS or DQS deformation 
 	/// @param new_type 
 	void set_deformation_type(const std::string new_type){
 		deformation_type_ = new_type; 
@@ -189,7 +200,9 @@ public:
 		uint32 nb_bones = axis_skeleton_.size() +1;
 		object_weights_ = Eigen::SparseMatrix<double, Eigen::RowMajor>(nbv_object, nb_bones); 
 
-		bind_object_rigid(object, object_vertex_position);
+		
+		bind_object_rigid(object, object_vertex_position); 
+		
 	}
 
 	/// @brief update binding of object 
@@ -202,44 +215,32 @@ public:
 		object_weights_.setZero(); 
 
 		bind_object_rigid(object, object_vertex_position);
+		
 	}
 
-	
-
-	/// @brief deform the assigned zone of influence of the object
-	/// follow Linear Blend Skinning (LBS) formalism  
-	/// @param object model to deform
-	/// @param object_vertex_position positions of the vertices of the model 
-	/// @param object_vertex_index indices of the vertices of the model 
 	void deform_object(MESH& object, 
 					CMap2::Attribute<Vec3>* object_vertex_position, 
 					CMap2::Attribute<uint32>* object_vertex_index)
 	{
-		const std::size_t influence_area_length = 
-									this->object_influence_area_.size(); 
-
-		for (std::size_t i = 0; i < influence_area_length; i++)
+		if (deformation_type_ == "LBS")
 		{
-			MeshVertex v = this->object_influence_area_[i]; 
-			uint32 v_index = value<uint32>(object, object_vertex_index, v);
-			Vec3 v_position = value<Vec3>(object, object_vertex_position, v); 
-
-			Vec3 new_position = {0.0, 0.0, 0.0}; 
-
-			for (size_t t = 0; t < axis_transformation_.size(); t++){
- 
-				Vec3 local_transformation = axis_transformation_[t]*v_position; 
-
-				new_position += object_weights_.coeff(v_index, t)*
-											local_transformation;
-
-			}
-
-			value<Vec3>(object, object_vertex_position, v) = new_position; 
-
+			deform_object_LBS(object, object_vertex_position, 
+								object_vertex_index); 
 		}
 
+		if (deformation_type_ == "DQS")
+		{
+			std::shared_ptr<Attribute<Vec3>> object_vertex_normal =
+			get_attribute<Vec3, MeshVertex>(object, "normal");
+
+			deform_object_DQS(object, object_vertex_position, 
+								object_vertex_index, object_vertex_normal.get());
+		}
 	}
+
+	
+
+	
 
 	/// @brief 
 	/// @return vector composed of the vertices of the axis
@@ -251,10 +252,10 @@ public:
 private:
 	std::vector<Graph::Vertex> axis_skeleton_; 
 	Vec3 axis_normal_;
-	Eigen::Matrix3d local_frame_;
-	Eigen::Matrix3d local_frame_inverse_;
 
 	std::vector<rendering::Transfo3d> axis_transformation_; 
+
+	std::vector<modeling::DualQuaternion> dual_quaternion_transformations_; 
 
 	std::vector<Vec3> inside_axis_position_; 
 
@@ -287,6 +288,106 @@ private:
 				cgogn::modeling::weight_partial_skeleton(inside_axis_position_, 
 												surface_point);
 		
+		}
+
+	}
+
+	/// @brief deform the assigned zone of influence of the object
+	/// follow Linear Blend Skinning (LBS) formalism  
+	/// @param object model to deform
+	/// @param object_vertex_position positions of the vertices of the model 
+	/// @param object_vertex_index indices of the vertices of the model 
+	void deform_object_LBS(MESH& object, 
+					CMap2::Attribute<Vec3>* object_vertex_position, 
+					CMap2::Attribute<uint32>* object_vertex_index)
+	{
+		const std::size_t influence_area_length = 
+									this->object_influence_area_.size(); 
+
+		for (std::size_t i = 0; i < influence_area_length; i++)
+		{
+			MeshVertex v = this->object_influence_area_[i]; 
+			uint32 v_index = value<uint32>(object, object_vertex_index, v);
+			Vec3 v_position = value<Vec3>(object, object_vertex_position, v); 
+
+			Vec3 new_position = {0.0, 0.0, 0.0}; 
+
+			for (size_t t = 0; t < axis_transformation_.size(); t++){
+ 
+				Vec3 local_transformation = axis_transformation_[t]*v_position; 
+
+				new_position += object_weights_.coeff(v_index, t)*
+											local_transformation;
+
+			}
+
+			value<Vec3>(object, object_vertex_position, v) = new_position; 
+
+		}
+
+	}
+
+	/// @brief deform the assigned zone of influence of the object
+	/// follow Dual Quaternion Skinning (DQS) formalism  
+	/// @param object model to deform
+	/// @param object_vertex_position positions of the vertices of the model 
+	/// @param object_vertex_index indices of the vertices of the model 
+	void deform_object_DQS(MESH& object, 
+					CMap2::Attribute<Vec3>* object_vertex_position, 
+					CMap2::Attribute<uint32>* object_vertex_index, 
+					CMap2::Attribute<Vec3>* object_vertex_normal)
+	{
+
+		const std::size_t influence_area_length = 
+									this->object_influence_area_.size(); 
+
+		for (std::size_t i = 0; i < influence_area_length; i++)
+		{
+			MeshVertex v = this->object_influence_area_[i]; 
+			uint32 v_index = value<uint32>(object, object_vertex_index, v);
+			Vec3 v_position = value<Vec3>(object, object_vertex_position, v); 
+			Vec3 v_normal = value<Vec3>(object, object_vertex_normal, v);
+
+			int  k0 = -1;
+			double w0 = 0.f;
+			DualQuaternion dq_blend;
+			Eigen::Quaterniond q0;
+
+			/*if(axis_skeleton_.size() != 0)
+			{
+				k0 = axis_skeleton_[0].index_;
+				w0 = object_weights_.coeff(v_index, 0);
+			}else
+				dq_blend = DualQuaternion::identity();
+
+			if(k0 != -1) dq_blend = dual_quaternion_transformations_[k0] * w0;
+
+			int pivot = k0;*/
+
+			//q0 = dual_quaternion_transformations_[pivot].rotation();
+
+			for (size_t t = 0; t < dual_quaternion_transformations_.size(); t++){
+ 
+				//const int k = axis_skeleton_[j].index_;
+				double w = object_weights_.coeff(v_index, t);
+				//const DualQuaternion& dq = (k == -1) ? DualQuaternion::identity() : dual_quaternion_transformations_[k];
+				const DualQuaternion& dq = dual_quaternion_transformations_[t]; 
+
+				/*if( dq.rotation().dot( q0 ) < 0.f )
+					w *= -1.0;*/
+
+				dq_blend = dq_blend + dq * w;
+
+			}
+
+			Vec3 vi = dq_blend.transform( v_position );
+			
+			value<Vec3>(object, object_vertex_position, v) = vi;
+			// Compute animated normal
+			dq_blend.normalize(); 
+
+			value<Vec3>(object, object_vertex_normal, v) = dq_blend.rotate_quaternion( dq_blend.get_non_dual_part(),v_normal );
+
 		}
 
 	}

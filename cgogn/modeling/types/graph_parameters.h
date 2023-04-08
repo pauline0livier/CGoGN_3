@@ -148,11 +148,16 @@ public:
 	void set_number_of_handles(const size_t& number_of_handles)
 	{
 		number_of_handles_ = number_of_handles; 
+		size_t number_of_transformations = number_of_handles_ +1; 
 
-		transformations_.resize(number_of_handles+1);
-		for (size_t t = 0; t < transformations_.size(); t++){
+		transformations_.resize(number_of_transformations);
+		dual_quaternion_transformations_.resize(number_of_transformations);
+		for (size_t t = 0; t < number_of_transformations; t++){
 			transformations_[t].setIdentity();
+
+			dual_quaternion_transformations_[t] = modeling::DualQuaternion(); 
 		}
+
 	
 	}
 
@@ -162,6 +167,8 @@ public:
 		for (size_t t = 0; t < transformations_.size(); t++)
 		{
 			transformations_[t].setIdentity();
+			dual_quaternion_transformations_[t] = modeling::DualQuaternion();
+
 		}
 
 		transformations_valid_indices_.clear(); 
@@ -317,6 +324,7 @@ public:
 
 	Vec3 rotation_center_;
 
+	std::vector<modeling::DualQuaternion> dual_quaternion_transformations_;
 	std::vector<rendering::Transfo3d> transformations_;
 	std::vector<std::size_t> transformations_valid_indices_; 
 
@@ -534,7 +542,10 @@ private:
 
 				for (size_t t = 0; t < transformations_valid_indices_.size(); t++){ 
 					transformations_[transformations_valid_indices_[t]] = M;
+
+					dual_quaternion_transformations_[transformations_valid_indices_[t]].set_from_transformation(M); 
 				}
+
 			}
 				
 	}
