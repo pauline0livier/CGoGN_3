@@ -62,6 +62,7 @@ class HandleDeformationTool
 		MeshVertex vertex; 
 		bool shared; 
 		Vec3 local_translation; 
+		double max_local_translation; 
 	}; 
 
 public:
@@ -78,6 +79,8 @@ public:
 	Eigen::VectorXf global_cage_normal_weights_;
 
 	std::unordered_map<uint32, Influence_area_vertex> object_influence_area_; 
+
+	std::unordered_map<uint32, MeshVertex> shared_vertex; 
 
 	std::string deformation_type_;
 
@@ -136,6 +139,7 @@ public:
 			new_element.vertex = influence_set[i]; 
 			new_element.shared = false; 
 			new_element.local_translation = {0.0, 0.0, 0.0}; 
+			new_element.max_local_translation = 0.0; 
 			
 			object_influence_area_[vertex_index] = new_element; 
 		}
@@ -146,6 +150,11 @@ public:
 	/// @param new_type 
 	void set_deformation_type(const std::string new_type){
 		deformation_type_ = new_type; 
+	}
+
+	Vec3 get_deformation_from_norm(const double& norm)
+	{
+		return norm*handle_normal_; 
 	}
 
 	/// @brief reset deformation
@@ -239,8 +248,22 @@ public:
 			uint32 vertex_index = myPair.first;
 			MeshVertex v = myPair.second.vertex; 
 
-			value<Vec3>(object, object_vertex_position, v) += 
-			object_weights_[vertex_index] * new_deformation;
+			const Vec3 new_transformation = 
+						object_weights_[vertex_index] * new_deformation; 
+
+			object_influence_area_[vertex_index].max_local_translation += 
+					new_transformation.norm(); 
+			
+			object_influence_area_[vertex_index].local_translation = 
+					new_transformation; 
+
+			if (!object_influence_area_[vertex_index].shared)
+			{
+				value<Vec3>(object, object_vertex_position, v) += 
+					new_transformation;
+			}
+
+			
 		}
 	}
 

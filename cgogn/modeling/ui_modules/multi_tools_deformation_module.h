@@ -1046,6 +1046,8 @@ private:
 											object_vertex_position.get(), 
 											object_vertex_index.get());
 
+							check_deformation_handle_shared_vertex(p_handle.name_); 
+
 							mesh_provider_->emit_attribute_changed(object, 
 											object_vertex_position.get()); 
 
@@ -2515,58 +2517,102 @@ private:
 		model_p.selected_vertices_set_->clear();
 		mesh_provider_->emit_cells_set_changed(*model_, 
 												model_p.selected_vertices_set_);
+
+		if (handle_container_.size() < 1)
+		{
+			for ( const auto &myPair : current_hdt->object_influence_area_ ) {
+				uint32 vertex_index = myPair.first;
+				MeshVertex v = myPair.second.vertex; 
+
+				if (activation_map_.find(vertex_index) != activation_map_.end()){
+					const size_t number_of_handles_ = 
+								activation_map_[vertex_index].tool_names.size(); 
+
+					if (number_of_handles_ == 1)
+					{
+						for (std::string h_name : activation_map_[vertex_index].tool_names) 
+						{
+							std::shared_ptr<modeling::HandleDeformationTool<MESH>> other_hdt =
+											handle_container_[h_name];
+							other_hdt->object_influence_area_[vertex_index].shared = true; 
+							other_hdt->shared_vertex[vertex_index] = v;
+						}
+					} 
+
+					activation_map_[vertex_index].tool_names.insert(last_handle_name);
+					current_hdt->object_influence_area_[vertex_index].shared = true; 
+					current_hdt->shared_vertex[vertex_index] = v; 
+				} else {
+					modeling::SharedVertexData new_data; 
+					new_data.tool_names = {}; 
+					new_data.current_max_translation = 0.0; 
+
+					const auto [it, inserted] =
+						activation_map_.emplace(vertex_index, new_data);
+
+					if (inserted)
+					{
+						activation_map_[vertex_index].tool_names.insert(last_handle_name); 
+						
+					}
+				}
+			}
+		}
 	}
 
-	/*void set_shared_coefficients_handle(MESH& object, const std::string& handle_name)
+	void check_deformation_handle_shared_vertex(const std::string& handle_name)
 	{
-		
-		std::shared_ptr<modeling::HandleDeformationTool<MESH>> local_hdt =
-											handle_container_[handle_name];
+		std::shared_ptr<MeshAttribute<Vec3>> model_vertex_position =
+								get_attribute<Vec3, MeshVertex>(*model_, 
+															"position");
+	
+		std::shared_ptr<modeling::HandleDeformationTool<MESH>> current_hdt =
+									handle_container_[handle_name];
 
-		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
-			get_attribute<uint32, MeshVertex>(object, "vertex_index");
+		for ( const auto &myPair : current_hdt->shared_vertex ) {
+				uint32 vertex_index = myPair.first;
+				MeshVertex v = myPair.second; 
 
-		std::size_t influence_area_length = local_hdt->object_influence_area_.size(); 
-
-		for (std::size_t i = 0; i < influence_area_length; i++)
-		{
-			MeshVertex v = local_hdt->object_influence_area_[i];
-			uint32 vertex_index = 
-					value<uint32>(object, object_vertex_index, v);
-			if (activation_map_.find(vertex_index) != activation_map_.end())
-			{
-				
-				const size_t number_of_handles_ = activation_map_[vertex_index].tool_names.size(); 
-
-				for (std::string h_name : activation_map_[vertex_index].tool_names) {
-					std::shared_ptr<modeling::HandleDeformationTool<MESH>> hdt =
-											handle_container_[h_name];
-
-					//const double comboDistance = normPosS0Sq + normPosS1Sq; 
-
-					hdt->shared_coefficients_[vertex_index] = 1.0/number_of_handles_; 
-				}
-
-				activation_map_[vertex_index].tool_names.insert(handle_name);
-	 
-			} else {
-				modeling::SharedVertexData new_data; 
-				new_data.tool_names = {}; 
-
-				const auto [it, inserted] =
-				activation_map_.emplace(vertex_index, new_data);
-
-				if (inserted)
+				if (current_hdt->object_influence_area_[vertex_index].max_local_translation > 
+						activation_map_[vertex_index].current_max_translation)
 				{
-					activation_map_[vertex_index].tool_names.insert(handle_name); 
-					local_hdt->shared_coefficients_[vertex_index] = 1.0; 
 
+					if (activation_map_[vertex_index].current_max_translation == 0.0)
+					{
+						value<Vec3>(*model_, model_vertex_position.get(), v) += 
+						current_hdt->object_influence_area_[vertex_index].local_translation; 		
+
+					} 
+					else 
+					{
+						std::string old_max_handle_name = activation_map_[vertex_index].name_max_handle; 
+						
+						std::shared_ptr<modeling::HandleDeformationTool<MESH>> old_hdt =
+									handle_container_[old_max_handle_name];
+
+						Vec3 current_position = value<Vec3>(*model_, model_vertex_position.get(), v); 
+
+						Vec3 reset_position =  current_position - 
+						old_hdt->get_deformation_from_norm(activation_map_[vertex_index].current_max_translation); 
+
+
+						value<Vec3>(*model_, model_vertex_position.get(), v) = 
+							reset_position + current_hdt->get_deformation_from_norm(current_hdt->object_influence_area_[vertex_index].max_local_translation); 
+					}	
+
+					activation_map_[vertex_index].name_max_handle = handle_name; 
+					activation_map_[vertex_index].current_max_translation = 
+								current_hdt->object_influence_area_[vertex_index].max_local_translation;
+					
 				}
-				
-			}
-			
+
 		}
-	}*/
+
+		mesh_provider_->emit_attribute_changed(*model_, 
+												model_vertex_position.get());
+
+
+	}
 
 
 

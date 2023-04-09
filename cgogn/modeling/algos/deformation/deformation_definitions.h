@@ -60,6 +60,7 @@ struct SharedVertexData
 {
 	std::set<std::string> tool_names; 
 	double current_max_translation; 
+	std::string name_max_handle; 
 }; 
 
 } // namespace modeling
