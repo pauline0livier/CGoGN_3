@@ -2221,9 +2221,16 @@ protected:
 								[&](GRAPH& g) {
 									if (selected_axis_)
 									{
-									modeling::GraphParameters<GRAPH>& old_p = 
-												*graph_parameters_[selected_axis_];
-									old_p.selected_vertices_set_ = nullptr;
+										modeling::GraphParameters<GRAPH>& old_p = 
+										*graph_parameters_[selected_axis_];
+
+										modeling::GraphParameters<GRAPH>& new_p = 
+										*graph_parameters_[&g];
+
+										if (old_p.name_ != new_p.name_){
+											old_p.selected_vertices_set_ = nullptr;
+										}
+
 									}
 									selected_axis_ = &g;
 								});
@@ -2232,11 +2239,18 @@ protected:
 						{
 							selected_mesh_ = nullptr;
 
-							/*if (selected_graph_){
+							if (selected_graph_){
+
 								modeling::GraphParameters<GRAPH>& old_p = 
 												*graph_parameters_[selected_graph_];
-								old_p.selected_vertices_set_ = nullptr;
-							}*/
+								
+								modeling::GraphParameters<GRAPH>& new_p = 
+										*graph_parameters_[selected_axis_];
+
+								if (old_p.name_ != new_p.name_){
+									old_p.selected_vertices_set_ = nullptr;
+								}
+							}
 
 							selected_graph_ = selected_axis_;
 							modeling::GraphParameters<GRAPH>& axis_p = 
