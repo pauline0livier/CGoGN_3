@@ -993,7 +993,7 @@ private:
 
 		hdt->set_deformation_type(binding_type);
 
-		hdt->init_bind_object(object, object_vertex_position); 
+		hdt->init_bind_object(object); 
 
 		if (global_cage_container_.size() > 0)
 		{
@@ -1201,7 +1201,7 @@ private:
 
 		hdt->set_deformation_type(binding_type);
 
-		hdt->bind_object(object, object_vertex_position); 
+		hdt->bind_object(); 
 	}
 
 
@@ -2598,6 +2598,24 @@ private:
 
 						value<Vec3>(*model_, model_vertex_position.get(), v) = 
 							reset_position + current_hdt->get_deformation_from_norm(current_hdt->object_influence_area_[vertex_index].max_local_translation); 
+
+						std::shared_ptr<MeshAttribute<uint32>> model_vertex_index =
+								get_attribute<uint32, MeshVertex>(*model_, 
+															"vertex_index");
+
+						const uint32 handle_mesh_vertex_index =
+							old_hdt->get_handle_mesh_vertex_index(*model_, model_vertex_index.get());
+
+						if (vertex_index == handle_mesh_vertex_index)
+						{
+							std::cout << "same vertex as handle" << std::endl; 
+							const Vec3 new_position = value<Vec3>(*model_, model_vertex_position.get(), v); 
+							old_hdt->update_handle_position(new_position) ; 
+							old_hdt->bind_object(); 
+
+						} else {
+							old_hdt->bind_isolated_vertex(vertex_index); 
+						}
 					}	
 
 					activation_map_[vertex_index].name_max_handle = handle_name; 

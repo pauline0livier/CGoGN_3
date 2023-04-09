@@ -193,6 +193,16 @@ public:
 		start_position_ = get_handle_position(); 
 	}
 
+	/// @brief update handle position 
+	/// used when other handles around 
+	void update_handle_position(const Vec3& new_position)
+	{
+		handle_position_ = new_position; 
+		value<Vec3>(*control_handle_, 
+				control_handle_vertex_position_, handle_vertex_) = new_position; 
+
+	}
+
 	/// @brief 
 	/// @return handle vertex 
 	Graph::Vertex get_handle_vertex(){
@@ -210,26 +220,31 @@ public:
 	/// @brief initialize binding for object
 	/// @param object model to deform
 	/// @param object_vertex_position position of the vertices of the model 
-	void init_bind_object(MESH& object, 
-					const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+	void init_bind_object(MESH& object)
 	{
 		uint32 nbv_object = nb_cells<MeshVertex>(object);
 
 		object_weights_.resize(nbv_object);
 		object_weights_.setZero();
 
-		bind_object_round(object, object_vertex_position);
+		bind_object_round();
 	}
 
 	/// @brief binding for object
 	/// @param object model to deform
 	/// @param object_vertex_position position of the vertices of the model 
-	void bind_object(MESH& object, 
-					const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+	void bind_object()
 	{
 		object_weights_.setZero();
 
-		bind_object_round(object, object_vertex_position);
+		bind_object_round();
+	}
+
+	void bind_isolated_vertex(const uint32& vertex_index)
+	{
+		object_weights_[vertex_index] = 
+				exp(-(geodesic_distance_[vertex_index]*geodesic_distance_[vertex_index]) / 
+								(radius_of_influence_*radius_of_influence_));
 	}
 
 	/// @brief deform the object 
@@ -275,6 +290,13 @@ public:
 	{
 		handle_mesh_vertex_ = m_v;
 	}
+
+	const uint32& get_handle_mesh_vertex_index(MESH& object, 
+					CMap2::Attribute<uint32>* object_vertex_index)
+	{
+		return value<uint32>(object, 
+							object_vertex_index, handle_mesh_vertex_);
+	}
 	
 	/// @brief compute handle deformation
 	/// @return handle deformation
@@ -308,12 +330,10 @@ private:
 	/// exp(-sqrt(geodesic_distance_[v]/max_dist)) for spike
 	/// @param object 
 	/// @param object_vertex_position 
-	void bind_object_round(MESH& object, 
-			const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+	void bind_object_round()
 	{
 		for ( const auto &myPair : object_influence_area_ ) {
 			uint32 vertex_index = myPair.first;
-			MeshVertex v = myPair.second.vertex; 
 
 			object_weights_[vertex_index] = 
 				exp(-(geodesic_distance_[vertex_index]*geodesic_distance_[vertex_index]) / 
