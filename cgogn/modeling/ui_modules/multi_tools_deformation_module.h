@@ -47,8 +47,10 @@
 #include <cgogn/modeling/types/axis_deformation_tool.h>
 #include <cgogn/modeling/types/cage_deformation_tool.h>
 #include <cgogn/modeling/types/global_cage_deformation_tool.h>
-#include <cgogn/modeling/types/graph_parameters.h>
 #include <cgogn/modeling/types/handle_deformation_tool.h>
+
+#include <cgogn/modeling/types/handle_parameters.h>
+#include <cgogn/modeling/types/axis_parameters.h>
 #include <cgogn/modeling/types/mesh_parameters.h>
 
 #include <boost/synapse/connect.hpp>
@@ -115,7 +117,7 @@ public:
 	MultiToolsDeformation(const App& app)
 		: ViewModule(app, 
 		"MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), 
-			model_(nullptr),selected_mesh_(nullptr), selected_graph_(nullptr), 
+			model_(nullptr), selected_mesh_(nullptr), 
 			selected_handle_(nullptr), selected_axis_(nullptr), 
 			selected_cage_(nullptr)
 	{
@@ -173,53 +175,23 @@ public:
 		md.template add_cells_set<MeshVertex>();
 	}
 
-
-	/// @brief initialize graph 
-	/// set graph_ for graph_parameter
-	/// create synapse connection when attribute or cell sets changed 
-	/// create a cell container to insert the selected elements  
+	/// @brief initialize graph
+	/// call corresponding function 
 	/// @param g graph 
 	void init_graph(GRAPH* g)
 	{
-		graph_parameters_[g] = new modeling::GraphParameters<GRAPH>();
-		modeling::GraphParameters<GRAPH>& p = *graph_parameters_[g];
-		p.graph_ = g;
-
-		graph_connections_[g].push_back(
-			boost::synapse::connect<typename GraphProvider<GRAPH>::
-									template attribute_changed_t<Vec3>>(
-				g, [this, g](GraphAttribute<Vec3>* attribute) {
-
-					modeling::GraphParameters<GRAPH>& p = 
-													*graph_parameters_[g];
-					if (p.vertex_position_.get() == attribute)
-					{
-						p.vertex_base_size_ = 3.5;
-						p.update_selected_vertices_vbo();
-					}
-
-					for (View* v : linked_views_)
-						v->request_update();
-				}));
-
-		graph_connections_[g].push_back(
-			boost::synapse::connect<typename GraphProvider<GRAPH>::
-								template cells_set_changed<GraphVertex>>(
-				g, [this, g](CellsSet<GRAPH, GraphVertex>* set) {
-					modeling::GraphParameters<GRAPH>& p = 
-													*graph_parameters_[g];
-					if (p.selected_vertices_set_ == set && 
-														p.vertex_position_)
-					{
-						p.update_selected_vertices_vbo();
-						for (View* v : linked_views_)
-							v->request_update();
-					}
-				}));
-
 		GraphData<GRAPH>& gd = graph_provider_->graph_data(*g);
-		gd.template add_cells_set<GraphVertex>();
+
+		if (gd.graph_name_.find('h') != std::string::npos)
+		{
+			init_handle_graph(g); 
+		} 
+		else {
+			init_axis_graph(g); 
+		}
 	}
+
+	
 
 	/**
 	 * set mesh to deform as model for this module 
@@ -348,14 +320,14 @@ private:
 	}
 
 
-	/// @brief set graph_parameter vertex position from the graph ones
+	/// @brief set handle_parameter vertex position from the graph ones
 	/// set vertex base size
 	/// @param g graph  
 	/// @param g_vertex_position position of the vertices of the graph
-	void set_graph_vertex_position(const GRAPH& g, 
+	void set_handle_vertex_position(const GRAPH& g, 
 			const std::shared_ptr<GraphAttribute<Vec3>>& g_vertex_position)
 	{
-		modeling::GraphParameters<GRAPH>& p = *graph_parameters_[&g];
+		modeling::HandleParameters<GRAPH>& p = *handle_parameters_[&g];
 		p.vertex_position_ = g_vertex_position;
 		if (p.vertex_position_)
 		{
@@ -366,6 +338,26 @@ private:
 		for (View* v : linked_views_)
 			v->request_update();
 	}
+
+	/// @brief set axis_parameter vertex position from the graph ones
+	/// set vertex base size
+	/// @param g graph  
+	/// @param g_vertex_position position of the vertices of the graph
+	void set_axis_vertex_position(const GRAPH& g, 
+			const std::shared_ptr<GraphAttribute<Vec3>>& g_vertex_position)
+	{
+		modeling::AxisParameters<GRAPH>& p = *axis_parameters_[&g];
+		p.vertex_position_ = g_vertex_position;
+		if (p.vertex_position_)
+		{
+			p.vertex_base_size_ = 5.0;
+			p.update_selected_vertices_vbo();
+		}
+
+		for (View* v : linked_views_)
+			v->request_update();
+	}
+
 
 
 	/// @brief create global cage around model 
@@ -442,7 +434,7 @@ private:
 			auto handle_vertex_radius = 
 					add_attribute<Scalar, GraphVertex>(*handle, "radius");
 
-			set_graph_vertex_position(*handle, handle_vertex_position);
+			set_handle_vertex_position(*handle, handle_vertex_position);
 
 			auto mesh_vertex_normal = 
 							get_attribute<Vec3, MeshVertex>(object, "normal");
@@ -456,8 +448,8 @@ private:
 									mesh_vertex_normal.get(), handle_set);
 			normal.normalize();
 
-			modeling::GraphParameters<GRAPH>& handle_p = 
-												*graph_parameters_[handle];
+			modeling::HandleParameters<GRAPH>& handle_p = 
+												*handle_parameters_[handle];
 
 			handle_p.name_ = handle_name; 
 
@@ -522,7 +514,7 @@ private:
 			auto axis_vertex_radius = 
 					add_attribute<Scalar, GraphVertex>(*axis, "radius");
 
-			set_graph_vertex_position(*axis, axis_vertex_position);
+			set_axis_vertex_position(*axis, axis_vertex_position);
 
 			auto mesh_vertex_normal = 
 					get_attribute<Vec3, MeshVertex>(object, "normal");
@@ -558,8 +550,8 @@ private:
 						axis_vertex_radius.get(), axis_vertices_position,
 						axis_normals, inside_axis_position);
 
-			modeling::GraphParameters<GRAPH>& axis_p = 
-												*graph_parameters_[axis];
+			modeling::AxisParameters<GRAPH>& axis_p = 
+												*axis_parameters_[axis];
 			axis_p.normal_ = {0.0, 0.0, 1.0}; 
 			axis_p.set_number_of_handles(axis_vertices_position.size()); 
 
@@ -710,8 +702,8 @@ private:
 		{
 			for (auto& [name, adt] : axis_container_)
 			{
-				modeling::GraphParameters<GRAPH>& p_axis = 
-								*graph_parameters_[adt->control_axis_];
+				modeling::AxisParameters<GRAPH>& p_axis = 
+								*axis_parameters_[adt->control_axis_];
 
 				std::vector<GraphVertex> axis_vertices = 
 												adt->get_axis_skeleton();
@@ -755,8 +747,8 @@ private:
 										HandleDeformationTool<MESH>> local_hdt =
 											handle_container_[name];
 
-									modeling::GraphParameters<GRAPH>& p_handle =
-									*graph_parameters_[local_hdt->control_handle_];
+									modeling::HandleParameters<GRAPH>& p_handle =
+									*handle_parameters_[local_hdt->control_handle_];
 
 									current_gcdt->deform_handle(
 										*(local_hdt->control_handle_), name,
@@ -780,8 +772,8 @@ private:
 									AxisDeformationTool<MESH>> local_adt =
 										axis_container_[name];
 
-									modeling::GraphParameters<GRAPH>& p_axis =
-									*graph_parameters_[local_adt->control_axis_];
+									modeling::AxisParameters<GRAPH>& p_axis =
+									*axis_parameters_[local_adt->control_axis_];
 
 									current_gcdt->deform_axis(
 										*(local_adt->control_axis_), name,
@@ -835,8 +827,8 @@ private:
 		{
 			for (auto& [name, adt] : axis_container_)
 			{
-				modeling::GraphParameters<GRAPH>& p_axis = 
-								*graph_parameters_[adt->control_axis_];
+				modeling::AxisParameters<GRAPH>& p_axis = 
+								*axis_parameters_[adt->control_axis_];
 
 				std::vector<GraphVertex> axis_vertices = 
 												adt->get_axis_skeleton();
@@ -920,8 +912,8 @@ private:
 										HandleDeformationTool<MESH>> local_hdt =
 											handle_container_[name];
 
-									modeling::GraphParameters<GRAPH>& p_handle =
-									*graph_parameters_[local_hdt->control_handle_];
+									modeling::HandleParameters<GRAPH>& p_handle =
+									*handle_parameters_[local_hdt->control_handle_];
 
 									current_cdt->deform_handle(
 										*(local_hdt->control_handle_), name,
@@ -993,8 +985,8 @@ private:
 		std::string binding_type)
 	{
 
-		modeling::GraphParameters<GRAPH>& p_handle = 
-									*graph_parameters_[&control_handle];
+		modeling::HandleParameters<GRAPH>& p_handle = 
+									*handle_parameters_[&control_handle];
 
 		std::shared_ptr<modeling::HandleDeformationTool<MESH>> hdt = 
 										handle_container_[p_handle.name_];
@@ -1132,9 +1124,9 @@ private:
 													HandleDeformationTool<MESH>> local_hdt =
 														handle_container_[name_handle];
 												
-												modeling::GraphParameters<GRAPH>& 
+												modeling::HandleParameters<GRAPH>& 
 													p_handle =
-													*graph_parameters_
+													*handle_parameters_
 														[local_hdt->control_handle_];
 
 												Vec3 handle_position = 
@@ -1160,8 +1152,8 @@ private:
 													AxisDeformationTool<MESH>> local_adt =
 													axis_container_[name_axis];
 												
-												modeling::GraphParameters<GRAPH>& p_axis =
-													*graph_parameters_[local_adt->control_axis_];
+												modeling::AxisParameters<GRAPH>& p_axis =
+													*axis_parameters_[local_adt->control_axis_];
 
 												std::vector<GraphVertex> 
 													axis_vertices = 
@@ -1199,8 +1191,8 @@ private:
 		std::string binding_type)
 	{
 
-		modeling::GraphParameters<GRAPH>& p_handle = 
-									*graph_parameters_[&control_handle];
+		modeling::HandleParameters<GRAPH>& p_handle = 
+									*handle_parameters_[&control_handle];
 
 		std::shared_ptr<modeling::HandleDeformationTool<MESH>> hdt = 
 										handle_container_[p_handle.name_];
@@ -1226,8 +1218,8 @@ private:
 		std::string binding_type)
 	{
 
-		modeling::GraphParameters<GRAPH>& p_axis = 
-										*graph_parameters_[&control_axis];
+		modeling::AxisParameters<GRAPH>& p_axis = 
+										*axis_parameters_[&control_axis];
 
 		std::shared_ptr<modeling::AxisDeformationTool<MESH>> adt = 
 											axis_container_[p_axis.name_];
@@ -1292,8 +1284,8 @@ private:
 		std::string binding_type)
 	{
 
-		modeling::GraphParameters<GRAPH>& p_axis = 
-										*graph_parameters_[&control_axis];
+		modeling::AxisParameters<GRAPH>& p_axis = 
+										*axis_parameters_[&control_axis];
 
 		std::shared_ptr<modeling::AxisDeformationTool<MESH>> adt = 
 											axis_container_[p_axis.name_];
@@ -1365,17 +1357,31 @@ protected:
 												p.selected_vertices_set_);
 		}
 
-		if (selected_graph_ && view->control_pressed())
+		if (selected_handle_ && view->control_pressed())
 		{
-			modeling::GraphParameters<GRAPH>& p = 
-										*graph_parameters_[selected_graph_];
+
+			modeling::HandleParameters<GRAPH>& p = 
+										*handle_parameters_[selected_handle_];
 
 			if (p.vertex_position_)
 			{
 				p.select_vertices_set(view, button, x, y);
-				graph_provider_->emit_cells_set_changed(*selected_graph_, 
+				graph_provider_->emit_cells_set_changed(*selected_handle_, 
 												p.selected_vertices_set_);
 			}
+		} 
+		
+		if (selected_axis_ && view->control_pressed()) {
+			modeling::AxisParameters<GRAPH>& p = 
+										*axis_parameters_[selected_axis_];
+
+			if (p.vertex_position_)
+			{
+				p.select_vertices_set(view, button, x, y);
+				graph_provider_->emit_cells_set_changed(*selected_axis_, 
+												p.selected_vertices_set_);
+			}
+			
 		}
 	}
 
@@ -1401,20 +1407,20 @@ protected:
 
 		if (key_code == GLFW_KEY_H)
 		{ 
-			if (selected_graph_)
+			if (selected_handle_)
 			{
-				modeling::GraphParameters<GRAPH>& p = 
-										*graph_parameters_[selected_graph_];
+				modeling::HandleParameters<GRAPH>& p = 
+										*handle_parameters_[selected_handle_];
 				p.key_pressed_H_event(view);
 			}
 		}
 
 		if (key_code == GLFW_KEY_Q || key_code == GLFW_KEY_A)
 		{
-			if (selected_graph_)
+			if (selected_axis_)
 			{
-				modeling::GraphParameters<GRAPH>& p = 
-										*graph_parameters_[selected_graph_];
+				modeling::AxisParameters<GRAPH>& p = 
+										*axis_parameters_[selected_axis_];
 				p.key_pressed_A_event(view);
 			}
 		}
@@ -1437,14 +1443,14 @@ protected:
 		}
 		else if (key_code == GLFW_KEY_H)
 		{
-			modeling::GraphParameters<GRAPH>& p = 
-										*graph_parameters_[selected_graph_];
+			modeling::HandleParameters<GRAPH>& p = 
+										*handle_parameters_[selected_handle_];
 			p.key_release_handle_event(view);
 		}
 		else if (key_code == GLFW_KEY_Q || key_code == GLFW_KEY_A)
 		{
-			modeling::GraphParameters<GRAPH>& p = 
-										*graph_parameters_[selected_graph_];
+			modeling::AxisParameters<GRAPH>& p = 
+										*axis_parameters_[selected_axis_];
 			p.key_release_axis_event(view);
 		}
 	}
@@ -1470,12 +1476,21 @@ protected:
 												p.vertex_position_.get());
 		}
 
-		if (selected_graph_)
+		if (selected_handle_)
 		{
-			modeling::GraphParameters<GRAPH>& p = 
-										*graph_parameters_[selected_graph_];
+			modeling::HandleParameters<GRAPH>& p = 
+										*handle_parameters_[selected_handle_];
 			p.mouse_displacement(view, x, y);
-			graph_provider_->emit_attribute_changed(*selected_graph_, 
+			graph_provider_->emit_attribute_changed(*selected_handle_, 
+												p.vertex_position_.get());
+		}
+
+		if (selected_axis_)
+		{
+			modeling::AxisParameters<GRAPH>& p = 
+										*axis_parameters_[selected_axis_];
+			p.mouse_displacement(view, x, y);
+			graph_provider_->emit_attribute_changed(*selected_axis_, 
 												p.vertex_position_.get());
 		}
 	}
@@ -1489,10 +1504,16 @@ protected:
 			p->local_draw(view);
 		}
 
-		for (auto& [m, p] : graph_parameters_)
+		for (auto& [m, p] : handle_parameters_)
 		{
 			p->local_draw(view);
 		}
+
+		for (auto& [m, p] : axis_parameters_)
+		{
+			p->local_draw(view);
+		}
+
 	}
 
 	/// @brief left panel used for user interface
@@ -1854,7 +1875,9 @@ protected:
 
 						if (selected_cage_)
 						{
-							selected_graph_ = nullptr;
+							selected_handle_ = nullptr;
+							selected_axis_ = nullptr;
+
 							modeling::Parameters<MESH>& old_p = 
 												*parameters_[selected_mesh_];
 							old_p.selected_vertices_set_ = nullptr;
@@ -2054,11 +2077,11 @@ protected:
 								{ 
 									if (selected_handle_ )
 									{
-										modeling::GraphParameters<GRAPH>& old_p = 
-										*graph_parameters_[selected_handle_];
+										modeling::HandleParameters<GRAPH>& old_p = 
+										*handle_parameters_[selected_handle_];
 
-										modeling::GraphParameters<GRAPH>& new_p = 
-										*graph_parameters_[&g];
+										modeling::HandleParameters<GRAPH>& new_p = 
+										*handle_parameters_[&g];
 
 										if (old_p.name_ != new_p.name_){
 											old_p.selected_vertices_set_ = nullptr;
@@ -2074,24 +2097,9 @@ protected:
 						if (selected_handle_)
 						{
 							selected_mesh_ = nullptr;
-
-							if (selected_graph_){
-								modeling::GraphParameters<GRAPH>& old_p = 
-												*graph_parameters_[selected_graph_];
-								
-								modeling::GraphParameters<GRAPH>& new_p = 
-										*graph_parameters_[selected_handle_];
-
-								if (old_p.name_ != new_p.name_){
-									old_p.selected_vertices_set_ = nullptr;
-								}
-								
-							}
 						
-
-							selected_graph_ = selected_handle_;
-							modeling::GraphParameters<GRAPH>& handle_p = 
-										*graph_parameters_[selected_graph_];
+							modeling::HandleParameters<GRAPH>& handle_p = 
+										*handle_parameters_[selected_handle_];
 
 							const std::string handle_name = 
 							graph_provider_->graph_name(*selected_handle_);
@@ -2185,7 +2193,6 @@ protected:
 											*selected_handle_,
 											handle_p.selected_vertices_set_);
 
-										selected_graph_ = nullptr; 
 										selected_handle_ = nullptr; 
 									}
 								}
@@ -2221,11 +2228,11 @@ protected:
 								[&](GRAPH& g) {
 									if (selected_axis_)
 									{
-										modeling::GraphParameters<GRAPH>& old_p = 
-										*graph_parameters_[selected_axis_];
+										modeling::AxisParameters<GRAPH>& old_p = 
+										*axis_parameters_[selected_axis_];
 
-										modeling::GraphParameters<GRAPH>& new_p = 
-										*graph_parameters_[&g];
+										modeling::AxisParameters<GRAPH>& new_p = 
+										*axis_parameters_[&g];
 
 										if (old_p.name_ != new_p.name_){
 											old_p.selected_vertices_set_ = nullptr;
@@ -2239,22 +2246,8 @@ protected:
 						{
 							selected_mesh_ = nullptr;
 
-							if (selected_graph_){
-
-								modeling::GraphParameters<GRAPH>& old_p = 
-												*graph_parameters_[selected_graph_];
-								
-								modeling::GraphParameters<GRAPH>& new_p = 
-										*graph_parameters_[selected_axis_];
-
-								if (old_p.name_ != new_p.name_){
-									old_p.selected_vertices_set_ = nullptr;
-								}
-							}
-
-							selected_graph_ = selected_axis_;
-							modeling::GraphParameters<GRAPH>& axis_p = 
-										*graph_parameters_[selected_graph_];
+							modeling::AxisParameters<GRAPH>& axis_p = 
+										*axis_parameters_[selected_axis_];
 
 							const std::string axis_name = 
 								graph_provider_->graph_name(*selected_axis_);
@@ -2345,7 +2338,6 @@ protected:
 											*selected_axis_,
 											axis_p.selected_vertices_set_);
 
-										selected_graph_ = nullptr; 
 										selected_axis_ =  nullptr; 
 									}
 								}
@@ -2374,9 +2366,9 @@ private:
 
 	MESH* selected_mesh_;
 	MESH* selected_cage_;
+
 	GRAPH* selected_handle_;
 	GRAPH* selected_axis_;
-	GRAPH* selected_graph_;
 
 	std::shared_ptr<modeling::CageDeformationTool<MESH>> selected_cdt_;
 	std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> 
@@ -2385,8 +2377,12 @@ private:
 	std::shared_ptr<modeling::AxisDeformationTool<MESH>> selected_adt_;
 
 	std::unordered_map<const MESH*, modeling::Parameters<MESH>*> parameters_;
-	std::unordered_map<const GRAPH*, modeling::GraphParameters<GRAPH>*> 
-														graph_parameters_;
+
+	std::unordered_map<const GRAPH*, modeling::HandleParameters<GRAPH>*> 
+														handle_parameters_;
+
+	std::unordered_map<const GRAPH*, modeling::AxisParameters<GRAPH>*> 
+														axis_parameters_;
 
 	std::vector<std::shared_ptr<boost::synapse::connection>> connections_;
 
@@ -2408,6 +2404,103 @@ private:
 	SelectionTool deformed_tool_;
 
 	std::vector<MeshVertex> influence_set_;
+
+	/// @brief initialize graph of type handle
+	/// set graph_ for handle_parameter
+	/// create synapse connection when attribute or cell sets changed 
+	/// create a cell container to insert the selected elements  
+	/// @param g graph 
+	void init_handle_graph(GRAPH* g)
+	{
+		handle_parameters_[g] = new modeling::HandleParameters<GRAPH>();
+		modeling::HandleParameters<GRAPH>& p = *handle_parameters_[g];
+		p.graph_ = g;
+
+		graph_connections_[g].push_back(
+			boost::synapse::connect<typename GraphProvider<GRAPH>::
+									template attribute_changed_t<Vec3>>(
+				g, [this, g](GraphAttribute<Vec3>* attribute) {
+
+					modeling::HandleParameters<GRAPH>& p = 
+													*handle_parameters_[g];
+					if (p.vertex_position_.get() == attribute)
+					{
+						p.vertex_base_size_ = 3.5;
+						p.update_selected_vertices_vbo();
+					}
+
+					for (View* v : linked_views_)
+						v->request_update();
+				}));
+
+		graph_connections_[g].push_back(
+			boost::synapse::connect<typename GraphProvider<GRAPH>::
+								template cells_set_changed<GraphVertex>>(
+				g, [this, g](CellsSet<GRAPH, GraphVertex>* set) {
+					modeling::HandleParameters<GRAPH>& p = 
+													*handle_parameters_[g];
+					if (p.selected_vertices_set_ == set && 
+														p.vertex_position_)
+					{
+						p.update_selected_vertices_vbo();
+						for (View* v : linked_views_)
+							v->request_update();
+					}
+				}));
+
+		GraphData<GRAPH>& gd = graph_provider_->graph_data(*g);
+		gd.template add_cells_set<GraphVertex>();
+	}
+
+	/// @brief initialize graph of type handle
+	/// set graph_ for axis_parameter
+	/// create synapse connection when attribute or cell sets changed 
+	/// create a cell container to insert the selected elements  
+	/// @param g graph 
+	void init_axis_graph(GRAPH* g)
+	{
+		axis_parameters_[g] = new modeling::AxisParameters<GRAPH>();
+		modeling::AxisParameters<GRAPH>& p = *axis_parameters_[g];
+		p.graph_ = g;
+
+		graph_connections_[g].push_back(
+			boost::synapse::connect<typename GraphProvider<GRAPH>::
+									template attribute_changed_t<Vec3>>(
+				g, [this, g](GraphAttribute<Vec3>* attribute) {
+
+					modeling::AxisParameters<GRAPH>& p = 
+													*axis_parameters_[g];
+					if (p.vertex_position_.get() == attribute)
+					{
+						p.vertex_base_size_ = 3.5;
+						p.update_selected_vertices_vbo();
+					}
+
+					for (View* v : linked_views_)
+						v->request_update();
+				}));
+
+		graph_connections_[g].push_back(
+			boost::synapse::connect<typename GraphProvider<GRAPH>::
+								template cells_set_changed<GraphVertex>>(
+				g, [this, g](CellsSet<GRAPH, GraphVertex>* set) {
+					modeling::AxisParameters<GRAPH>& p = 
+													*axis_parameters_[g];
+					if (p.selected_vertices_set_ == set && 
+														p.vertex_position_)
+					{
+						p.update_selected_vertices_vbo();
+						for (View* v : linked_views_)
+							v->request_update();
+					}
+				}));
+
+		GraphData<GRAPH>& gd = graph_provider_->graph_data(*g);
+		gd.template add_cells_set<GraphVertex>();
+	}
+
+
+
 };
 
 } // namespace ui

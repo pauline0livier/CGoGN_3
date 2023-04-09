@@ -72,6 +72,7 @@ class GraphProvider : public ProviderModule
 	using Vec3 = geometry::Vec3;
 
 public:
+
 	GraphProvider(const App& app)
 		: ProviderModule(app, "GraphProvider (" + std::string{mesh_traits<GRAPH>::name} + ")"), selected_graph_(nullptr),
 		  bb_min_(0, 0, 0), bb_max_(0, 0, 0)
@@ -100,7 +101,7 @@ public:
 			if (inserted)
 			{
 				GraphData<GRAPH>& gd = graph_data(*g);
-				gd.init(g);
+				gd.init(g, name);
 				boost::synapse::emit<graph_added>(this, g);
 			}
 			return g;
@@ -131,7 +132,7 @@ public:
 		if (inserted)
 		{
 			GraphData<GRAPH>& gd = graph_data_[g];
-			gd.init(g);
+			gd.init(g, name);
 			std::shared_ptr<Attribute<Vec3>> vertex_position = cgogn::get_attribute<Vec3, Vertex>(*g, "position");
 			if (vertex_position)
 				set_graph_bb_vertex_position(g, vertex_position);
@@ -161,181 +162,6 @@ public:
 	{
 		return graphs_.count(name) == 1;
 	}
-
-	/*GRAPH* load_graph_from_file(const std::string& filename)
-	{
-		std::string name = filename_from_path(filename);
-		if (has_mesh(name))
-			name = remove_extension(name) + "_" + std::to_string(number_of_meshes()) + "." + extension(name);
-		const auto [it, inserted] = meshes_.emplace(name, std::make_unique<MESH>());
-		MESH* m = it->second.get();
-
-		std::string ext = extension(filename);
-		bool imported;
-
-		if constexpr (mesh_traits<MESH>::dimension == 1 && std::is_default_constructible_v<MESH>)
-		{
-			if (ext.compare("cg") == 0)
-				imported = cgogn::io::import_CG(*m, filename);
-			else if (ext.compare("cgr") == 0)
-				imported = cgogn::io::import_CGR(*m, filename);
-			else if (ext.compare("skel") == 0)
-				imported = cgogn::io::import_SKEL(*m, filename);
-			else
-				imported = false;
-		}
-		else if constexpr (std::is_same_v<MESH, IncidenceGraph>)
-		{
-			if (ext.compare("cg") == 0)
-				imported = cgogn::io::import_CG(*m, filename);
-			else if (ext.compare("ig") == 0)
-				imported = cgogn::io::import_IG(*m, filename);
-			else
-				imported = false;
-		}
-
-		if (imported)
-		{
-			MeshData<MESH>& md = mesh_data(*m);
-			md.init(m);
-			std::shared_ptr<Attribute<Vec3>> vertex_position = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
-			if (vertex_position)
-				set_mesh_bb_vertex_position(*m, vertex_position);
-			boost::synapse::emit<mesh_added>(this, m);
-			return m;
-		}
-		else
-		{
-			meshes_.erase(name);
-			return nullptr;
-		}
-	}
-
-	void save_graph_to_file(MESH& m, const Attribute<Vec3>* vertex_position, const std::string& filetype,
-							const std::string& filename)
-	{
-		if constexpr (mesh_traits<MESH>::dimension == 1)
-		{
-			if (filetype.compare("cg") == 0)
-				cgogn::io::export_CG(m, vertex_position, filename + ".cg");
-			// else if (filetype.compare("cgr") == 0)
-			// 	// TODO cgogn::io::export_CGR();
-			// else if (filetype.compare("skel") == 0)
-			// 	// TODO cgogn::io::export_SKEL();
-		}
-	}
-
-	MESH* load_surface_from_file(const std::string& filename)
-	{
-		if constexpr (mesh_traits<MESH>::dimension == 2 && std::is_default_constructible_v<MESH>)
-		{
-			std::string name = filename_from_path(filename);
-			if (has_mesh(name))
-				name = remove_extension(name) + "_" + std::to_string(number_of_meshes()) + "." + extension(name);
-			const auto [it, inserted] = meshes_.emplace(name, std::make_unique<MESH>());
-			MESH* m = it->second.get();
-
-			std::string ext = extension(filename);
-			bool imported = false;
-			if (ext.compare("off") == 0)
-				imported = cgogn::io::import_OFF(*m, filename);
-			else if (ext.compare("obj") == 0)
-				imported = cgogn::io::import_OBJ(*m, filename);
-			else if (ext.compare("ply") == 0)
-				imported = cgogn::io::import_PLY(*m, filename);
-			else if (ext.compare("ig") == 0)
-			{
-				if constexpr (std::is_same_v<MESH, IncidenceGraph>)
-					imported = cgogn::io::import_IG(*m, filename);
-			}
-
-			if (imported)
-			{
-				MeshData<MESH>& md = mesh_data(*m);
-				md.init(m);
-				std::shared_ptr<Attribute<Vec3>> vertex_position = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
-				if (vertex_position)
-					set_mesh_bb_vertex_position(*m, vertex_position);
-				boost::synapse::emit<mesh_added>(this, m);
-				return m;
-			}
-			else
-			{
-				meshes_.erase(name);
-				return nullptr;
-			}
-		}
-		else
-			return nullptr;
-	}
-
-	void save_surface_to_file(MESH& m, const Attribute<Vec3>* vertex_position, const std::string& filetype,
-							  const std::string& filename)
-	{
-		if constexpr (mesh_traits<MESH>::dimension == 2)
-		{
-			if (filetype.compare("off") == 0)
-				cgogn::io::export_OFF(m, vertex_position, filename + ".off");
-			else if (filetype.compare("ig") == 0)
-				cgogn::io::export_IG(m, vertex_position, filename + ".ig");
-		}
-	}
-
-	MESH* load_volume_from_file(const std::string& filename)
-	{
-		if constexpr (mesh_traits<MESH>::dimension == 3 && std::is_default_constructible_v<MESH>)
-		{
-			std::string name = filename_from_path(filename);
-			if (has_mesh(name))
-				name = remove_extension(name) + "_" + std::to_string(number_of_meshes()) + "." + extension(name);
-			const auto [it, inserted] = meshes_.emplace(name, std::make_unique<MESH>());
-			MESH* m = it->second.get();
-
-			std::string ext = extension(filename);
-			bool imported;
-			if (ext.compare("tet") == 0)
-				imported = cgogn::io::import_TET(*m, filename);
-			else if (ext.compare("mesh") == 0 || ext.compare("meshb") == 0)
-				imported = cgogn::io::import_MESHB(*m, filename);
-			else
-				imported = false;
-
-			if (imported)
-			{
-				MeshData<MESH>& md = mesh_data(*m);
-				md.init(m);
-				std::shared_ptr<Attribute<Vec3>> vertex_position = cgogn::get_attribute<Vec3, Vertex>(*m, "position");
-				if (vertex_position)
-					set_mesh_bb_vertex_position(*m, vertex_position);
-				boost::synapse::emit<mesh_added>(this, m);
-				return m;
-			}
-			else
-			{
-				meshes_.erase(name);
-				return nullptr;
-			}
-		}
-		else
-			return nullptr;
-	}
-
-	void save_volume_to_file(MESH& m, const Attribute<Vec3>* vertex_position, const std::string& filetype,
-							 const std::string& filename)
-	{
-		if constexpr (mesh_traits<MESH>::dimension == 3)
-		{
-			if (filetype.compare("mesh") == 0)
-				cgogn::io::export_MESH(m, vertex_position, filename + ".mesh");
-			// else if (filetype.compare("cgns") == 0)
-			// 	cgogn::io::export_CGNS(m, vertex_position, filename + ".cgns");
-
-			// else if (filetype.compare("tet") == 0)
-			// 	// TODO cgogn::io::export_TET();
-			// else if (filetype.compare("meshb") == 0)
-			// 	// TODO cgogn::io::export_MESHB();
-		}
-	}*/
 
 	template <typename FUNC>
 	void foreach_graph(const FUNC& f)

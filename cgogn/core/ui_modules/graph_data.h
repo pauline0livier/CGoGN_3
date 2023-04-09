@@ -67,9 +67,10 @@ struct GraphData
 		return &render_;
 	}
 
-	void init(const GRAPH* g)
+	void init(const GRAPH* g, const std::string& name)
 	{
 		graph_ = g;
+		graph_name_ = name; 
 		update_nb_cells();
 	}
 
@@ -233,6 +234,8 @@ public:
 	Vec3 bb_min_, bb_max_;
 	std::array<uint32, std::tuple_size<typename mesh_traits<GRAPH>::Cells>::value> nb_cells_;
 	float64 outlined_until_;
+
+	std::string graph_name_; 
 
 private:
 	template <class>

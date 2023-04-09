@@ -21,8 +21,8 @@
  *                                                                              *
  *******************************************************************************/
 
-#ifndef CGOGN_MODELING_TYPES_GRAPH_PARAMETERS_H_
-#define CGOGN_MODELING_TYPES_GRAPH_PARAMETERS_H_
+#ifndef CGOGN_MODELING_TYPES_AXIS_PARAMETERS_H_
+#define CGOGN_MODELING_TYPES_AXIS_PARAMETERS_H_
 
 #include <cgogn/geometry/types/vector_traits.h>
 #include <cgogn/modeling/algos/deformation/deformation_definitions.h>
@@ -46,7 +46,7 @@ template <typename GRAPH>
 /**
  * @Class graph parameters 
 */
-class GraphParameters
+class AxisParameters
 {
 	template <typename T>
 	using Attribute = typename mesh_traits<GRAPH>::template Attribute<T>;
@@ -57,13 +57,12 @@ class GraphParameters
 
 public:
 
-	GraphParameters()
+	AxisParameters()
 		: vertex_position_(nullptr), vertex_scale_factor_(1.0), 
 			sphere_scale_factor_(10.0), selected_vertices_set_(nullptr), 
 			object_update_(false), 
 			selecting_cell_(SelectingCell::VertexSelect),
-		  selection_method_(SelectionMethod::SingleCell), 
-		  dragging_handle_(false), dragging_axis_(false)
+		  selection_method_(SelectionMethod::SingleCell), dragging_axis_(false)
 	{
 		param_point_sprite_ = 
 			rendering::ShaderPointSprite::generate_param();
@@ -71,13 +70,13 @@ public:
 		param_point_sprite_->set_vbos({&selected_vertices_vbo_});
 	}
 
-	~GraphParameters()
+	~AxisParameters()
 	{
 	}
 
 	
-	GraphParameters(GraphParameters&&) = default;
-	GraphParameters& operator=(GraphParameters&&) = default;
+	AxisParameters(AxisParameters&&) = default;
+	AxisParameters& operator=(AxisParameters&&) = default;
 
 
 	/// @brief update selected vertices 
@@ -173,33 +172,6 @@ public:
 
 		transformations_valid_indices_.clear(); 
 	}
-	
-	/// @brief H key pressed
-	/// initialize displacement of handle
-	/// @param view current view 
-	void key_pressed_H_event(ui::View* view)
-	{
-		if (vertex_position_ && selected_vertices_set_ && 
-								selected_vertices_set_->size() > 0)
-		{
-			drag_z_ = 0.0;
-			selected_vertices_set_->foreach_cell([&](Vertex v) {
-				const Vec3& pos = value<Vec3>(*graph_, vertex_position_, v);
-				rendering::GLVec4d vec(pos[0], pos[1], pos[2], 1.0);
-
-				vec = 
-					view->projection_matrix_d() * 
-						view->modelview_matrix_d() * vec;
-				vec /= vec[3];
-				drag_z_ += (1.0 + vec[2]) / 2.0;
-			});
-			drag_z_ /= selected_vertices_set_->size();
-			previous_drag_pos_ = 
-				view->unproject(view->previous_mouse_x(), 
-								view->previous_mouse_y(), drag_z_);
-			dragging_handle_ = true;
-		}
-	}
 
 
 	/// @brief A key pressed 
@@ -221,16 +193,6 @@ public:
 
 			dragging_axis_ = true;
 		}
-	}
-
-
-	/// @brief h key released 
-	/// reset dragging handle parameter
-	/// @param view 
-	void key_release_handle_event(ui::View* view)
-	{
-		if (dragging_handle_)
-			dragging_handle_ = false;
 	}
 
 
@@ -261,11 +223,6 @@ public:
 	/// @param y retrieved from mouse position
 	void mouse_displacement(ui::View* view, const int32& x, const int32& y)
 	{
-		if (dragging_handle_)
-		{
-			mouse_handle_displacement(view, x, y); 
-		}
-
 		if (dragging_axis_)
 		{
 			mouse_axis_displacement(view, x, y); 
@@ -329,12 +286,7 @@ public:
 	std::vector<rendering::Transfo3d> transformations_;
 	std::vector<std::size_t> transformations_valid_indices_; 
 
-	
-	float64 drag_z_;
-	rendering::GLVec3d previous_drag_pos_;
-
 private: 
-	bool dragging_handle_;
 	bool dragging_axis_;
 
 	/// @brief select one vertex
@@ -481,24 +433,6 @@ private:
 		
 	}
 
-	/// @brief handle displacement caused by the mouse displacement
-	/// handle translates along normal 
-	/// @param view current view 
-	/// @param x retrieved from mouse position
-	/// @param y retrieved from mouse position
-	void mouse_handle_displacement(ui::View* view, const int32& x, const int32& y)
-	{
-		rendering::GLVec3d drag_pos = view->unproject(x, y, drag_z_);
-			Vec3 t = drag_pos - previous_drag_pos_;
-
-			Vec3 t_bis = t.dot(normal_) * normal_;
-
-			selected_vertices_set_->foreach_cell([&](Vertex v) { 
-				value<Vec3>(*graph_, vertex_position_, v) += t_bis; });
-			
-			previous_drag_pos_ = drag_pos + t_bis;
-	}
-
 	/// @brief axis displacement caused by mouse displacement
 	/// axis rotates around defined center and axis of rotation
 	/// @param view current view
@@ -562,4 +496,4 @@ private:
 
 } // namespace cgogn
 
-#endif // CGOGN_MODELING_TYPES_GRAPH_PARAMETERS_H_
+#endif // CGOGN_MODELING_TYPES_AXIS_PARAMETERS_H_
