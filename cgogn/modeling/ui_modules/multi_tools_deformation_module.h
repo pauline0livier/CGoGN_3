@@ -1616,9 +1616,6 @@ protected:
 									modeling::SelectionMethod::WithinSphere)
 					{
 
-						ImGui::SliderFloat("Sphere_radius", 
-							&(model_p.sphere_scale_factor_), 10.0f, 100.0f);
-
 						if (model_p.selected_vertices_set_)
 						{
 							ImGui::Text("(nb elements: %d)", 
@@ -1646,9 +1643,6 @@ protected:
 						{
 
 							accept_handle_influence_area(); 
-							
-
-							//set_shared_coefficients_handle(*model_, last_handle_name); 
 
 						}
 
