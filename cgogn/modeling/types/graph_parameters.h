@@ -245,6 +245,7 @@ public:
 
 			for (size_t t = 0; t < transformations_.size(); t++){
 				transformations_[t].setIdentity();
+				dual_quaternion_transformations_[t] = modeling::DualQuaternion(); 
 			}
 
 			transformations_valid_indices_.clear(); 
@@ -361,8 +362,7 @@ private:
 			rotation_center_ = value<Vec3>(*graph_, vertex_position_, 
 															first_edge.first);
 		} 
-
-		std::cout << selected_vertex.index_ << std::endl; 
+ 
 		if (selected_vertex.index_ == 0){ 
 			transformations_valid_indices_.push_back(1); 
 		} else {
@@ -471,9 +471,10 @@ private:
 				}
 			}
 
-			for (std::size_t i = 0; i < selected_vertices.size() -1 ; i++){
-				transformations_valid_indices_.push_back(number_of_handles_ - (i+1)); 
+			for (std::size_t i = 0; i < selected_vertices.size() +1; i++){  
+				transformations_valid_indices_.push_back(number_of_handles_ -i); 
 			}
+
 		} else {
 			std::cout << "TODO" << std::endl; 
 		}
@@ -534,10 +535,13 @@ private:
 					Eigen::Translation3d(rotation_center_) * rot 
 						* Eigen::Translation3d(-rotation_center_);
 
+				DualQuaternion dq = DualQuaternion(M); 
+
 				selected_vertices_set_->foreach_cell([&](Vertex v) {
 					Vec3& axis_vertex_position = value<Vec3>(*graph_, 
 															vertex_position_, v);
-						axis_vertex_position = M * axis_vertex_position;
+						//axis_vertex_position = M * axis_vertex_position;
+					value<Vec3>(*graph_, vertex_position_, v) = dq.transform(axis_vertex_position);
 					}); 
 
 				for (size_t t = 0; t < transformations_valid_indices_.size(); t++){ 

@@ -107,7 +107,7 @@ public:
 
 		axis_skeleton_ = 
 			cgogn::modeling::create_axis(*g, g_vertex_position, 
-										g_vertex_radius, vertex_coordinates, Scalar(5));
+										g_vertex_radius, vertex_coordinates, Scalar(3));
 
 		control_axis_vertex_position_ = 
 				cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
@@ -383,9 +383,8 @@ private:
 			Vec3 vi = dq_blend.transform( v_position );
 			
 			value<Vec3>(object, object_vertex_position, v) = vi;
-			// Compute animated normal
+			
 			dq_blend.normalize(); 
-
 			value<Vec3>(object, object_vertex_normal, v) = dq_blend.rotate_quaternion( dq_blend.get_non_dual_part(),v_normal );
 
 		}

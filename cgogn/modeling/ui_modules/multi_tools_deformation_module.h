@@ -194,7 +194,7 @@ public:
 													*graph_parameters_[g];
 					if (p.vertex_position_.get() == attribute)
 					{
-						p.vertex_base_size_ = 6.0;
+						p.vertex_base_size_ = 3.5;
 						p.update_selected_vertices_vbo();
 					}
 
@@ -1697,7 +1697,7 @@ protected:
 								modeling::SelectionMethod::WithinSphere)
 					{
 						ImGui::SliderFloat("Sphere_radius", 
-							&(model_p.sphere_scale_factor_), 10.0f, 100.0f);
+							&(model_p.sphere_scale_factor_), 1.0f, 50.0f);
 
 						if (model_p.selected_vertices_set_)
 						{
