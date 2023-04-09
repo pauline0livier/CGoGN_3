@@ -172,8 +172,6 @@ public:
 							const float32 target_radius = 
 									(target_position - handle_position).norm(); 
 
-							std::cout << target_radius << std::endl; 
-
 							CellCache<MESH> cache = geometry::within_sphere(
 											*mesh_, handle_mesh_vertex_, 
 									vertex_base_size_ * target_radius, 

@@ -56,6 +56,12 @@ struct MatrixWeights
 	Eigen::MatrixXd normal_;
 };
 
+struct SharedVertexData
+{
+	std::set<std::string> tool_names; 
+	double current_max_translation; 
+}; 
+
 } // namespace modeling
 
 } // namespace cgogn

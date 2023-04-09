@@ -57,6 +57,13 @@ class HandleDeformationTool
 	using Vec3 = geometry::Vec3;
 	using Scalar = geometry::Scalar;
 
+	struct Influence_area_vertex
+	{
+		MeshVertex vertex; 
+		bool shared; 
+		Vec3 local_translation; 
+	}; 
+
 public:
 
 	Graph* control_handle_;
@@ -70,11 +77,9 @@ public:
 	Eigen::VectorXf global_cage_weights_;
 	Eigen::VectorXf global_cage_normal_weights_;
 
-	std::vector<MeshVertex> object_influence_area_; 
+	std::unordered_map<uint32, Influence_area_vertex> object_influence_area_; 
 
 	std::string deformation_type_;
-
-	std::unordered_map<uint32, Scalar> shared_coefficients_; 
 
 	Scalar radius_of_influence_; 
 
@@ -114,6 +119,26 @@ public:
 		handle_position_ = center;
 
 		start_position_ = center; 
+	}
+
+	/// @brief set object influence area
+	/// create set of influence area vertex 
+	void set_object_influence_area(MESH& object, 
+			CMap2::Attribute<uint32>* object_vertex_index,
+			const std::vector<MeshVertex>& influence_set)
+	{
+		for (std::size_t i = 0; i < influence_set.size(); i++)
+		{
+			uint32 vertex_index = 
+					value<uint32>(object, object_vertex_index, influence_set[i]); 
+
+			Influence_area_vertex new_element; 
+			new_element.vertex = influence_set[i]; 
+			new_element.shared = false; 
+			new_element.local_translation = {0.0, 0.0, 0.0}; 
+			
+			object_influence_area_[vertex_index] = new_element; 
+		}
 	}
 
 	/// @brief set deformation type
@@ -210,19 +235,12 @@ public:
 	{
 		const Vec3 new_deformation = get_handle_deformation();
 
-		const std::size_t influence_area_length =
-									 this->object_influence_area_.size(); 
-
-		for (std::size_t i = 0; i < influence_area_length; i++)
-		{
-			MeshVertex v = this->object_influence_area_[i]; 
-			uint32 vidx = value<uint32>(object, object_vertex_index, v);
-
-
-			//std::cout << shared_coefficients_[vidx] << std::endl; 
+		for ( const auto &myPair : object_influence_area_ ) {
+			uint32 vertex_index = myPair.first;
+			MeshVertex v = myPair.second.vertex; 
 
 			value<Vec3>(object, object_vertex_position, v) += 
-			(shared_coefficients_[vidx] *object_weights_[vidx]) * new_deformation;
+			object_weights_[vertex_index] * new_deformation;
 		}
 	}
 
@@ -270,16 +288,9 @@ private:
 	void bind_object_round(MESH& object, 
 			const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
 	{
-		std::shared_ptr<Attribute<uint32>> object_vertex_index =
-			get_attribute<uint32, MeshVertex>(object, "vertex_index");
-
-		std::size_t influence_area_length = object_influence_area_.size(); 
-
-		for (std::size_t i = 0; i < influence_area_length; i++)
-		{
-			MeshVertex v = this->object_influence_area_[i]; 
-			uint32 vertex_index = 
-					value<uint32>(object, object_vertex_index, v);
+		for ( const auto &myPair : object_influence_area_ ) {
+			uint32 vertex_index = myPair.first;
+			MeshVertex v = myPair.second.vertex; 
 
 			object_weights_[vertex_index] = 
 				exp(-(geodesic_distance_[vertex_index]*geodesic_distance_[vertex_index]) / 
@@ -358,7 +369,7 @@ private:
 		auto m_vertex_heat_gradient_div = 
 			get_or_add_attribute<Scalar, MeshVertex>(m, 
 										"__vertex_heat_gradient_div");
-										
+
 		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
 			Scalar d = 
 				vertex_gradient_divergence(m, v, m_face_heat_gradient.get(), 
