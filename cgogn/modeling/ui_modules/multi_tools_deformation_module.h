@@ -486,6 +486,11 @@ private:
 
 			hdt->set_geodesic_distance(object, object_vertex_position);
 
+			modeling::Parameters<MESH>& model_p = *parameters_[model_];
+
+			model_p.handle_mesh_vertex_ = closest_vertex; 
+			model_p.selection_for_handle_ = true; 
+
 			boost::synapse::emit<handle_added>(this, hdt);
 		}
 	}
@@ -1646,6 +1651,8 @@ protected:
 									influence_set_.push_back(v);
 									return true;
 							});
+ 
+							model_p.selection_for_handle_ = false; 
 							
 							std::string last_handle_name = "local_handle" + 
 										std::to_string(handle_container_.size() - 1);
@@ -2520,7 +2527,7 @@ private:
 					value<uint32>(object, object_vertex_index, v);
 			if (activation_map_.find(vertex_index) != activation_map_.end())
 			{
-				activation_map_[vertex_index].tool_names.insert(handle_name);
+				
 
 				const size_t number_of_handles_ = activation_map_[vertex_index].tool_names.size(); 
 
@@ -2528,8 +2535,12 @@ private:
 					std::shared_ptr<modeling::HandleDeformationTool<MESH>> hdt =
 											handle_container_[h_name];
 
+					//const double comboDistance = normPosS0Sq + normPosS1Sq; 
+
 					hdt->shared_coefficients_[vertex_index] = 1.0/number_of_handles_; 
 				}
+
+				activation_map_[vertex_index].tool_names.insert(handle_name);
 	 
 			} else {
 				SharedVertexData new_data; 

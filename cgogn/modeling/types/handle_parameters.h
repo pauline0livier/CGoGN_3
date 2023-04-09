@@ -237,7 +237,7 @@ public:
 
 	std::shared_ptr<boost::synapse::connection> cells_set_connection_;
 
-	Vec3 normal_;
+	Vec3 normal_; 
 
 	float64 drag_z_;
 	rendering::GLVec3d previous_drag_pos_;
