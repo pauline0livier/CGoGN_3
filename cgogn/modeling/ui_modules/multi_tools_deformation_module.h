@@ -104,6 +104,10 @@ class MultiToolsDeformation : public ViewModule
 	using MeshEdge = typename mesh_traits<MESH>::Edge;
 	using MeshFace = typename mesh_traits<MESH>::Face;
 
+	struct SharedVertexData{
+		std::set<std::string> tool_names; 
+	}; 
+
 public:
 	std::unordered_map<std::string, 
 		std::shared_ptr<modeling::AxisDeformationTool<MESH>>> axis_container_;
@@ -480,12 +484,7 @@ private:
 			graph_render_->set_vertex_radius(*v1, *handle, 
 											handle_vertex_radius);
 
-			auto object_geodesic = 
-					get_or_add_attribute<Scalar, MeshVertex>(*model_, 
-													"geodesic_distance");
-
 			hdt->set_geodesic_distance(object, object_vertex_position);
-			mesh_provider_->emit_attribute_changed(object, object_geodesic.get());
 
 			boost::synapse::emit<handle_added>(this, hdt);
 		}
@@ -1663,6 +1662,8 @@ protected:
 								mesh_provider_->emit_cells_set_changed(
 									*model_, model_p.selected_vertices_set_);
 
+							set_shared_coefficients_handle(*model_, last_handle_name); 
+
 						}
 
 						model_p.object_update_ = false;
@@ -2384,6 +2385,8 @@ private:
 	std::unordered_map<const GRAPH*, modeling::AxisParameters<GRAPH>*> 
 														axis_parameters_;
 
+	std::unordered_map<uint32,SharedVertexData> activation_map_; 
+
 	std::vector<std::shared_ptr<boost::synapse::connection>> connections_;
 
 	std::unordered_map<const MESH*, 
@@ -2497,6 +2500,54 @@ private:
 
 		GraphData<GRAPH>& gd = graph_provider_->graph_data(*g);
 		gd.template add_cells_set<GraphVertex>();
+	}
+
+	void set_shared_coefficients_handle(MESH& object, const std::string& handle_name)
+	{
+		
+		std::shared_ptr<modeling::HandleDeformationTool<MESH>> local_hdt =
+											handle_container_[handle_name];
+
+		std::shared_ptr<MeshAttribute<uint32>> object_vertex_index =
+			get_attribute<uint32, MeshVertex>(object, "vertex_index");
+
+		std::size_t influence_area_length = local_hdt->object_influence_area_.size(); 
+
+		for (std::size_t i = 0; i < influence_area_length; i++)
+		{
+			MeshVertex v = local_hdt->object_influence_area_[i];
+			uint32 vertex_index = 
+					value<uint32>(object, object_vertex_index, v);
+			if (activation_map_.find(vertex_index) != activation_map_.end())
+			{
+				activation_map_[vertex_index].tool_names.insert(handle_name);
+
+				const size_t number_of_handles_ = activation_map_[vertex_index].tool_names.size(); 
+
+				for (std::string h_name : activation_map_[vertex_index].tool_names) {
+					std::shared_ptr<modeling::HandleDeformationTool<MESH>> hdt =
+											handle_container_[h_name];
+
+					hdt->shared_coefficients_[vertex_index] = 1.0/number_of_handles_; 
+				}
+	 
+			} else {
+				SharedVertexData new_data; 
+				new_data.tool_names = {}; 
+
+				const auto [it, inserted] =
+				activation_map_.emplace(vertex_index, new_data);
+
+				if (inserted)
+				{
+					activation_map_[vertex_index].tool_names.insert(handle_name); 
+					local_hdt->shared_coefficients_[vertex_index] = 1.0; 
+
+				}
+				
+			}
+			
+		}
 	}
 
 

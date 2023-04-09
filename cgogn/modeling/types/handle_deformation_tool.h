@@ -74,6 +74,10 @@ public:
 
 	std::string deformation_type_;
 
+	std::unordered_map<uint32, Scalar> shared_coefficients_; 
+
+	Scalar radius_of_influence_; 
+
 	HandleDeformationTool(): control_handle_vertex_position_(nullptr)
 	{
 	}
@@ -95,7 +99,7 @@ public:
 	{
 		control_handle_ = g;
 		handle_vertex_ = cgogn::modeling::create_handle(*g, g_vertex_position, 
-											g_vertex_radius, center, Scalar(5));
+											g_vertex_radius, center, Scalar(3));
 
 		control_handle_vertex_position_ = 
 				cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
@@ -134,6 +138,16 @@ public:
 			const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
 	{
 		geodesic_distance(object, object_vertex_position.get());
+
+		unsigned current_max = 0;
+		for (auto it = geodesic_distance_.cbegin(); it != geodesic_distance_.cend(); ++it ) {
+			if (it ->second > current_max) {
+				current_max = it->second;
+			}
+		}
+
+		radius_of_influence_ = current_max; 
+
 	}
 
 	/// @brief update handle position 
@@ -170,15 +184,7 @@ public:
 		object_weights_.resize(nbv_object);
 		object_weights_.setZero();
 
-		if (deformation_type_ == "Spike")
-		{
-			bind_object_spike(object, object_vertex_position);
-		}
-
-		if (deformation_type_ == "Round")
-		{
-			bind_object_round(object, object_vertex_position);
-		}
+		bind_object_round(object, object_vertex_position);
 	}
 
 	/// @brief binding for object
@@ -189,15 +195,7 @@ public:
 	{
 		object_weights_.setZero();
 
-		if (deformation_type_ == "Spike")
-		{
-			bind_object_spike(object, object_vertex_position);
-		}
-
-		if (deformation_type_ == "Round")
-		{
-			bind_object_round(object, object_vertex_position);
-		}
+		bind_object_round(object, object_vertex_position);
 	}
 
 	/// @brief deform the object 
@@ -220,8 +218,11 @@ public:
 			MeshVertex v = this->object_influence_area_[i]; 
 			uint32 vidx = value<uint32>(object, object_vertex_index, v);
 
-			value<Vec3>(object, object_vertex_position, v) 
-									+= object_weights_[vidx] * new_deformation;
+
+			//std::cout << shared_coefficients_[vidx] << std::endl; 
+
+			value<Vec3>(object, object_vertex_position, v) += 
+			(shared_coefficients_[vidx] *object_weights_[vidx]) * new_deformation;
 		}
 	}
 
@@ -258,10 +259,12 @@ private:
 
 	Vec3 start_position_;  
 
+	std::unordered_map<uint32, Scalar> geodesic_distance_; 
 
 	/// @brief bind object with round deformation type 
 	/// geodesic distance between object point and handle 
 	/// attenuation function exp(-d²/d²_max), d = distance
+	/// exp(-sqrt(geodesic_distance_[v]/max_dist)) for spike
 	/// @param object 
 	/// @param object_vertex_position 
 	void bind_object_round(MESH& object, 
@@ -270,100 +273,17 @@ private:
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
 			get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
-		std::shared_ptr<Attribute<Scalar>> vertex_geodesic_distance =
-			cgogn::get_attribute<Scalar, MeshVertex>(object, 
-												"geodesic_distance");
-
-		Scalar max_dist = 0.0;
-		std::vector<Vec2> attenuation_points;
-
-		const std::size_t influence_area_length = 
-									this->object_influence_area_.size(); 
+		std::size_t influence_area_length = object_influence_area_.size(); 
 
 		for (std::size_t i = 0; i < influence_area_length; i++)
 		{
 			MeshVertex v = this->object_influence_area_[i]; 
-			uint32 surface_point_idx = 
-							value<uint32>(object, object_vertex_index, v);
-
-			Vec3 surface_point = value<Vec3>(object, object_vertex_position, v);
-
-			Vec3 point_to_handle = (surface_point - handle_position_);
-			Scalar i_dist = 
-						value<Scalar>(object, vertex_geodesic_distance, v);
-
-			if (i_dist > max_dist)
-			{
-				max_dist = i_dist;
-			}
-
-			object_weights_(surface_point_idx) = i_dist;
-			
-		}
-
-		for (std::size_t i = 0; i < influence_area_length; i++)
-		{
-			MeshVertex v = this->object_influence_area_[i]; 
-			uint32 surface_point_idx = 
+			uint32 vertex_index = 
 					value<uint32>(object, object_vertex_index, v);
 
-			object_weights_[surface_point_idx] = 
-						exp(-(object_weights_[surface_point_idx]*
-				object_weights_[surface_point_idx]) / (max_dist*max_dist));
-			
-		}
-	}
-
-	/// @brief bind object with spike deformation type 
-	// geodesic distance between object point and handle 
-	/// attenuation function exp(-d/d_max), d = distance
-	/// @param object 
-	/// @param object_vertex_position 
-	void bind_object_spike(MESH& object, 
-			const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
-	{
-		std::shared_ptr<Attribute<uint32>> object_vertex_index =
-			get_attribute<uint32, MeshVertex>(object, "vertex_index");
-
-		std::shared_ptr<Attribute<Scalar>> vertex_geodesic_distance =
-			cgogn::get_attribute<Scalar, MeshVertex>(object, 
-												"geodesic_distance");
-
-		Scalar max_dist = 0.0;
-		std::vector<Vec2> attenuation_points;
-
-		const std::size_t influence_area_length = 
-									this->object_influence_area_.size(); 
-
-		for (std::size_t i = 0; i < influence_area_length; i++)
-		{
-			MeshVertex v = this->object_influence_area_[i]; 
-			uint32 surface_point_idx = 
-							value<uint32>(object, object_vertex_index, v);
-
-			Vec3 surface_point = value<Vec3>(object, object_vertex_position, v);
-
-			Vec3 point_to_handle = (surface_point - handle_position_);
-			Scalar i_dist = 
-						value<Scalar>(object, vertex_geodesic_distance, v);
-
-			if (i_dist > max_dist)
-			{
-				max_dist = i_dist;
-			}
-
-			object_weights_(surface_point_idx) = i_dist;
-			
-		}
-
-		for (std::size_t i = 0; i < influence_area_length; i++)
-		{
-			MeshVertex v = this->object_influence_area_[i]; 
-			uint32 surface_point_idx = 
-					value<uint32>(object, object_vertex_index, v);
-			object_weights_[surface_point_idx] = 
-					exp(-sqrt(object_weights_[surface_point_idx]/max_dist)); 
-			
+			object_weights_[vertex_index] = 
+				exp(-(geodesic_distance_[vertex_index]*geodesic_distance_[vertex_index]) / 
+								(radius_of_influence_*radius_of_influence_));
 		}
 	}
 
@@ -372,10 +292,8 @@ private:
 	/// @param m_vertex_position position of the vertices of the mesh  
 	void geodesic_distance(MESH& m, const Attribute<Vec3>* m_vertex_position)
 	{
-		std::shared_ptr<Attribute<uint32>> m_vertex_index = cgogn::get_attribute<uint32, MeshVertex>(m, "vertex_index");
-
-		std::shared_ptr<Attribute<Scalar>> m_vertex_geodesic_distance =
-			cgogn::get_attribute<Scalar, MeshVertex>(m, "geodesic_distance");
+		std::shared_ptr<Attribute<uint32>> m_vertex_index = 
+					cgogn::get_attribute<uint32, MeshVertex>(m, "vertex_index");
 
 		uint32 nb_vertices = nb_cells<MeshVertex>(m);
 
@@ -440,6 +358,7 @@ private:
 		auto m_vertex_heat_gradient_div = 
 			get_or_add_attribute<Scalar, MeshVertex>(m, 
 										"__vertex_heat_gradient_div");
+										
 		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
 			Scalar d = 
 				vertex_gradient_divergence(m, v, m_face_heat_gradient.get(), 
@@ -462,12 +381,14 @@ private:
 		Scalar min = dist.minCoeff();
 		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
 			uint32 vidx = value<uint32>(m, m_vertex_index, v);
-			value<Scalar>(m, m_vertex_geodesic_distance, v) = 
-														dist(vidx) - min;
+
+			geodesic_distance_[vidx] = dist(vidx) - min;
+														
 			return true;
 		});
 
 		remove_attribute<MeshVertex>(m, m_vertex_area);
+		remove_attribute<MeshVertex>(m,m_vertex_heat_gradient_div);  
 	}
 };
 
