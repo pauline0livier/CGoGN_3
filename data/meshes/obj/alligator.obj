@@ -1,3 +1,10 @@
+####
+#
+# Alligator from Bounded Biharmonic weights
+#
+####
+mtllib alligator.mtl
+o alligator
 v 1.071289 129.327148 0.000000
 v 8.510742 137.489258 0.000000
 v 20.887695 141.112305 0.000000

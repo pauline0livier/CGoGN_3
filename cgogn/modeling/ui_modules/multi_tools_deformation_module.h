@@ -2052,11 +2052,18 @@ protected:
 									selected_handle_, "Handle",
 								[&](GRAPH& g) 
 								{ 
-									if (selected_handle_)
+									if (selected_handle_ )
 									{
-									modeling::GraphParameters<GRAPH>& old_p = 
-												*graph_parameters_[selected_handle_];
-									old_p.selected_vertices_set_ = nullptr;
+										modeling::GraphParameters<GRAPH>& old_p = 
+										*graph_parameters_[selected_handle_];
+
+										modeling::GraphParameters<GRAPH>& new_p = 
+										*graph_parameters_[&g];
+
+										if (old_p.name_ != new_p.name_){
+											old_p.selected_vertices_set_ = nullptr;
+										}
+									
 									}
 									
 									selected_handle_ = &g; 
@@ -2071,7 +2078,14 @@ protected:
 							if (selected_graph_){
 								modeling::GraphParameters<GRAPH>& old_p = 
 												*graph_parameters_[selected_graph_];
-								old_p.selected_vertices_set_ = nullptr;
+								
+								modeling::GraphParameters<GRAPH>& new_p = 
+										*graph_parameters_[selected_handle_];
+
+								if (old_p.name_ != new_p.name_){
+									old_p.selected_vertices_set_ = nullptr;
+								}
+								
 							}
 						
 
