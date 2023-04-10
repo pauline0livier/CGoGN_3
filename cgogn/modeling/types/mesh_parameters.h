@@ -169,8 +169,10 @@ public:
 							const Vec3& handle_position = 
 								value<Vec3>(*mesh_, vertex_position_, handle_mesh_vertex_);
 						
-							const float32 target_radius = 
-									(target_position - handle_position).norm(); 
+							const float32 target_radius = 10.0; 
+									//(target_position - handle_position).norm(); 
+
+							std::cout << " radius " << target_radius << std::endl; 
 
 							CellCache<MESH> cache = geometry::within_sphere(
 											*mesh_, handle_mesh_vertex_, 

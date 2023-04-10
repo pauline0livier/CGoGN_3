@@ -31,6 +31,7 @@
 #include <cgogn/geometry/types/vector_traits.h>
 #include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 #include <cgogn/modeling/algos/deformation/deformation_utils.h>
+#include <cgogn/modeling/algos/deformation/deformation_definitions.h>
 #include <cgogn/geometry/algos/laplacian.h>
 
 namespace cgogn
@@ -60,10 +61,10 @@ class HandleDeformationTool
 	struct Influence_area_vertex
 	{
 		MeshVertex vertex; 
-		bool shared; 
 		Vec3 local_translation; 
 		double max_local_translation; 
-	}; 
+		bool shared; 
+	};
 
 public:
 
@@ -80,7 +81,7 @@ public:
 
 	std::unordered_map<uint32, Influence_area_vertex> object_influence_area_; 
 
-	std::unordered_map<uint32, MeshVertex> shared_vertex; 
+	std::unordered_map<uint32, MeshVertex> shared_vertex_; 
 
 	std::string deformation_type_;
 
@@ -103,11 +104,13 @@ public:
 	void create_space_tool(Graph* g, 
 						Graph::Attribute<Vec3>* g_vertex_position, 
 						Graph::Attribute<Scalar>* g_vertex_radius,
-						const Vec3& center, const Vec3& normal)
+						const Vec3& center, const Vec3& normal, 
+						const std::string& handle_name)
 	{
 		control_handle_ = g;
 		handle_vertex_ = cgogn::modeling::create_handle(*g, g_vertex_position, 
-											g_vertex_radius, center, Scalar(3));
+											g_vertex_radius, center, Scalar(0.25));
+											// 3 for low poly fox 
 
 		control_handle_vertex_position_ = 
 				cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
@@ -120,6 +123,7 @@ public:
 
 		handle_normal_ = normal;
 		handle_position_ = center;
+		handle_name_ = handle_name; 
 
 		start_position_ = center; 
 	}
@@ -132,14 +136,15 @@ public:
 	{
 		for (std::size_t i = 0; i < influence_set.size(); i++)
 		{
+			MeshVertex v = influence_set[i]; 
 			uint32 vertex_index = 
-					value<uint32>(object, object_vertex_index, influence_set[i]); 
+					value<uint32>(object, object_vertex_index, v); 
 
 			Influence_area_vertex new_element; 
-			new_element.vertex = influence_set[i]; 
-			new_element.shared = false; 
+			new_element.vertex = influence_set[i];  
 			new_element.local_translation = {0.0, 0.0, 0.0}; 
 			new_element.max_local_translation = 0.0; 
+			new_element.shared = false; 
 			
 			object_influence_area_[vertex_index] = new_element; 
 		}
@@ -162,6 +167,13 @@ public:
 	{
 		value<Vec3>(*control_handle_, 
 							control_handle_vertex_position_, handle_vertex_) = start_position_; 
+	}
+
+	/// @brief reset transformation
+	Vec3 get_reset_transformation()
+	{
+		return start_position_ - value<Vec3>(*control_handle_, 
+							control_handle_vertex_position_, handle_vertex_); 
 	}
 
 	/// @brief set geodesic distance of the points 
@@ -276,8 +288,9 @@ public:
 			{
 				value<Vec3>(object, object_vertex_position, v) += 
 					new_transformation;
-			}
-
+			} 
+			
+  
 			
 		}
 	}
@@ -321,6 +334,9 @@ private:
 	Vec3 handle_normal_;
 
 	Vec3 start_position_;  
+
+	bool need_update_weights_; 
+	std::string handle_name_; 
 
 	std::unordered_map<uint32, Scalar> geodesic_distance_; 
 

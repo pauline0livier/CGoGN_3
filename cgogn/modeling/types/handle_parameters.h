@@ -124,6 +124,7 @@ public:
 
 			geometry::picking_sphere(*graph_, 
 								vertex_position_.get(), 5.0, A, B, picked);
+								// 5.0 for fox
 			if (!picked.empty())
 			{
 				switch (button)

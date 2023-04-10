@@ -190,18 +190,13 @@ void set_attribute_vertex_index_graph(IncidenceGraph& graph,
 	});
 }
 
-/**
- * set cage position_indices by looping on the vertices
- * and marking all of them as false
- * @param {CMap2} cage
- * @param {CMap2::Attribute<uint32>*} marked_vertices
-*/
-void set_attribute_marked_vertices(CMap2& cage, 
-	CMap2::Attribute<bool>* marked_vertices)
+/// @brief set mesh vertex shared properties 
+/// @param m mesh 
+/// @param vertex_shared attribute 
+void set_attribute_vertex_shared(CMap2& m, CMap2::Attribute<bool>* vertex_shared)
 {
-
-	parallel_foreach_cell(cage, [&](CMap2::Vertex v) -> bool {
-		value<bool>(cage, marked_vertices, v) = false;
+	foreach_cell(m, [&](CMap2::Vertex v) -> bool {
+		value<bool>(m, vertex_shared, v) = false;
 		return true;
 	});
 }

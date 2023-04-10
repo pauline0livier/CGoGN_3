@@ -261,6 +261,8 @@ private:
 
 	std::vector<Vec3> starting_positions_; 
 
+	bool need_update_weights_;
+
 	Vec3 normal_; 
 
 	/// @brief bind the zone of influence of the object  

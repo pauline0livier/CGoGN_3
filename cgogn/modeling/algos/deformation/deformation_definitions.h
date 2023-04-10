@@ -54,13 +54,18 @@ struct MatrixWeights
 {
 	Eigen::MatrixXd position_;
 	Eigen::MatrixXd normal_;
-};
+}; 
 
 struct SharedVertexData
 {
-	std::set<std::string> tool_names; 
-	double current_max_translation; 
-	std::string name_max_handle; 
+	std::size_t number_of_tools_; 
+	std::unordered_set<std::string> tool_names_;
+
+	std::unordered_set<std::string> tool_vertex_; 
+
+	double current_max_handle_translation_; 
+	std::string name_max_handle_; 
+
 }; 
 
 } // namespace modeling

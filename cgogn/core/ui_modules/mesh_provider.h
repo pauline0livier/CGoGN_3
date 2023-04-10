@@ -438,6 +438,14 @@ public:
 		boost::synapse::emit<attribute_changed_t<T>>(&m, attribute);
 	}
 
+	template <typename T>
+	void emit_non_position_attribute_changed(const MESH& m, Attribute<T>* attribute)
+	{
+
+		boost::synapse::emit<attribute_changed>(&m, attribute);
+		boost::synapse::emit<attribute_changed_t<T>>(&m, attribute);
+	}
+
 	void emit_connectivity_changed(const MESH& m)
 	{
 		MeshData<MESH>& md = mesh_data(m);

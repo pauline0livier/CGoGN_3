@@ -451,6 +451,8 @@ private:
 
 	std::vector<Vec3> start_positions_;
 
+	bool need_update_weights_;
+
 	/// @brief set start positions to reset the deformation
 	///
 	void set_start_positions()

@@ -73,10 +73,9 @@ void set_attribute_vertex_index_graph(IncidenceGraph& graph,
                             IncidenceGraph::Attribute<uint32>* position_indices); 
 
 /**
- * set attribute marked_vertices for CMap2
+ * set attribute vertex shared for CMap2
 */
-void set_attribute_marked_vertices(CMap2& cage, 
-                            CMap2::Attribute<bool>* marked_vertices); 
+void set_attribute_vertex_shared(CMap2& m, CMap2::Attribute<bool>* vertex_shared); 
 
 /**
  * set attribute face index for CMap2

@@ -79,6 +79,8 @@ public:
 
 	std::shared_ptr<boost::synapse::connection> 
 										cage_attribute_update_connection_;
+	
+	std::unordered_map<uint32, Vertex> shared_vertex_; 
 
 	GlobalCageDeformationTool() : global_cage_vertex_position_(nullptr)
 	{
@@ -157,6 +159,7 @@ public:
 	/// @param object model to deform 
 	/// @param object_vertex_position positions of the vertices of the model 
 	/// @param object_vertex_index indices of the vertices of the model 
+	/// @param activation_map check if handles or axis in the vertices  
 	void init_bind_object(MESH& object, 
 						CMap2::Attribute<Vec3>* object_vertex_position,
 						CMap2::Attribute<uint32>* object_vertex_index)
@@ -535,6 +538,8 @@ private:
 	std::shared_ptr<Attribute<uint32>> global_cage_vertex_index_;
 
 	std::vector<Vec3> start_positions_; 
+
+	bool need_update_weights_; 
 	
 	/// @brief set start positions to reset the deformation
 	///
