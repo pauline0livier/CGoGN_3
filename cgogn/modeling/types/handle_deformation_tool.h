@@ -62,8 +62,10 @@ class HandleDeformationTool
 	{
 		MeshVertex vertex; 
 		Vec3 local_translation; 
-		double max_local_translation; 
+		Vec3 max_local_translation; 
 		bool shared; 
+
+		bool reset;  
 	};
 
 public:
@@ -87,6 +89,8 @@ public:
 
 	Scalar radius_of_influence_; 
 
+	uint32 handle_mesh_vertex_index_;
+
 	HandleDeformationTool(): control_handle_vertex_position_(nullptr)
 	{
 	}
@@ -100,11 +104,11 @@ public:
 	/// @param g_vertex_position position of the vertices of the default graph
 	/// @param g_vertex_radius radius of the vertices of the default graph 
 	/// @param center handle position 
-	/// @param normal handle normal 
+	/// @param handle_name handle name
 	void create_space_tool(Graph* g, 
 						Graph::Attribute<Vec3>* g_vertex_position, 
 						Graph::Attribute<Scalar>* g_vertex_radius,
-						const Vec3& center, const Vec3& normal, 
+						const Vec3& center, 
 						const std::string& handle_name)
 	{
 		control_handle_ = g;
@@ -121,7 +125,6 @@ public:
 		cgogn::modeling::set_attribute_vertex_index_graph(*control_handle_, 
 														g_vertex_index.get());
 
-		handle_normal_ = normal;
 		handle_position_ = center;
 		handle_name_ = handle_name; 
 
@@ -143,8 +146,9 @@ public:
 			Influence_area_vertex new_element; 
 			new_element.vertex = influence_set[i];  
 			new_element.local_translation = {0.0, 0.0, 0.0}; 
-			new_element.max_local_translation = 0.0; 
+			new_element.max_local_translation = {0.0, 0.0, 0.0}; 
 			new_element.shared = false; 
+			new_element.reset = false; 
 			
 			object_influence_area_[vertex_index] = new_element; 
 		}
@@ -157,21 +161,30 @@ public:
 		deformation_type_ = new_type; 
 	}
 
-	Vec3 get_deformation_from_norm(const double& norm)
-	{
-		return norm*handle_normal_; 
-	}
-
 	/// @brief reset deformation
-	void reset_deformation()
+	void reset_deformation(MESH& object, 
+					CMap2::Attribute<Vec3>* object_vertex_position)
 	{
 		value<Vec3>(*control_handle_, 
 							control_handle_vertex_position_, handle_vertex_) = start_position_; 
+		handle_position_ = get_handle_position(); 
+
+		for ( const auto &myPair : object_influence_area_ ) {
+			uint32 vertex_index = myPair.first;
+			MeshVertex v = myPair.second.vertex; 
+
+			if (!object_influence_area_[vertex_index].reset){
+				value<Vec3>(object, object_vertex_position, v) -= object_influence_area_[vertex_index].max_local_translation;
+			}
+			
+		}
+
+
 	}
 
 	/// @brief reset transformation
 	Vec3 get_reset_transformation()
-	{
+	{ 
 		return start_position_ - value<Vec3>(*control_handle_, 
 							control_handle_vertex_position_, handle_vertex_); 
 	}
@@ -185,22 +198,15 @@ public:
 	{
 		geodesic_distance(object, object_vertex_position.get());
 
-		unsigned current_max = 0;
-		for (auto it = geodesic_distance_.cbegin(); it != geodesic_distance_.cend(); ++it ) {
-			if (it ->second > current_max) {
-				current_max = it->second;
-			}
-		}
-
-		radius_of_influence_ = current_max; 
-
 	}
+
 
 	/// @brief update handle position 
 	/// useful when handle is displaced by other spatial tools 
 	/// @param new_position 
 	void update_handle_position_variable()
 	{
+
 		handle_position_ = get_handle_position(); 
 		start_position_ = get_handle_position(); 
 	}
@@ -208,7 +214,7 @@ public:
 	/// @brief update handle position 
 	/// used when other handles around 
 	void update_handle_position(const Vec3& new_position)
-	{
+	{ 
 		handle_position_ = new_position; 
 		value<Vec3>(*control_handle_, 
 				control_handle_vertex_position_, handle_vertex_) = new_position; 
@@ -238,6 +244,17 @@ public:
 
 		object_weights_.resize(nbv_object);
 		object_weights_.setZero();
+
+		Scalar current_max = 0; 
+		for ( const auto &myPair : object_influence_area_ ) {
+			uint32 vertex_index = myPair.first;
+
+			if (geodesic_distance_[vertex_index] > current_max){
+				current_max = geodesic_distance_[vertex_index]; 
+			}
+		}
+ 
+		radius_of_influence_ = current_max; 
 
 		bind_object_round();
 	}
@@ -279,18 +296,16 @@ public:
 						object_weights_[vertex_index] * new_deformation; 
 
 			object_influence_area_[vertex_index].max_local_translation += 
-					new_transformation.norm(); 
+					new_transformation; 
 			
 			object_influence_area_[vertex_index].local_translation = 
 					new_transformation; 
-
+ 
 			if (!object_influence_area_[vertex_index].shared)
 			{
 				value<Vec3>(object, object_vertex_position, v) += 
 					new_transformation;
 			} 
-			
-  
 			
 		}
 	}
@@ -331,7 +346,6 @@ private:
 	Graph::Vertex handle_vertex_;
 	MeshVertex handle_mesh_vertex_;
 	Vec3 handle_position_; 
-	Vec3 handle_normal_;
 
 	Vec3 start_position_;  
 
@@ -386,6 +400,7 @@ private:
 		Eigen::VectorXd u0(nb_vertices);
 		u0.setZero();
 		uint32 vidx = value<uint32>(m, m_vertex_index, handle_mesh_vertex_);
+		handle_mesh_vertex_index_ = vidx; 
 		u0(vidx) = 1.0;
 
 		Scalar h = cgogn::geometry::mean_edge_length(m, m_vertex_position);

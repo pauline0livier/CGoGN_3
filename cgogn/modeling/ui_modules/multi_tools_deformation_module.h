@@ -457,7 +457,7 @@ private:
 
 			hdt->create_space_tool(handle, handle_vertex_position.get(), 
 								handle_vertex_radius.get(), handle_position,
-								normal, handle_name);
+								 handle_name);
 
 			CMap2::Vertex closest_vertex =
 				modeling::closest_vertex_in_set_from_value(object, 
@@ -2095,11 +2095,16 @@ protected:
 
 								if (ImGui::Button("Reset deformation"))
 								{
-									selected_hdt_->reset_deformation(); 
+
+									selected_hdt_->reset_deformation(*model_, model_p.vertex_position_.get()); 
 
 									graph_provider_->emit_attribute_changed(
 										*(selected_hdt_->control_handle_),
 									selected_hdt_->control_handle_vertex_position_.get());
+
+									mesh_provider_->emit_attribute_changed(
+										*model_,
+									model_p.vertex_position_.get());
 								} 
 
 								ImGui::Separator();
@@ -2114,7 +2119,7 @@ protected:
 								ImGui::Separator();
 								static ImGuiComboFlags flags = 0;
 
-								const char* items[] = { "Spike", "Round" };
+								const char* items[] = { "Round", "Spike" };
 
 								static const char* item_current = items[0];       
 
@@ -2173,6 +2178,7 @@ protected:
 									if (ImGui::Button("Clear handle selection##vertices_set"))
 									{
 										handle_p.selected_vertices_set_->clear();
+
 										graph_provider_->emit_cells_set_changed(
 											*selected_handle_,
 											handle_p.selected_vertices_set_);
@@ -2487,6 +2493,10 @@ private:
 		gd.template add_cells_set<GraphVertex>();
 	}
 
+
+	/// @brief accept handle influence area
+	/// set object influence area from influence_set
+	/// check if some vertices are shared with other tools 
 	void accept_handle_influence_area()
 	{
 		modeling::Parameters<MESH>& model_p = *parameters_[model_];
@@ -2525,31 +2535,34 @@ private:
 
 				if (activation_map_[vertex_index].number_of_tools_ == 1)
 				{
-					auto it = activation_map_[vertex_index].tool_names_.begin(); 
+					// TODO: extend to more various tool than handle  
+					const std::string name_first_tool =
+						activation_map_[vertex_index].handle_translation_.begin()->first; 
+				 
 					std::shared_ptr<modeling::HandleDeformationTool<MESH>> other_hdt =
-											handle_container_[*it];
+											handle_container_[name_first_tool];
 
 					other_hdt->object_influence_area_[vertex_index].shared = true; 
 					other_hdt->shared_vertex_[vertex_index] = v;
 				} 
 				activation_map_[vertex_index].number_of_tools_ ++;
+				
 				activation_map_[vertex_index].tool_names_.insert(last_handle_name);
 				current_hdt->object_influence_area_[vertex_index].shared = true; 
 				current_hdt->shared_vertex_[vertex_index] = v; 
+			
 			} else {
 				modeling::SharedVertexData new_data; 
-				new_data.tool_names_ = {}; 
-				new_data.current_max_handle_translation_ = 0.0; 
-				new_data.number_of_tools_ = 1;
+				new_data.number_of_tools_ = 1; 
+				new_data.current_max_handle_ = std::make_pair(" ", 0.0); 
+				activation_map_.insert({vertex_index, new_data}); 
+			} 
 
-				const auto [it, inserted] =
-						activation_map_.emplace(vertex_index, new_data);
+			activation_map_[vertex_index].handle_translation_.insert({last_handle_name, 0.0}); 
 
-				if (inserted)
-				{
-					activation_map_[vertex_index].tool_names_.insert(last_handle_name); 
-						
-				}
+			if (vertex_index == current_hdt->handle_mesh_vertex_index_)
+			{
+				activation_map_[vertex_index].name_tool_vertex_ = last_handle_name; 
 			}
 		}
 	}
@@ -2567,58 +2580,65 @@ private:
 				uint32 vertex_index = myPair.first;
 				MeshVertex v = myPair.second; 
 
-				if (current_hdt->object_influence_area_[vertex_index].max_local_translation > 
-						activation_map_[vertex_index].current_max_handle_translation_)
+				double max_local_distance = 
+					current_hdt->object_influence_area_[vertex_index].max_local_translation.squaredNorm(); 
+
+				activation_map_[vertex_index].handle_translation_[handle_name] = 
+															max_local_distance; 
+
+				if (activation_map_[vertex_index].current_max_handle_.second == 0.0)
 				{
+					value<Vec3>(*model_, model_vertex_position.get(), v) += 
+						current_hdt->object_influence_area_[vertex_index].local_translation; 	
 
-					if (activation_map_[vertex_index].current_max_handle_translation_ == 0.0)
-					{
-						value<Vec3>(*model_, model_vertex_position.get(), v) += 
-						current_hdt->object_influence_area_[vertex_index].local_translation; 		
+					activation_map_[vertex_index].current_max_handle_.first = handle_name; 
+					activation_map_[vertex_index].current_max_handle_.second = max_local_distance; 
 
+				} else if (activation_map_[vertex_index].current_max_handle_.first == handle_name)
+				{
+	
+					value<Vec3>(*model_, model_vertex_position.get(), v) += 
+						current_hdt->object_influence_area_[vertex_index].local_translation; 	
+
+					activation_map_[vertex_index].current_max_handle_.second = max_local_distance;
+
+				} else {
+					
+					if (max_local_distance > activation_map_[vertex_index].current_max_handle_.second){
+
+						std::string old_max_handle_name = activation_map_[vertex_index].current_max_handle_.first; 
+
+						std::shared_ptr<modeling::HandleDeformationTool<MESH>> old_hdt =
+							handle_container_[old_max_handle_name];
+
+						Vec3 current_position = value<Vec3>(*model_, model_vertex_position.get(), v); 
+
+						const Vec3 reset_position = current_position - old_hdt->object_influence_area_[vertex_index].max_local_translation; 
+
+						value<Vec3>(*model_, model_vertex_position.get(), v) = reset_position 
+									+ current_hdt->object_influence_area_[vertex_index].max_local_translation;
+
+						old_hdt->bind_isolated_vertex(vertex_index);
+
+						activation_map_[vertex_index].current_max_handle_.first = handle_name; 
+						activation_map_[vertex_index].current_max_handle_.second = max_local_distance;
 					} 
-					else 
-					{ 
-						if (activation_map_[vertex_index].name_max_handle_ != handle_name)
-						{
-							std::string old_max_handle_name = activation_map_[vertex_index].name_max_handle_; 
-						
-							std::shared_ptr<modeling::HandleDeformationTool<MESH>> old_hdt =
-									handle_container_[old_max_handle_name];
+				}
+ 
+				if (!activation_map_[vertex_index].name_tool_vertex_.empty()){
+					 
+					if (activation_map_[vertex_index].name_tool_vertex_ != handle_name)
+					{
+						const Vec3 new_position = value<Vec3>(*model_, model_vertex_position.get(), v); 
+					
+						std::shared_ptr<modeling::HandleDeformationTool<MESH>> target_hdt =
+											handle_container_[activation_map_[vertex_index].name_tool_vertex_];
 
-							Vec3 current_position = value<Vec3>(*model_, model_vertex_position.get(), v); 
-
-							Vec3 reset_position = current_position + old_hdt->get_reset_transformation();  
-
-							value<Vec3>(*model_, model_vertex_position.get(), v) = reset_position; 
-							//reset_position + current_hdt->get_deformation_from_norm(current_hdt->object_influence_area_[vertex_index].max_local_translation); 
-
-							std::shared_ptr<MeshAttribute<uint32>> model_vertex_index =
-								get_attribute<uint32, MeshVertex>(*model_, 
-															"vertex_index");
-
-							const uint32 handle_mesh_vertex_index =
-								old_hdt->get_handle_mesh_vertex_index(*model_, model_vertex_index.get());
-
-							if (vertex_index == handle_mesh_vertex_index)
-							{ 
-								const Vec3 new_position = value<Vec3>(*model_, model_vertex_position.get(), v); 
-								old_hdt->update_handle_position(new_position) ; 
-								old_hdt->bind_object(); 
-
-							} else {
-								old_hdt->bind_isolated_vertex(vertex_index); 
-							}
-						} else {
-							value<Vec3>(*model_, model_vertex_position.get(), v) += 
-							current_hdt->object_influence_area_[vertex_index].local_translation;
-						}
-						
-					}	
-
-					activation_map_[vertex_index].name_max_handle_ = handle_name; 
-					activation_map_[vertex_index].current_max_handle_translation_ = 
-						current_hdt->object_influence_area_[vertex_index].max_local_translation;
+						target_hdt->update_handle_position(new_position); 
+						//target_hdt->set_geodesic_distance(); 
+						target_hdt->bind_object(); 
+					}
+				
 					
 				}
 

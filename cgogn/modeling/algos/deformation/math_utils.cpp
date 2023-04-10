@@ -560,6 +560,12 @@ size_t get_index_virtual_cube(const Vec3& projection_values, const std::vector<b
 		}
 }
 
+bool compare_vector_pair_string_double_decreasing_order(std::pair<std::string, double>& a,
+		std::pair<std::string, double>& b)
+{
+	return a.second > b.second;
+}
+
 } // namespace modeling
 
 } // namespace cgogn

@@ -61,10 +61,11 @@ struct SharedVertexData
 	std::size_t number_of_tools_; 
 	std::unordered_set<std::string> tool_names_;
 
-	std::unordered_set<std::string> tool_vertex_; 
+	std::string name_tool_vertex_; 
 
-	double current_max_handle_translation_; 
-	std::string name_max_handle_; 
+	std::unordered_map<std::string, double> handle_translation_; 
+
+	std::pair<std::string, double> current_max_handle_;  
 
 }; 
 

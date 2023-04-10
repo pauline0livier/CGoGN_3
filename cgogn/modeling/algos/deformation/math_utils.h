@@ -140,6 +140,9 @@ bool check_triple_projection_in_area(const Vec3& point, const Vec3& min_border, 
 */
 size_t get_index_virtual_cube(const Vec3& projection_values, const std::vector<bool>& valid_values, const Vec3& max_area_values); 
 
+bool compare_vector_pair_string_double_decreasing_order(std::pair<std::string, double>& a,
+        std::pair<std::string, double>& b); 
+
 } // namespace modeling
 
 } // namespace cgogn
