@@ -525,6 +525,7 @@ private:
 
 			std::vector<Vec3> inside_axis_position;
 			std::vector<Vec3> axis_vertices_position;
+			std::vector<MeshVertex> axis_mesh_vertices; 
 
 			for (std::size_t i = 0; 
 						i < model_p.selected_depth_vertices_.size(); i++)
@@ -534,7 +535,9 @@ private:
 
 				const Vec3 front_position = value<Vec3>(object, 
 									object_vertex_position, vertices_set.first);
+
 				axis_vertices_position.push_back(front_position);
+				axis_mesh_vertices.push_back(vertices_set.first); 
 
 				const Vec3 back_position = value<Vec3>(object, 
 									object_vertex_position, vertices_set.second);
@@ -546,7 +549,7 @@ private:
 
 			adt->create_space_tool(axis, axis_vertex_position.get(), 
 						axis_vertex_radius.get(), axis_vertices_position,
-						inside_axis_position);
+						inside_axis_position, axis_mesh_vertices);
 
 			modeling::AxisParameters<GRAPH>& axis_p = 
 												*axis_parameters_[axis];
@@ -1244,7 +1247,7 @@ private:
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 
-		adt->init_bind_object(object, object_vertex_position);
+		adt->init_bind_object(object, object_vertex_position.get());
 
 		adt->axis_attribute_update_connection_ =
 			boost::synapse::connect<typename GraphProvider<GRAPH>::
@@ -1266,10 +1269,15 @@ private:
 							current_adt->set_axis_transformation(
 													p_axis.transformations_);
 							
-
 							current_adt->deform_object(object, 
 											object_vertex_position.get(), 
 											object_vertex_index.get());
+
+							if (current_adt->shared_vertex_.size() > 0)
+							{
+								
+								check_deformation_axis_shared_vertex(p_axis.name_);
+							}
 
 							mesh_provider_->emit_attribute_changed(object, 
 											object_vertex_position.get());
@@ -1300,7 +1308,7 @@ private:
 
 		adt->set_deformation_type(binding_type);
 
-		adt->bind_object(object, object_vertex_position);
+		adt->bind_object(object, object_vertex_position.get());
 	}
 
 
@@ -1730,26 +1738,7 @@ protected:
 
 						if (ImGui::Button("Accept axis influence area##vertices_set"))
 						{
-							model_p.selected_vertices_set_->foreach_cell(
-								[&](MeshVertex v) -> bool {
-									influence_set_.push_back(v);
-									return true;
-								});
-
-							std::string last_axis_name = "local_axis" + 
-										std::to_string(axis_container_.size() - 1);
-
-							std::shared_ptr<modeling::
-							AxisDeformationTool<MESH>> current_adt =
-									axis_container_[last_axis_name];
-							
-							current_adt->object_influence_area_ = influence_set_;
-
-							influence_set_.clear();
-
-							model_p.selected_vertices_set_->clear();
-							mesh_provider_->emit_cells_set_changed(
-									*model_, model_p.selected_vertices_set_);
+							accept_axis_influence_area(); 
 						}
 
 						model_p.object_update_ = false;
@@ -2536,19 +2525,10 @@ private:
 
 				if (activation_map_[vertex_index].number_of_tools_ == 1)
 				{
-					// TODO: extend to more various tool than handle  
-					const std::string name_first_tool =
-						activation_map_[vertex_index].handle_translation_.begin()->first; 
-				 
-					std::shared_ptr<modeling::HandleDeformationTool<MESH>> other_hdt =
-											handle_container_[name_first_tool];
-
-					other_hdt->object_influence_area_[vertex_index].shared = true; 
-					other_hdt->shared_vertex_[vertex_index] = v;
+					update_previous_lonely_tool(vertex_index, v); 
 				} 
 				activation_map_[vertex_index].number_of_tools_ ++;
 				
-				activation_map_[vertex_index].tool_names_.insert(last_handle_name);
 				current_hdt->object_influence_area_[vertex_index].shared = true; 
 				current_hdt->shared_vertex_[vertex_index] = v; 
 			
@@ -2560,13 +2540,119 @@ private:
 			} 
 
 			activation_map_[vertex_index].handle_translation_.insert({last_handle_name, 0.0}); 
+			activation_map_[vertex_index].tool_names_.insert(last_handle_name);
 
-			if (vertex_index == current_hdt->handle_mesh_vertex_index_)
+			/*if (vertex_index == current_hdt->handle_mesh_vertex_index_)
 			{
 				activation_map_[vertex_index].name_tool_vertex_ = last_handle_name; 
+			}*/
+		}
+	}
+
+	/// @brief accept handle influence area
+	/// set object influence area from influence_set
+	/// check if some vertices are shared with other tools 
+	void accept_axis_influence_area()
+	{
+		modeling::Parameters<MESH>& model_p = *parameters_[model_];
+
+		model_p.selected_vertices_set_->foreach_cell([&](MeshVertex v) -> bool {
+			influence_set_.push_back(v);
+			return true;
+		});
+							
+		std::string last_axis_name = "local_axis" + 
+							std::to_string(axis_container_.size() - 1);
+
+		std::shared_ptr<modeling::AxisDeformationTool<MESH>> current_adt =
+									axis_container_[last_axis_name];
+
+		std::shared_ptr<MeshAttribute<uint32>> model_vertex_index =
+								get_attribute<uint32, MeshVertex>(*model_, 
+															"vertex_index");
+
+		current_adt->set_object_influence_area(*model_, model_vertex_index.get(), influence_set_); 
+							
+		influence_set_.clear();
+
+		model_p.selected_vertices_set_->clear();
+		mesh_provider_->emit_cells_set_changed(*model_, 
+												model_p.selected_vertices_set_);
+
+		for ( const auto &myPair : current_adt->object_influence_area_ ) {
+			uint32 vertex_index = myPair.first;
+			MeshVertex v = myPair.second.vertex; 
+
+			if (activation_map_.find(vertex_index) != activation_map_.end()){
+				
+				if (activation_map_[vertex_index].number_of_tools_ == 1)
+				{
+					update_previous_lonely_tool(vertex_index, v); 
+				}
+				
+				activation_map_[vertex_index].number_of_tools_ ++;
+
+				current_adt->object_influence_area_[vertex_index].shared = true; 
+				current_adt->shared_vertex_[vertex_index] = v; 
+			
+			} else {
+				modeling::SharedVertexData new_data; 
+				new_data.number_of_tools_ = 1; 
+				new_data.current_max_handle_ = std::make_pair(" ", 0.0); 
+				activation_map_.insert({vertex_index, new_data}); 
+			} 
+
+			activation_map_[vertex_index].axis_names_.insert(last_axis_name);
+		}
+
+		std::vector<MeshVertex> axis_mesh_vertices = current_adt->get_axis_mesh_vertices(); 
+
+		for (std::size_t v = 0; v < axis_mesh_vertices.size(); v++)
+		{
+			MeshVertex mv = axis_mesh_vertices[v]; 
+			uint32 m_vertex_index = value<uint32>(*model_, model_vertex_index, mv);
+			if (current_adt->object_influence_area_[m_vertex_index].shared)
+			{
+				activation_map_[m_vertex_index].axis_mesh_vertex_.insert({last_axis_name, v}); 
 			}
 		}
 	}
+
+	void update_previous_lonely_tool(const uint32& vertex_index, const MeshVertex& v)
+	{			
+		if (activation_map_[vertex_index].handle_translation_.size() == 1)
+		{
+			const std::string name_first_tool =
+					activation_map_[vertex_index].handle_translation_.begin()->first; 
+				 
+			std::shared_ptr<modeling::HandleDeformationTool<MESH>> other_hdt = handle_container_[name_first_tool];
+
+			other_hdt->object_influence_area_[vertex_index].shared = true; 
+			other_hdt->shared_vertex_[vertex_index] = v;
+
+		} else
+		{
+			auto it = activation_map_[vertex_index].axis_names_.begin(); 
+			const std::string name_first_tool = *it;  
+				 
+			std::shared_ptr<modeling::AxisDeformationTool<MESH>> other_adt = axis_container_[name_first_tool];
+
+			other_adt->object_influence_area_[vertex_index].shared = true; 
+					
+			other_adt->shared_vertex_[vertex_index] = v;
+
+			std::vector<uint32>::iterator itr = std::find(other_adt->axis_mesh_vertices_index_.begin(), other_adt->axis_mesh_vertices_index_.end(), vertex_index);
+
+			uint32 axis_mesh_index = std::distance(other_adt->axis_mesh_vertices_index_.begin(), itr); 
+ 
+    		if (itr != other_adt->axis_mesh_vertices_index_.cend()) {
+				
+				activation_map_[vertex_index].axis_mesh_vertex_.insert({name_first_tool, axis_mesh_index}); 
+   			}
+   		
+		}
+	}
+
 
 	void check_deformation_handle_shared_vertex(const std::string& handle_name)
 	{
@@ -2581,6 +2667,8 @@ private:
 				uint32 vertex_index = myPair.first;
 				MeshVertex v = myPair.second; 
 
+				bool update_value = true; 
+
 				double max_local_distance = 
 					current_hdt->object_influence_area_[vertex_index].max_local_translation.squaredNorm(); 
 
@@ -2593,7 +2681,7 @@ private:
 						current_hdt->object_influence_area_[vertex_index].local_translation; 	
 
 					activation_map_[vertex_index].current_max_handle_.first = handle_name; 
-					activation_map_[vertex_index].current_max_handle_.second = max_local_distance; 
+					activation_map_[vertex_index].current_max_handle_.second = max_local_distance;
 
 				} else if (activation_map_[vertex_index].current_max_handle_.first == handle_name)
 				{
@@ -2602,6 +2690,7 @@ private:
 						current_hdt->object_influence_area_[vertex_index].local_translation; 	
 
 					activation_map_[vertex_index].current_max_handle_.second = max_local_distance;
+
 
 				} else {
 					
@@ -2632,10 +2721,13 @@ private:
 
 						activation_map_[vertex_index].current_max_handle_.first = handle_name; 
 						activation_map_[vertex_index].current_max_handle_.second = max_local_distance;
-					} 
+					} else {
+						update_value = false; 
+					}
 				}
  
-				if (!activation_map_[vertex_index].name_tool_vertex_.empty()){
+				if (update_value){
+					if (!activation_map_[vertex_index].name_tool_vertex_.empty()){
 					 
 					if (activation_map_[vertex_index].name_tool_vertex_ != handle_name)
 					{
@@ -2645,10 +2737,89 @@ private:
 											handle_container_[activation_map_[vertex_index].name_tool_vertex_];
 
 						target_hdt->update_handle_position(new_position); 
+
+						graph_provider_->emit_attribute_changed(*(target_hdt->control_handle_), 
+								target_hdt->control_handle_vertex_position_.get());
+
 						target_hdt->require_full_binding(); 
 					}
 				
 					
+					}
+
+					if (activation_map_[vertex_index].axis_names_.size() > 0){
+						for ( auto it = activation_map_[vertex_index].axis_names_.begin(); it != activation_map_[vertex_index].axis_names_.end(); ++it )
+						{
+							std::string shared_axis_name = *it; 
+							std::shared_ptr<modeling::AxisDeformationTool<MESH>> target_adt = axis_container_[shared_axis_name];
+
+							 if (!(activation_map_[vertex_index].axis_mesh_vertex_.find(shared_axis_name) == activation_map_[vertex_index].axis_mesh_vertex_.end())){
+ 
+								uint32 shared_index = activation_map_[vertex_index].axis_mesh_vertex_[shared_axis_name]; 
+
+								target_adt-> update_axis_skeleton_position(*model_, model_vertex_position.get(), shared_index); 
+
+								graph_provider_->emit_attribute_changed(*(target_adt->control_axis_), 
+								target_adt->control_axis_vertex_position_.get());
+							 }
+
+							target_adt->require_full_binding(); 
+						}
+    							
+					}
+				}
+				
+
+				
+
+		}
+
+		mesh_provider_->emit_attribute_changed(*model_, 
+												model_vertex_position.get());
+
+
+	}
+
+	void check_deformation_axis_shared_vertex(const std::string& axis_name)
+	{
+		std::shared_ptr<MeshAttribute<Vec3>> model_vertex_position =
+								get_attribute<Vec3, MeshVertex>(*model_, 
+															"position");
+	
+		std::shared_ptr<modeling::AxisDeformationTool<MESH>> current_adt =
+									axis_container_[axis_name];
+
+		for ( const auto &myPair : current_adt->shared_vertex_ ) {
+				uint32 vertex_index = myPair.first;
+				MeshVertex v = myPair.second; 
+
+				value<Vec3>(*model_, model_vertex_position.get(), v) = 
+						current_adt->object_influence_area_[vertex_index].new_position;
+
+				if (activation_map_[vertex_index].tool_names_.size() > 0)
+				{	
+					for ( auto it = activation_map_[vertex_index].tool_names_.begin(); it != activation_map_[vertex_index].tool_names_.end(); ++it )
+						{
+							std::string target_name = *it; 
+							
+							std::shared_ptr<modeling::HandleDeformationTool<MESH>> target_hdt = handle_container_[target_name]; 
+
+							target_hdt->require_full_binding(); 
+						}
+    							
+				}
+
+				if (activation_map_[vertex_index].axis_names_.size() > 1){
+					for ( auto it = activation_map_[vertex_index].tool_names_.begin(); it != activation_map_[vertex_index].tool_names_.end(); ++it )
+						{
+							std::string target_axis_name = *it; 
+							if (!(target_axis_name.compare(axis_name) == 0)){
+								std::shared_ptr<modeling::AxisDeformationTool<MESH>> target_adt = axis_container_[target_axis_name];
+
+								target_adt->require_full_binding(); 
+							}
+							
+						}
 				}
 
 		}

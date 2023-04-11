@@ -61,7 +61,11 @@ struct SharedVertexData
 	std::size_t number_of_tools_; 
 	std::unordered_set<std::string> tool_names_;
 
+	std::unordered_set<std::string> axis_names_; 
+
 	std::string name_tool_vertex_; 
+
+	std::unordered_map<std::string, uint32> axis_mesh_vertex_; 
 
 	std::unordered_map<std::string, double> handle_translation_; 
 

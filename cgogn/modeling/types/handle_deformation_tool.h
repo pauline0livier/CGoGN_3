@@ -115,7 +115,7 @@ public:
 	{
 		control_handle_ = g;
 		handle_vertex_ = cgogn::modeling::create_handle(*g, g_vertex_position, 
-											g_vertex_radius, center, Scalar(5));
+											g_vertex_radius, center, Scalar(3));
 											// 3 for low poly fox, 0.25 sphere
 
 		control_handle_vertex_position_ = 

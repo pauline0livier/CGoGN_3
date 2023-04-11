@@ -53,7 +53,6 @@ class AxisDeformationTool
 
 	using Graph = cgogn::IncidenceGraph;
 
-public:
 	template <typename T>
 	using Attribute = typename mesh_traits<MESH>::template Attribute<T>;
 	using MeshVertex = typename mesh_traits<MESH>::Vertex;
@@ -63,6 +62,17 @@ public:
 	using Vec3 = geometry::Vec3;
 	using Scalar = geometry::Scalar;
 
+
+	struct Influence_area_axis_vertex
+	{
+		MeshVertex vertex; 
+		bool shared; 
+		Vec3 new_position; 
+		bool reset;  
+	};
+
+public:
+	
 	Graph* control_axis_;
 
 	Eigen::SparseMatrix<double, Eigen::RowMajor> object_weights_; 
@@ -74,9 +84,15 @@ public:
 	Eigen::MatrixXf global_cage_weights_;
 	Eigen::MatrixXf global_cage_normal_weights_;
 
-	std::vector<MeshVertex> object_influence_area_; 
+	std::unordered_map<uint32, Influence_area_axis_vertex> object_influence_area_; 
+
+	std::unordered_map<uint32, MeshVertex> shared_vertex_; 
+
+	std::vector<uint32> axis_mesh_vertices_index_;
 
 	std::string deformation_type_; 
+
+	bool need_full_bind_; 
 
 	AxisDeformationTool(): control_axis_vertex_position_(nullptr)
 	{
@@ -99,7 +115,8 @@ public:
 			Graph::Attribute<Vec3>* g_vertex_position, 
 			Graph::Attribute<Scalar>* g_vertex_radius,
 			const std::vector<Vec3>& vertex_coordinates,  
-			const std::vector<Vec3>& inside_axis_position)
+			const std::vector<Vec3>& inside_axis_position, 
+			const std::vector<MeshVertex> axis_mesh_vertices)
 	{
 		control_axis_ = g;
 
@@ -111,6 +128,8 @@ public:
 				cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
 
 		inside_axis_position_ = inside_axis_position; 
+
+		axis_mesh_vertices_ = axis_mesh_vertices; 
 
 		std::shared_ptr<Graph::Attribute<uint32>> a_vertex_index =
 			cgogn::add_attribute<uint32, Graph::Vertex>(*control_axis_,
@@ -130,6 +149,37 @@ public:
 		normal_ = {0.0, 0.0, 1.0}; 
 	}
 
+	/// @brief set object influence area
+	/// create set of influence area vertex 
+	void set_object_influence_area(MESH& object, 
+			CMap2::Attribute<uint32>* object_vertex_index,
+			const std::vector<MeshVertex>& influence_set)
+	{
+		for (std::size_t i = 0; i < influence_set.size(); i++)
+		{
+			MeshVertex v = influence_set[i]; 
+			uint32 vertex_index = 
+					value<uint32>(object, object_vertex_index, v); 
+
+			Influence_area_axis_vertex new_element; 
+			new_element.vertex = influence_set[i];  
+			new_element.shared = false; 
+			new_element.new_position = {0.0, 0.0, 0.0}; 
+			new_element.reset = false; 
+			
+			object_influence_area_[vertex_index] = new_element; 
+		}
+
+		std::size_t axis_size = axis_mesh_vertices_.size(); 
+		axis_mesh_vertices_index_.resize(axis_size); 
+		
+		for (std::size_t p = 0; p < axis_size; p++)
+		{
+			axis_mesh_vertices_index_[p] = value<uint32>(object, object_vertex_index, axis_mesh_vertices_[p]); 
+		}
+		
+	}
+
 	/// @brief set axis transformation from user's input 
 	/// @param axis_transformation set of tranformations (one per bone)
 	void set_axis_transformation(
@@ -138,11 +188,32 @@ public:
 		axis_transformation_ = axis_transformation; 
 	}
 
+	std::vector<MeshVertex> get_axis_mesh_vertices(){
+		return axis_mesh_vertices_; 
+	}
+
 	/// @brief set deformation type 
 	/// so far between LBS or DQS deformation 
 	/// @param new_type 
 	void set_deformation_type(const std::string new_type){
 		deformation_type_ = new_type; 
+	}
+
+	/// @brief require full re-binding of the handle
+	/// happen when the handle position is updated
+	/// outside of the handle deformation
+	void require_full_binding()
+	{
+		need_full_bind_ = true; 
+	}
+
+	void update_axis_skeleton_position(const MESH& object, 
+				CMap2::Attribute<Vec3>* object_vertex_position, 
+				uint32 v_index)
+	{
+
+		value<Vec3>(*control_axis_, control_axis_vertex_position_, axis_skeleton_[v_index]) = value<Vec3>(object, object_vertex_position, axis_mesh_vertices_[v_index]);
+
 	}
 
 	/// @brief reset deformation
@@ -183,7 +254,7 @@ public:
 	/// @param object 
 	/// @param object_vertex_position 
 	void init_bind_object(MESH& object, 
-				const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+				CMap2::Attribute<Vec3>* object_vertex_position)
 	{
 		uint32 nbv_object = nb_cells<MeshVertex>(object);
 
@@ -200,7 +271,7 @@ public:
 	/// @param object 
 	/// @param object_vertex_position 
 	void bind_object(MESH& object, 
-				const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+				CMap2::Attribute<Vec3>* object_vertex_position)
 	{
 		object_weights_.setZero(); 
 
@@ -212,6 +283,12 @@ public:
 					CMap2::Attribute<Vec3>* object_vertex_position, 
 					CMap2::Attribute<uint32>* object_vertex_index)
 	{
+		if (need_full_bind_)
+		{
+			bind_object(object, object_vertex_position); 
+			need_full_bind_ = false;
+		}
+
 		if (deformation_type_ == "LBS")
 		{
 			deform_object_LBS(object, object_vertex_position, 
@@ -249,31 +326,28 @@ private:
 
 	Vec3 normal_; 
 
+	std::vector<MeshVertex> axis_mesh_vertices_; 
+
 	/// @brief bind the zone of influence of the object  
 	/// compute weights using the projection of the points on the axis
 	/// @param object 
 	/// @param vertex_position 
 	void bind_object_rigid(MESH& object, 
-		const std::shared_ptr<Attribute<Vec3>>& vertex_position)
+		CMap2::Attribute<Vec3>* object_vertex_position)
 	{
 		std::shared_ptr<Attribute<uint32>> object_vertex_index =
 			get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
-		const std::size_t influence_area_length = 
-								this->object_influence_area_.size(); 
+		for ( const auto &myPair : object_influence_area_ ) {
+			uint32 vertex_index = myPair.first;
+			MeshVertex v = myPair.second.vertex; 
 
-		for (std::size_t i = 0; i < influence_area_length; i++)
-		{
-			MeshVertex v = this->object_influence_area_[i]; 
-			Vec3 surface_point = value<Vec3>(object, vertex_position, v);
+			Vec3 surface_point = value<Vec3>(object, object_vertex_position, v);
 
-			uint32 surface_point_index = 
-							value<uint32>(object, object_vertex_index, v);
-
-			object_weights_.row(surface_point_index) = 
+			object_weights_.row(vertex_index) = 
 				cgogn::modeling::weight_partial_skeleton(inside_axis_position_, 
 												surface_point);
-		
+
 		}
 
 	}
@@ -287,13 +361,11 @@ private:
 					CMap2::Attribute<Vec3>* object_vertex_position, 
 					CMap2::Attribute<uint32>* object_vertex_index)
 	{
-		const std::size_t influence_area_length = 
-									this->object_influence_area_.size(); 
 
-		for (std::size_t i = 0; i < influence_area_length; i++)
-		{
-			MeshVertex v = this->object_influence_area_[i]; 
-			uint32 v_index = value<uint32>(object, object_vertex_index, v);
+		for ( const auto &myPair : object_influence_area_ ) {
+			uint32 vertex_index = myPair.first;
+			MeshVertex v = myPair.second.vertex; 
+
 			Vec3 v_position = value<Vec3>(object, object_vertex_position, v); 
 
 			Vec3 new_position = {0.0, 0.0, 0.0}; 
@@ -302,12 +374,17 @@ private:
  
 				Vec3 local_transformation = axis_transformation_[t]*v_position; 
 
-				new_position += object_weights_.coeff(v_index, t)*
+				new_position += object_weights_.coeff(vertex_index, t)*
 											local_transformation;
-
 			}
 
-			value<Vec3>(object, object_vertex_position, v) = new_position; 
+			object_influence_area_[vertex_index].new_position = new_position; 
+
+			if (!object_influence_area_[vertex_index].shared)
+			{
+				value<Vec3>(object, object_vertex_position, v) = new_position; 
+			}
+			
 
 		}
 
@@ -334,13 +411,10 @@ private:
 
 		size_t first_index = 1;  
 
-		const std::size_t influence_area_length = 
-									this->object_influence_area_.size(); 
+		for ( const auto &myPair : object_influence_area_ ) {
+			uint32 vertex_index = myPair.first;
+			MeshVertex v = myPair.second.vertex;
 
-		for (std::size_t i = 0; i < influence_area_length; i++)
-		{
-			MeshVertex v = this->object_influence_area_[i]; 
-			uint32 v_index = value<uint32>(object, object_vertex_index, v);
 			Vec3 v_position = value<Vec3>(object, object_vertex_position, v); 
 
 			dDualQuaternion q; 
@@ -348,7 +422,7 @@ private:
 
 			for (size_t t = 0; t < number_of_transformations; t++){
 				 
-				double w = object_weights_.coeff(v_index, t);
+				double w = object_weights_.coeff(vertex_index, t);
 				const double v = std::copysign(1.0,quat_transformations[first_index].dot(quat_transformations[t]));
 				
 				q = q + (w*v)*quat_transformations[t]; 
