@@ -55,6 +55,14 @@ class AxisParameters
 
 	using Vec3 = geometry::Vec3;
 
+	struct skeletonNode
+	{
+		bool root; 
+		bool selected_node;
+		Vertex axis_vertex; 
+		rendering::Transfo3d local_transformation; 
+	}; 
+
 public:
 
 	AxisParameters()
@@ -138,39 +146,48 @@ public:
 		}
 	}
 
-	/// @brief set number of handles in the axis 
-	/// update the number of transformations 
-	/// number of transformations = (number_of_handles -1) + 2
-	/// number_of_handles -1 = number of bones 
+
+	/// @brief number of transformations = (number of handles -1) + 2
 	/// +2 for the virtual bones at the extremities 
 	/// @param number_of_handles 
-	void set_number_of_handles(const size_t& number_of_handles)
+	void set_skeleton_data(const size_t& number_of_handles, 
+							const std::vector<Vertex> axis_skeleton)
 	{
+		std::cout << "set skeleton  begin " << std::endl; 
 		number_of_handles_ = number_of_handles; 
 		size_t number_of_transformations = number_of_handles_ +1; 
+		
+		skeleton_data_.resize(number_of_transformations); 
 
-		transformations_.resize(number_of_transformations);
-		//dual_quaternion_transformations_.resize(number_of_transformations);
-		for (size_t t = 0; t < number_of_transformations; t++){
-			transformations_[t].setIdentity();
+		skeletonNode rootNode; 
+		rootNode.selected_node = false; 
+		rootNode.local_transformation.setIdentity();
+		skeleton_data_[0] = rootNode; 
 
-			//dual_quaternion_transformations_[t] = modeling::DualQuaternion(); 
+		for (std::size_t t = 1; t < number_of_transformations -1; t++)
+		{
+			skeletonNode currentNode; 
+			currentNode.axis_vertex = axis_skeleton[t-1];   
+			currentNode.selected_node = false; 
+			currentNode.local_transformation.setIdentity(); 
+			skeleton_data_[t] = currentNode; 
 		}
 
-	
+		skeletonNode lastNode; 
+		lastNode.selected_node = true; 
+		lastNode.local_transformation.setIdentity(); 
+		skeleton_data_[number_of_transformations-1] = lastNode; 
+
 	}
 
 	/// @brief reset transformations of axis
 	void reset_transformations()
 	{
-		for (size_t t = 0; t < transformations_.size(); t++)
+		for (size_t t = 0; t < skeleton_data_.size(); t++)
 		{
-			transformations_[t].setIdentity();
-			//dual_quaternion_transformations_[t] = modeling::DualQuaternion();
-
+			skeleton_data_[t].local_transformation.setIdentity();
+			skeleton_data_[t].selected_node = false;
 		}
-
-		transformations_valid_indices_.clear(); 
 	}
 
 
@@ -205,12 +222,7 @@ public:
 		if (dragging_axis_){
 			dragging_axis_ = false;
 
-			for (size_t t = 0; t < transformations_.size(); t++){
-				transformations_[t].setIdentity();
-				//dual_quaternion_transformations_[t] = modeling::DualQuaternion(); 
-			}
-
-			transformations_valid_indices_.clear(); 
+			reset_transformations(); 
 			
 		}
 			
@@ -282,9 +294,7 @@ public:
 
 	Vec3 rotation_center_;
 
-	//std::vector<modeling::DualQuaternion> dual_quaternion_transformations_;
-	std::vector<rendering::Transfo3d> transformations_;
-	std::vector<std::size_t> transformations_valid_indices_; 
+	std::vector<skeletonNode> skeleton_data_;  
 
 private: 
 	bool dragging_axis_;
@@ -294,8 +304,26 @@ private:
 	/// TODO: non extremity case
 	void select_one_vertex()
 	{
+		uint32 vertex_index; 
+		selected_vertices_set_->foreach_cell([&](Vertex v) {
+			vertex_index = v.index_; 
+			skeleton_data_[vertex_index].selected_node = true;
+		});
 
-		Vertex selected_vertex;  
+		std::cout << "single begin " << std::endl; 
+		if (vertex_index == 0)
+		{
+			Vertex next_vertex = skeleton_data_[1].axis_vertex; 
+
+			rotation_center_ =  value<Vec3>(*graph_, vertex_position_, next_vertex);
+		} else {
+			Vertex previous_vertex = skeleton_data_[vertex_index -1].axis_vertex; 
+
+			rotation_center_ =  value<Vec3>(*graph_, vertex_position_, previous_vertex);
+		}
+		std::cout << "single end " << std::endl; 
+
+		/*Vertex selected_vertex;  
 		selected_vertices_set_->foreach_cell([&](Vertex v) {
 			selected_vertex = v; 
 		});
@@ -315,15 +343,7 @@ private:
 															first_edge.first);
 		} 
  
-		if (selected_vertex.index_ == 0){ 
-			transformations_valid_indices_.push_back(1); 
-		} else {
-			if (selected_vertex.index_ == number_of_handles_ -1){
-				transformations_valid_indices_.push_back(selected_vertex.index_); 
-			} else {
-				std::cout << "TODO" << std::endl; 
-			}
-		}
+		skeleton_data_[selected_vertex.index].selected_node = true;*/  
 	}
 	
 
@@ -333,12 +353,29 @@ private:
 	void select_multiple_vertices()
 	{
 
-		std::vector<Vertex> selected_vertices; 
+		/*std::vector<Vertex> selected_vertices; 
 		selected_vertices_set_->foreach_cell([&](Vertex v) {
 			selected_vertices.push_back(v); 
+		});*/ 
+		selected_vertices_set_->foreach_cell([&](Vertex v) {
+			skeleton_data_[v.index_].selected_node = true; 
 		});
 
-		std::sort(selected_vertices.begin(), selected_vertices.end(), 
+		std::cout << "valid here" << std::endl; 
+		for (std::size_t n = 0; n < skeleton_data_.size() -1; n++)
+		{
+			std::cout << skeleton_data_[n].selected_node << std::endl; 
+			std::cout << skeleton_data_[n+1].selected_node << std::endl; 
+			if ((!skeleton_data_[n].selected_node) && skeleton_data_[n+1].selected_node)
+			{
+				rotation_center_ = value<Vec3>(*graph_, vertex_position_, skeleton_data_[n].axis_vertex);
+				break; 
+			}
+		}
+
+		std::cout << "multiple end " << std::endl; 
+
+		/*std::sort(selected_vertices.begin(), selected_vertices.end(), 
 				[](Vertex a, Vertex b){return a.index_ < b.index_;});
 
 		if (selected_vertices[0].index_ == 0){
@@ -429,7 +466,7 @@ private:
 
 		} else {
 			std::cout << "TODO" << std::endl; 
-		}
+		}*/
 		
 	}
 
@@ -469,20 +506,73 @@ private:
 					Eigen::Translation3d(rotation_center_) * rot 
 						* Eigen::Translation3d(-rotation_center_);
 
-				//DualQuaternion dq = DualQuaternion(M); 
+				std::cout << "check seg fault " << std::endl; 
+				std::size_t n = 1; 
+				while ( n < skeleton_data_.size() && !skeleton_data_[n].selected_node){
+					n += 1; 
+				}
+ 
+				if (n == skeleton_data_.size()){
+					std::cout << "no selection " << std::endl; 
+				} else {
+					skeletonNode first_selected_node = skeleton_data_[n]; 
+					skeleton_data_[n].local_transformation = M; 
+			
+					Vertex first_vertex = skeleton_data_[n].axis_vertex; 
+					Vec3& first_vertex_position = value<Vec3>(*graph_, 
+															vertex_position_, first_vertex);
 
-				selected_vertices_set_->foreach_cell([&](Vertex v) {
+					value<Vec3>(*graph_, vertex_position_, first_vertex) = M*first_vertex_position; 
+ 
+					if (n < skeleton_data_.size() -2)
+					{
+
+
+						for (std::size_t c = n+1; c < skeleton_data_.size() -1; c++){
+							if (!skeleton_data_[c].selected_node)
+							{
+								//rendering::Transfo3d inverse_M = M.inverse();  
+
+								/*Vertex local_vertex = skeleton_data_[c].axis_vertex; 
+								Vec3& local_vertex_position = value<Vec3>(*graph_, 
+															vertex_position_, local_vertex);
+
+								value<Vec3>(*graph_, vertex_position_, local_vertex) = skeleton_data_[c].inverse_M*local_vertex_position;*/
+								break; 
+							} else {
+
+								Vertex local_vertex = skeleton_data_[c].axis_vertex; 
+								Vec3& local_vertex_position = value<Vec3>(*graph_, 
+															vertex_position_, local_vertex);
+
+								skeleton_data_[c].local_transformation = M; 
+
+								value<Vec3>(*graph_, vertex_position_, local_vertex) = M*local_vertex_position;
+
+							}
+						}
+					}
+
+				}
+
+				
+				/*selected_vertices_set_->foreach_cell([&](Vertex v) {
 					Vec3& axis_vertex_position = value<Vec3>(*graph_, 
 															vertex_position_, v);
 						axis_vertex_position = M * axis_vertex_position;
-					/*value<Vec3>(*graph_, vertex_position_, v) = dq.transform(axis_vertex_position);*/
-					}); 
 
-				for (size_t t = 0; t < transformations_valid_indices_.size(); t++){ 
-					transformations_[transformations_valid_indices_[t]] = M;
 
-					/*dual_quaternion_transformations_[transformations_valid_indices_[t]].set_from_transformation(M); */
-				}
+					}); */
+
+				/*for (size_t t = 0; t < transformations_valid_indices_.size(); t++){ 
+					//transformations_[transformations_valid_indices_[t]] = M;
+					transformations_[transformations_valid_indices_[t]] = rot;
+
+				}*/
+
+				/*transformations_[1] = rot; 
+				transformations_[2] = rot; 
+				transformations_[3] = rot;*/
 
 			}
 				

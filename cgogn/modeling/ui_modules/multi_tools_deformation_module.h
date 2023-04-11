@@ -525,7 +525,6 @@ private:
 
 			std::vector<Vec3> inside_axis_position;
 			std::vector<Vec3> axis_vertices_position;
-			std::vector<Vec3> axis_normals;
 
 			for (std::size_t i = 0; 
 						i < model_p.selected_depth_vertices_.size(); i++)
@@ -543,18 +542,28 @@ private:
 				inside_axis_position.push_back(
 									(front_position + back_position) / 2.0);
 
-				const Vec3& normal = 
-					value<Vec3>(object, mesh_vertex_normal, vertices_set.first);
-				axis_normals.push_back(normal);
 			}
 
 			adt->create_space_tool(axis, axis_vertex_position.get(), 
 						axis_vertex_radius.get(), axis_vertices_position,
-						axis_normals, inside_axis_position);
+						inside_axis_position);
 
 			modeling::AxisParameters<GRAPH>& axis_p = 
 												*axis_parameters_[axis];
+
+			Vec3 center = modeling::get_mean_value_in_array_Vec3(axis_vertices_position);
+
+			std::tuple<Vec3, Vec3, Vec3> main_directions = 
+				modeling::find_main_directions_from_Vec3_array(axis_vertices_position, center);
+
 			axis_p.normal_ = {0.0, 0.0, 1.0}; 
+			//std::get<2>(main_directions); 
+			//std::cout << axis_p.normal_ << std::endl;  
+			//{0.0, 0.0, 1.0}; 
+
+			std::vector<GraphVertex> axis_skeleton = adt->get_axis_skeleton(); 
+
+			//xis_p.set_skeleton_data(axis_vertices_position.size(), axis_skeleton); 
 			axis_p.set_number_of_handles(axis_vertices_position.size()); 
 
 			axis_p.name_ = axis_name; 
@@ -1254,16 +1263,8 @@ private:
 								get_attribute<uint32, MeshVertex>(object, 
 															"vertex_index");
 
-							if (current_adt->deformation_type_ == "LBS"){
-								current_adt->set_axis_transformation(
+							current_adt->set_axis_transformation(
 													p_axis.transformations_);
-							}
-
-							if (current_adt ->deformation_type_ == "DQS")
-							{
-								current_adt->set_dual_quaternions_transformation(
-													p_axis.dual_quaternion_transformations_);
-							}
 							
 
 							current_adt->deform_object(object, 

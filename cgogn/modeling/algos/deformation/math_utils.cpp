@@ -105,6 +105,59 @@ std::tuple<Vec3, Vec3, Vec3> find_main_directions_from_set(const CMap2& m,
 
 }
 
+std::tuple<Vec3, Vec3, Vec3> find_main_directions_from_Vec3_array(const std::vector<Vec3>& positions,const Vec3& center)
+{
+	Eigen::Matrix3d covariance_matrix;
+	for (int i = 0; i < 3; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			covariance_matrix(i, j) = 0.0;
+
+			for (std::size_t v = 0; v < positions.size(); v++)
+			{
+				const Vec3& temp_position = positions[v];
+				covariance_matrix(i, j) += 
+							(center[i] - temp_position[i]) * (center[j] - temp_position[j]);
+			}
+
+			covariance_matrix(i, j) /= positions.size() - 1;
+		}
+	}
+
+	Eigen::SelfAdjointEigenSolver<
+	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>> 
+												eigen_solver(covariance_matrix);
+	
+	Eigen::Matrix<double, 1, Eigen::Dynamic> eigen_values = 
+													eigen_solver.eigenvalues();
+
+	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> eigen_vectors = 
+													eigen_solver.eigenvectors();
+
+	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> sorted_eigen_vectors = 
+								sort_eigen_vectors(eigen_values, eigen_vectors);
+	
+	Eigen::Vector3d main_eigen_vector = sorted_eigen_vectors.col(0); 
+	main_eigen_vector.normalize();
+
+	Eigen::Vector3d second_eigen_vector = sorted_eigen_vectors.col(1); 
+	second_eigen_vector.normalize();
+
+	Eigen::Vector3d third_eigen_vector = sorted_eigen_vectors.col(2); 
+	third_eigen_vector.normalize();
+
+	const Vec3 cross_product = main_eigen_vector.cross(second_eigen_vector);  
+	if (cross_product == third_eigen_vector)
+	{
+		return std::make_tuple(main_eigen_vector, second_eigen_vector, third_eigen_vector);  
+	} 
+	else 
+	{
+		return std::make_tuple(main_eigen_vector, second_eigen_vector, -third_eigen_vector);
+	}
+}
+
 /**
  * sort eigen vectors by their eigen values
 */

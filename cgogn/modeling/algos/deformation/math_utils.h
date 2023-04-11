@@ -61,6 +61,11 @@ std::tuple<Vec3, Vec3, Vec3> find_main_directions_from_set(const CMap2& m,
                         const Vec3& center);
 
 /**
+ * find main direction from array
+*/
+std::tuple<Vec3, Vec3, Vec3> find_main_directions_from_Vec3_array(const std::vector<Vec3>& positions,const Vec3& center);
+
+/**
  * sort eigen vectors by minimal eigen values
 */
 Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> sort_eigen_vectors(const Eigen::Matrix<double, 1, 

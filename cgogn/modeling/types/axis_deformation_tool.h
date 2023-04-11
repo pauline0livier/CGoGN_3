@@ -93,14 +93,12 @@ public:
 	/// @param g default graph 
 	/// @param g_vertex_position position of the vertices of the default graph
 	/// @param vertex_radius radius of the vertices of the default graph 
-	/// @param vertex_coordinates positions to set on the vertices
-	/// @param vertex_normals normals to set on the vertices 
+	/// @param vertex_coordinates positions to set on the vertices 
 	/// @param inside_axis_position positions inside the mesh 
 	void create_space_tool(Graph* g, 
 			Graph::Attribute<Vec3>* g_vertex_position, 
 			Graph::Attribute<Scalar>* g_vertex_radius,
-			const std::vector<Vec3>& vertex_coordinates, 
-			const std::vector<Vec3>& vertex_normals, 
+			const std::vector<Vec3>& vertex_coordinates,  
 			const std::vector<Vec3>& inside_axis_position)
 	{
 		control_axis_ = g;
@@ -122,13 +120,10 @@ public:
 														a_vertex_index.get());
 
 		size_t number_of_transformations = axis_skeleton_.size() +1; 
-		axis_transformation_.resize(number_of_transformations); 
-		dual_quaternion_transformations_.resize(number_of_transformations); 
+		axis_transformation_.resize(number_of_transformations);  
 
 		for (size_t t = 0; t < axis_transformation_.size(); t++){
 			axis_transformation_[t].setIdentity();
-
-			dual_quaternion_transformations_[t] = modeling::DualQuaternion(); 
 		}
 
 		starting_positions_ = vertex_coordinates; 
@@ -141,11 +136,6 @@ public:
 			const std::vector<rendering::Transfo3d>& axis_transformation){
 
 		axis_transformation_ = axis_transformation; 
-	}
-
-	void set_dual_quaternions_transformation(const std::vector<DualQuaternion>& dual_quat_transformation)
-	{
-		dual_quaternion_transformations_ = dual_quat_transformation; 
 	}
 
 	/// @brief set deformation type 
@@ -238,10 +228,6 @@ public:
 		}
 	}
 
-	
-
-	
-
 	/// @brief 
 	/// @return vector composed of the vertices of the axis
 	std::vector<Graph::Vertex> get_axis_skeleton(){
@@ -254,8 +240,6 @@ private:
 	Vec3 axis_normal_;
 
 	std::vector<rendering::Transfo3d> axis_transformation_; 
-
-	std::vector<modeling::DualQuaternion> dual_quaternion_transformations_; 
 
 	std::vector<Vec3> inside_axis_position_; 
 
@@ -340,6 +324,16 @@ private:
 					CMap2::Attribute<Vec3>* object_vertex_normal)
 	{
 
+		std::size_t number_of_transformations = axis_transformation_.size(); 
+		std::vector<dDualQuaternion> quat_transformations(number_of_transformations);
+
+		for (std::size_t t = 0; t < number_of_transformations; t++)
+		{
+			quat_transformations[t] = dDualQuaternion(axis_transformation_[t]); 
+		} 
+
+		size_t first_index = 1;  
+
 		const std::size_t influence_area_length = 
 									this->object_influence_area_.size(); 
 
@@ -348,46 +342,21 @@ private:
 			MeshVertex v = this->object_influence_area_[i]; 
 			uint32 v_index = value<uint32>(object, object_vertex_index, v);
 			Vec3 v_position = value<Vec3>(object, object_vertex_position, v); 
-			Vec3 v_normal = value<Vec3>(object, object_vertex_normal, v);
 
-			int  k0 = -1;
-			double w0 = 0.f;
-			DualQuaternion dq_blend;
-			Eigen::Quaterniond q0;
+			dDualQuaternion q; 
+			q.setZero(); 
 
-			/*if(axis_skeleton_.size() != 0)
-			{
-				k0 = axis_skeleton_[0].index_;
-				w0 = object_weights_.coeff(v_index, 0);
-			}else
-				dq_blend = DualQuaternion::identity();
-
-			if(k0 != -1) dq_blend = dual_quaternion_transformations_[k0] * w0;
-
-			int pivot = k0;*/
-
-			//q0 = dual_quaternion_transformations_[pivot].rotation();
-
-			for (size_t t = 0; t < dual_quaternion_transformations_.size(); t++){
- 
-				//const int k = axis_skeleton_[j].index_;
+			for (size_t t = 0; t < number_of_transformations; t++){
+				 
 				double w = object_weights_.coeff(v_index, t);
-				//const DualQuaternion& dq = (k == -1) ? DualQuaternion::identity() : dual_quaternion_transformations_[k];
-				const DualQuaternion& dq = dual_quaternion_transformations_[t]; 
+				const double v = std::copysign(1.0,quat_transformations[first_index].dot(quat_transformations[t]));
+				
+				q = q + (w*v)*quat_transformations[t]; 
+			} 
 
-				/*if( dq.rotation().dot( q0 ) < 0.f )
-					w *= -1.0;*/
-
-				dq_blend = dq_blend + dq * w;
-
-			}
-
-			Vec3 vi = dq_blend.transform( v_position );
+			q = q.normalize(); 
 			
-			value<Vec3>(object, object_vertex_position, v) = vi;
-			
-			dq_blend.normalize(); 
-			value<Vec3>(object, object_vertex_normal, v) = dq_blend.rotate_quaternion( dq_blend.get_non_dual_part(),v_normal );
+			value<Vec3>(object, object_vertex_position, v) = q.applyTransformation(v_position);
 
 		}
 

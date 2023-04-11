@@ -262,41 +262,44 @@ std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A,
 /// @param target_point 
 /// @return vector of weights of size n+1 to encode the bones + the virtual ones 
 /// 		at the extremities 
-Eigen::SparseVector<double> weight_partial_skeleton(const std::vector<Vec3> axis_positions,
-									 const Vec3& target_point)
+Eigen::SparseVector<double> weight_partial_skeleton(const std::vector<Vec3> axis_positions, const Vec3& target_point)
 {
+
+	const double threshold = 0.3;
+	const double opposite_threshold = 1.0 - threshold; 
+
 	std::size_t number_of_bones = axis_positions.size() - 1; 
 
 	Eigen::SparseVector<double> weights(number_of_bones + 2); 
 
 	auto compute_local_weights = [&](const double& local_distance, 
 									const size_t& index) {
-		if (local_distance <= 0.8 || local_distance >= 0.2){
+		if (local_distance <= opposite_threshold || local_distance >= threshold){
 			weights.coeffRef(index) = 1.0; 
-		} else if (local_distance >= 0.8){
-			const double delta = local_distance - 0.8; 
-			const double local_value = (delta*0.5)/0.2; 
+		} else if (local_distance >= opposite_threshold){
+			const double delta = local_distance - opposite_threshold; 
+			const double local_value = (delta*0.5)/threshold; 
 			weights.coeffRef(index) = 1.0 - local_value; 
 			weights.coeffRef(index+1) = local_value;
-		} else if (local_distance <= 0.2){
-			const double delta = 0.2 - local_distance; 
-			const double local_value = (delta*0.5)/0.2; 
+
+		} else if (local_distance <= threshold)
+		{
+			const double delta = threshold - local_distance; 
+			const double local_value = (delta*0.5)/threshold; 
 			weights.coeffRef(index) = 1.0 - local_value; 
 			weights.coeffRef(index-1) = local_value;
 		}
 	};
 
-
-	const double distance_first_joint = projection_on_segment(axis_positions[0], 
-										axis_positions[1], target_point);
+	const double distance_first_joint = projection_on_segment(axis_positions[0], axis_positions[1], target_point);
 
 	if (distance_first_joint <= 0.0){
 		const double local_distance = 1.0 - std::abs(distance_first_joint); 
-		if (local_distance <= 0.8){
+		if (local_distance <= opposite_threshold){
 			weights.coeffRef(0) = 1.0;  
 		} else {
-			const double delta = (local_distance - 0.8); 
-			const double local_value = (delta*0.5)/0.2; 
+			const double delta = local_distance - opposite_threshold; 
+			const double local_value = (delta*0.5)/threshold; 
 			weights.coeffRef(1) = local_value;
 			weights.coeffRef(0) = 1 - local_value; 
 		}
