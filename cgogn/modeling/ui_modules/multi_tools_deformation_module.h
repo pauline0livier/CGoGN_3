@@ -2096,7 +2096,7 @@ protected:
 								if (ImGui::Button("Reset deformation"))
 								{
 
-									selected_hdt_->reset_deformation(*model_, model_p.vertex_position_.get(), activation_map_); 
+									selected_hdt_->reset_deformation(*model_, model_p.vertex_position_.get(), activation_map_, handle_container_); 
 
 									graph_provider_->emit_attribute_changed(
 										*(selected_hdt_->control_handle_),

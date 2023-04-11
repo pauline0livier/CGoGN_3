@@ -166,7 +166,8 @@ public:
 	/// @brief reset deformation
 	void reset_deformation(MESH& object, 
 					CMap2::Attribute<Vec3>* object_vertex_position,
-					std::unordered_map<uint32,modeling::SharedVertexData>& activation_map)
+					std::unordered_map<uint32,modeling::SharedVertexData>& activation_map, std::unordered_map<std::string, 
+		std::shared_ptr<modeling::HandleDeformationTool<MESH>>>& handle_container)
 	{
 		value<Vec3>(*control_handle_, 
 							control_handle_vertex_position_, handle_vertex_) = start_position_; 
@@ -181,8 +182,34 @@ public:
 			} else {
 				if (activation_map[vertex_index].current_max_handle_.first == handle_name_){
 					value<Vec3>(object, object_vertex_position, v) -= object_influence_area_[vertex_index].max_local_translation;
+
+					std::string name_next_max_handle; 
+					double current_max = 0; 
+					Vec3 current_max_vector = {0.0, 0.0, 0.0}; 
+					for ( const auto &otherPair : activation_map[vertex_index].handle_translation_ )
+						{
+							if (otherPair.first != handle_name_)
+							{
+								std::shared_ptr<modeling::HandleDeformationTool<MESH>> other_hdt = handle_container[otherPair.first]; 
+
+								double local_max = other_hdt->object_influence_area_[vertex_index].max_local_translation.squaredNorm(); 
+
+								if (local_max > current_max)
+								{
+									current_max = local_max; 
+									current_max_vector = other_hdt->object_influence_area_[vertex_index].max_local_translation; 
+
+									name_next_max_handle = otherPair.first; 
+								}
+							}
+						}
+						value<Vec3>(object, object_vertex_position, v) += current_max_vector; 
+
+						activation_map[vertex_index].current_max_handle_ = make_pair(name_next_max_handle, current_max); 
 				} 
 			}
+			object_influence_area_[vertex_index].max_local_translation = {0.0, 0.0, 0.0}; 
+
 			
 		}
 
