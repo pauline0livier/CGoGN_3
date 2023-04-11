@@ -644,7 +644,7 @@ private:
 						CMap2::Attribute<Vec3>* object_vertex_position, 
 						CMap2::Attribute<uint32>* object_vertex_index)
 	{
-		parallel_foreach_cell(object, [&](Vertex v) -> bool {
+		foreach_cell(object, [&](Vertex v) -> bool {
 			const Vec3& surface_point = value<Vec3>(object, 
 												object_vertex_position, v);
 			const uint32& surface_point_index = 

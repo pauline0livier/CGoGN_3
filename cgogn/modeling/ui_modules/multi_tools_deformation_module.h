@@ -482,7 +482,7 @@ private:
 			graph_render_->set_vertex_radius(*v1, *handle, 
 											handle_vertex_radius);
 
-			hdt->set_geodesic_distance(object, object_vertex_position);
+			hdt->set_geodesic_distance(object, object_vertex_position); 
 
 			modeling::Parameters<MESH>& model_p = *parameters_[model_];
 
