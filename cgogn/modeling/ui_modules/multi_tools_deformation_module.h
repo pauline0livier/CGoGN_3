@@ -2542,10 +2542,11 @@ private:
 			activation_map_[vertex_index].handle_translation_.insert({last_handle_name, 0.0}); 
 			activation_map_[vertex_index].tool_names_.insert(last_handle_name);
 
-			/*if (vertex_index == current_hdt->handle_mesh_vertex_index_)
-			{
-				activation_map_[vertex_index].name_tool_vertex_ = last_handle_name; 
-			}*/
+		}
+
+		uint32 handle_mesh_vertex_index = current_hdt->handle_mesh_vertex_index_; 
+		if (current_hdt->object_influence_area_[handle_mesh_vertex_index].shared){
+			activation_map_[handle_mesh_vertex_index].name_tool_vertex_ = last_handle_name; 
 		}
 	}
 
@@ -2629,6 +2630,11 @@ private:
 
 			other_hdt->object_influence_area_[vertex_index].shared = true; 
 			other_hdt->shared_vertex_[vertex_index] = v;
+
+			if (vertex_index == other_hdt->handle_mesh_vertex_index_)
+			{
+				activation_map_[vertex_index].name_tool_vertex_ = name_first_tool; 
+			}
 
 		} else
 		{
@@ -2738,10 +2744,12 @@ private:
 
 						target_hdt->update_handle_position(new_position); 
 
-						graph_provider_->emit_attribute_changed(*(target_hdt->control_handle_), 
-								target_hdt->control_handle_vertex_position_.get());
+						target_hdt->require_full_binding();
 
-						target_hdt->require_full_binding(); 
+						/*graph_provider_->emit_attribute_changed(*(target_hdt->control_handle_), 
+								target_hdt->control_handle_vertex_position_.get());*/
+
+						 
 					}
 				
 					
