@@ -91,7 +91,9 @@ public:
 
 	uint32 handle_mesh_vertex_index_;
 
-	HandleDeformationTool(): control_handle_vertex_position_(nullptr)
+	bool need_full_bind_;  
+
+	HandleDeformationTool(): control_handle_vertex_position_(nullptr), need_full_bind_(false)
 	{
 	}
 
@@ -163,7 +165,8 @@ public:
 
 	/// @brief reset deformation
 	void reset_deformation(MESH& object, 
-					CMap2::Attribute<Vec3>* object_vertex_position)
+					CMap2::Attribute<Vec3>* object_vertex_position,
+					std::unordered_map<uint32,modeling::SharedVertexData>& activation_map)
 	{
 		value<Vec3>(*control_handle_, 
 							control_handle_vertex_position_, handle_vertex_) = start_position_; 
@@ -173,14 +176,27 @@ public:
 			uint32 vertex_index = myPair.first;
 			MeshVertex v = myPair.second.vertex; 
 
-			if (!object_influence_area_[vertex_index].reset){
+			if (!object_influence_area_[vertex_index].shared){
 				value<Vec3>(object, object_vertex_position, v) -= object_influence_area_[vertex_index].max_local_translation;
+			} else {
+				if (activation_map[vertex_index].current_max_handle_.first == handle_name_){
+					value<Vec3>(object, object_vertex_position, v) -= object_influence_area_[vertex_index].max_local_translation;
+				} 
 			}
 			
 		}
 
 
 	}
+
+	/// @brief require full re-binding of the handle
+	/// happen when the handle position is updated
+	/// outside of the handle deformation
+	void require_full_binding()
+	{
+		need_full_bind_ = true; 
+	}
+
 
 	/// @brief reset transformation
 	Vec3 get_reset_transformation()
@@ -269,6 +285,19 @@ public:
 		bind_object_round();
 	}
 
+	/// @brief rebind required if the handle is displaced outside of its deformation or if a vertex is moved by another tool 
+	/// @param object 
+	/// @param object_vertex_position 
+	void rebind_object(MESH& object, 
+						CMap2::Attribute<Vec3>* object_vertex_position)
+	{
+		geodesic_distance(object, object_vertex_position);
+		object_weights_.setZero();
+
+		bind_object_round();
+
+	}
+
 	void bind_isolated_vertex(const uint32& vertex_index)
 	{
 		object_weights_[vertex_index] = 
@@ -286,6 +315,13 @@ public:
 					CMap2::Attribute<Vec3>* object_vertex_position, 
 					CMap2::Attribute<uint32>* object_vertex_index )
 	{
+
+		if (need_full_bind_)
+		{
+			rebind_object(object, object_vertex_position); 
+			need_full_bind_ = false;
+		}
+
 		const Vec3 new_deformation = get_handle_deformation();
 
 		for ( const auto &myPair : object_influence_area_ ) {
@@ -349,7 +385,6 @@ private:
 
 	Vec3 start_position_;  
 
-	bool need_update_weights_; 
 	std::string handle_name_; 
 
 	std::unordered_map<uint32, Scalar> geodesic_distance_; 

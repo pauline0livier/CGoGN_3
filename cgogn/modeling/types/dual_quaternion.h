@@ -189,10 +189,10 @@ public:
 			  norm;
 
 		//return Transfo(m, t);
-		rendering::Transfo3d matrix = Eigen::Affine3d::Identity();
-		matrix.translation() = t; 
-		matrix.linear() = m; 
-		return matrix; 
+		rendering::Transfo3d myMatrix = Eigen::Affine3d::Identity();
+		myMatrix.translation() = t; 
+		myMatrix.linear() = m; 
+		return myMatrix; 
 	}
 
 	DualQuaternion operator+(const DualQuaternion& dq) const

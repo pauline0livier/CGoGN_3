@@ -2096,7 +2096,7 @@ protected:
 								if (ImGui::Button("Reset deformation"))
 								{
 
-									selected_hdt_->reset_deformation(*model_, model_p.vertex_position_.get()); 
+									selected_hdt_->reset_deformation(*model_, model_p.vertex_position_.get(), activation_map_); 
 
 									graph_provider_->emit_attribute_changed(
 										*(selected_hdt_->control_handle_),
@@ -2618,7 +2618,16 @@ private:
 						value<Vec3>(*model_, model_vertex_position.get(), v) = reset_position 
 									+ current_hdt->object_influence_area_[vertex_index].max_local_translation;
 
-						old_hdt->bind_isolated_vertex(vertex_index);
+						//old_hdt->bind_isolated_vertex(vertex_index);
+						for ( const auto &otherPair : activation_map_[vertex_index].handle_translation_ )
+						{
+							if (otherPair.first != handle_name)
+							{
+								std::shared_ptr<modeling::HandleDeformationTool<MESH>> other_hdt = handle_container_[otherPair.first]; 
+
+								other_hdt->require_full_binding(); 
+							}
+						}
 
 						activation_map_[vertex_index].current_max_handle_.first = handle_name; 
 						activation_map_[vertex_index].current_max_handle_.second = max_local_distance;
@@ -2635,8 +2644,7 @@ private:
 											handle_container_[activation_map_[vertex_index].name_tool_vertex_];
 
 						target_hdt->update_handle_position(new_position); 
-						//target_hdt->set_geodesic_distance(); 
-						target_hdt->bind_object(); 
+						target_hdt->require_full_binding(); 
 					}
 				
 					
