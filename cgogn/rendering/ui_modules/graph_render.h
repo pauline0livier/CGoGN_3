@@ -183,6 +183,9 @@ public:
 			p.vertex_position_vbo_ = gd.update_vbo(p.vertex_position_.get(), true);
 			p.vertex_base_size_ = 0.5; 
 			
+			//float32(geometry::mean_edge_length(m, p.vertex_position_.get()) / 7.0); 
+			//0.5; 
+			
 			//float32(geometry::mean_edge_length(m, p.vertex_position_.get()) / 7.0);
 			if (p.vertex_base_size_ == 0.0)
 				p.vertex_base_size_ = float32((gd.bb_max_ - gd.bb_min_).norm() / 20.0);

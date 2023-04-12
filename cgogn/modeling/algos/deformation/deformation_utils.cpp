@@ -138,6 +138,7 @@ Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v,
 {
 	Scalar div = 0.0;
 	std::vector<CMap2::Edge> edges = incident_edges(m, v);
+
 	for (uint32 i = 0; i < edges.size(); ++i)
 	{
 		CMap2::Edge e1 = edges[i];
@@ -162,6 +163,7 @@ Scalar vertex_gradient_divergence(const CMap2& m, CMap2::Vertex v,
 		Scalar cotValue2 = vecR.dot(vecL) / vecR.cross(vecL).norm();
 
 		div += cotValue1 * (p1 - p0).dot(X) + cotValue2 * (p2 - p0).dot(X);
+
 	}
 	return div / 2.0;
 }

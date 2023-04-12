@@ -115,7 +115,7 @@ public:
 	{
 		control_handle_ = g;
 		handle_vertex_ = cgogn::modeling::create_handle(*g, g_vertex_position, 
-											g_vertex_radius, center, Scalar(0.25));
+											g_vertex_radius, center, Scalar(3));
 											// 3 for low poly fox, 0.25 sphere
 
 		control_handle_vertex_position_ = 
@@ -243,6 +243,25 @@ public:
 
 	}
 
+	/// @brief set Euclidean distance of the points 
+	/// belonging to the zone of influence 
+	/// @param object 
+	/// @param object_vertex_position 
+	void set_euclidean_distance(MESH& object, 
+			const std::shared_ptr<Attribute<Vec3>>& object_vertex_position)
+	{
+		for ( const auto &myPair : object_influence_area_ ) {
+			uint32 vertex_index = myPair.first;
+			MeshVertex v = myPair.second.vertex; 
+
+			const Vec3 vertex_position = value<Vec3>(object, 
+				object_vertex_position, v); 
+
+			distance_to_handle_[vertex_index] = (vertex_position - handle_position_).norm(); 
+
+		}
+	}
+
 
 	/// @brief update handle position 
 	/// useful when handle is displaced by other spatial tools 
@@ -292,8 +311,8 @@ public:
 		for ( const auto &myPair : object_influence_area_ ) {
 			uint32 vertex_index = myPair.first;
 
-			if (geodesic_distance_[vertex_index] > current_max){
-				current_max = geodesic_distance_[vertex_index]; 
+			if (distance_to_handle_[vertex_index] > current_max){
+				current_max = distance_to_handle_[vertex_index]; 
 			}
 		}
  
@@ -328,7 +347,7 @@ public:
 	void bind_isolated_vertex(const uint32& vertex_index)
 	{
 		object_weights_[vertex_index] = 
-				exp(-(geodesic_distance_[vertex_index]*geodesic_distance_[vertex_index]) / 
+				exp(-(distance_to_handle_[vertex_index]*distance_to_handle_[vertex_index]) / 
 								(radius_of_influence_*radius_of_influence_));
 	}
 
@@ -414,12 +433,12 @@ private:
 
 	std::string handle_name_; 
 
-	std::unordered_map<uint32, Scalar> geodesic_distance_; 
+	std::unordered_map<uint32, Scalar> distance_to_handle_; 
 
 	/// @brief bind object with round deformation type 
 	/// geodesic distance between object point and handle 
 	/// attenuation function exp(-d²/d²_max), d = distance
-	/// exp(-sqrt(geodesic_distance_[v]/max_dist)) for spike
+	/// exp(-sqrt(distance_to_handle_[v]/max_dist)) for spike
 	/// @param object 
 	/// @param object_vertex_position 
 	void bind_object_round()
@@ -428,15 +447,122 @@ private:
 			uint32 vertex_index = myPair.first;
 
 			object_weights_[vertex_index] = 
-				exp(-(geodesic_distance_[vertex_index]*geodesic_distance_[vertex_index]) / 
+				exp(-(distance_to_handle_[vertex_index]*distance_to_handle_[vertex_index]) / 
 								(radius_of_influence_*radius_of_influence_));
 		}
+
 	}
 
 	/// @brief set geodesic distance between a mesh m and the handle position
 	/// @param m mesh 
 	/// @param m_vertex_position position of the vertices of the mesh  
 	void geodesic_distance(MESH& m, const Attribute<Vec3>* m_vertex_position)
+	{
+		std::shared_ptr<Attribute<uint32>> m_vertex_index = 
+					cgogn::get_attribute<uint32, MeshVertex>(m, "vertex_index");
+
+		uint32 nb_vertices = nb_cells<MeshVertex>(m);
+
+		Eigen::SparseMatrix<Scalar, Eigen::ColMajor> Lc =
+			cgogn::geometry::cotan_operator_matrix(m, 
+									m_vertex_index.get(), m_vertex_position);
+
+		auto m_vertex_area = add_attribute<Scalar, MeshVertex>(m, 
+														"__vertex_area");
+		cgogn::geometry::compute_area<MeshVertex>(m, m_vertex_position, 
+													m_vertex_area.get());
+
+		Eigen::VectorXd A(nb_vertices);
+		foreach_cell(m, [&](MeshVertex v) -> bool {
+			uint32 vidx = value<uint32>(m, m_vertex_index, v);
+			A(vidx) = value<Scalar>(m, m_vertex_area, v);
+			return true;
+		});
+
+		Eigen::VectorXd u0(nb_vertices);
+		u0.setZero();
+		uint32 vidx = value<uint32>(m, m_vertex_index, handle_mesh_vertex_);
+		handle_mesh_vertex_index_ = vidx; 
+		u0(vidx) = 1.0;
+
+		Scalar h = cgogn::geometry::mean_edge_length(m, m_vertex_position);
+		Scalar t = h * h;
+
+		Eigen::SparseMatrix<Scalar, Eigen::ColMajor> Am(A.asDiagonal());
+		Eigen::SimplicialLDLT<Eigen::SparseMatrix<Scalar, Eigen::ColMajor>> 
+													heat_solver(Am - t * Lc);
+		Eigen::VectorXd u = heat_solver.solve(u0);
+
+		auto m_vertex_heat = get_or_add_attribute<Scalar, MeshVertex>(m, 
+															"__vertex_heat");
+		foreach_cell(m, [&](MeshVertex v) -> bool {
+			uint32 vidx = value<uint32>(m, m_vertex_index, v);
+			value<Scalar>(m, m_vertex_heat, v) = u(vidx);
+			return true;
+		});
+
+		auto m_face_heat_gradient = get_or_add_attribute<Vec3, MeshFace>(m, 
+													"__face_heat_gradient");
+
+		foreach_cell(m, [&](MeshFace f) -> bool {
+			Vec3 g(0, 0, 0);
+			Vec3 n = cgogn::geometry::normal(m, f, m_vertex_position);
+			Scalar a = cgogn::geometry::area(m, f, m_vertex_position);
+			std::vector<MeshVertex> vertices = incident_vertices(m, f);
+			for (uint32 i = 0; i < vertices.size(); ++i)
+			{
+				Vec3 e = 
+					value<Vec3>(m, m_vertex_position, vertices[(i + 2) % vertices.size()]) 
+					- value<Vec3>(m, m_vertex_position, vertices[(i + 1) % vertices.size()]);
+				
+				g += value<Scalar>(m, m_vertex_heat, vertices[i]) * n.cross(e);
+			}
+			g /= 2 * a;
+			value<Vec3>(m, m_face_heat_gradient, f) = -1.0 * g.normalized();
+			return true;
+		});
+
+		auto m_vertex_heat_gradient_div = 
+			get_or_add_attribute<Scalar, MeshVertex>(m, 
+										"__vertex_heat_gradient_div");
+
+		foreach_cell(m, [&](MeshVertex v) -> bool {
+
+			Scalar d = 
+				vertex_gradient_divergence(m, v, m_face_heat_gradient.get(), 
+											m_vertex_position);
+			value<Scalar>(m, m_vertex_heat_gradient_div, v) = d;
+			return true;
+		});
+
+		Eigen::VectorXd b(nb_vertices);
+		foreach_cell(m, [&](MeshVertex v) -> bool {
+			uint32 vidx = value<uint32>(m, m_vertex_index, v);
+			b(vidx) = value<Scalar>(m, m_vertex_heat_gradient_div, v);
+			return true;
+		});
+
+		Eigen::SimplicialLDLT<Eigen::SparseMatrix<Scalar, Eigen::ColMajor>> 
+														poisson_solver(Lc);
+		Eigen::VectorXd dist = poisson_solver.solve(b);
+
+		Scalar min = dist.minCoeff();
+		foreach_cell(m, [&](MeshVertex v) -> bool {
+			uint32 vidx = value<uint32>(m, m_vertex_index, v);
+
+			distance_to_handle_[vidx] = dist(vidx) - min;
+														
+			return true;
+		});
+
+		remove_attribute<MeshVertex>(m, m_vertex_area);
+		remove_attribute<MeshVertex>(m,m_vertex_heat_gradient_div);  
+	}
+
+	/// @brief set geodesic distance between a mesh m and the handle position
+	/// @param m mesh 
+	/// @param m_vertex_position position of the vertices of the mesh  
+	void distance_to_handle_parallel(MESH& m, const Attribute<Vec3>* m_vertex_position)
 	{
 		std::shared_ptr<Attribute<uint32>> m_vertex_index = 
 					cgogn::get_attribute<uint32, MeshVertex>(m, "vertex_index");
@@ -529,7 +655,7 @@ private:
 		parallel_foreach_cell(m, [&](MeshVertex v) -> bool {
 			uint32 vidx = value<uint32>(m, m_vertex_index, v);
 
-			geodesic_distance_[vidx] = dist(vidx) - min;
+			distance_to_handle_[vidx] = dist(vidx) - min;
 														
 			return true;
 		});

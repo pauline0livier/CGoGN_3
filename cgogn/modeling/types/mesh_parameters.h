@@ -122,7 +122,7 @@ public:
 								std::vector<Vertex> picked;
 								geometry::picking(*mesh_, vertex_position_.get(), 
 												A, B, picked);
-
+ 
 								if (!picked.empty())
 								{
 									switch (button)
@@ -160,7 +160,6 @@ public:
 											A, B, picked);
 					if (!picked.empty())
 					{
-						 
 						if (selection_for_handle_)
 						{
 							const Vec3& target_position = 
@@ -176,6 +175,7 @@ public:
 											*mesh_, handle_mesh_vertex_, 
 									vertex_base_size_ * target_radius, 
 											vertex_position_.get());
+							
 
 							switch (selecting_cell_)
 							{

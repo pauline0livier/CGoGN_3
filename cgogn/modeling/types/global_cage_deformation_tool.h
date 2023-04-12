@@ -31,6 +31,11 @@
 #include <cgogn/modeling/algos/deformation/deformation_utils.h>
 #include <cgogn/modeling/algos/deformation/deformation_definitions.h>
 
+#include <cgogn/modeling/types/handle_deformation_tool.h>
+#include <cgogn/modeling/types/axis_deformation_tool.h>
+#include <cgogn/modeling/types/cage_deformation_tool.h>
+
+
 #include <cgogn/geometry/algos/normal.h>
 #include <cgogn/geometry/types/vector_traits.h>
 
@@ -82,6 +87,8 @@ public:
 	
 	std::unordered_map<uint32, Vertex> shared_vertex_; 
 
+	bool need_full_bind_; 
+
 	GlobalCageDeformationTool() : global_cage_vertex_position_(nullptr)
 	{
 	}
@@ -103,8 +110,16 @@ public:
 	{
 		global_cage_ = m;
 
+		Vec3 temp_min = bb_min; 
+		Vec3 temp_max = bb_max; 
+		if (bb_min[2] == bb_max[2] ){
+			temp_min[2] = -0.1; 
+			temp_max[2] = 0.1; 
+		}
+		/*global_cage_vertices_ = modeling::create_bounding_box(*m, 
+											m_vertex_position, bb_min, bb_max);*/
 		global_cage_vertices_ = modeling::create_bounding_box(*m, 
-											m_vertex_position, bb_min, bb_max);
+											m_vertex_position, temp_min, temp_max);
 
 		global_cage_vertex_position_ = get_attribute<Vec3, Vertex>(*m, 
 																"position");
@@ -152,6 +167,14 @@ public:
 
 			return true;
 		});
+	}
+
+	/// @brief require full re-binding of the global cage
+	/// happen when the global cage position are updated
+	/// outside of the global cage deformation
+	void require_full_binding()
+	{
+		need_full_bind_ = true; 
 	}
 
 	/// @brief initialize binding of the global cage on the model to deform
@@ -241,6 +264,53 @@ public:
 		}
 	}
 
+	void bind_connecting_tools(std::unordered_map<std::string, 
+					std::shared_ptr<modeling::HandleDeformationTool<MESH>>>& handle_container, 
+					std::unordered_map<std::string, 
+					std::shared_ptr<modeling::AxisDeformationTool<MESH>>>& axis_container, 
+					std::unordered_map<std::string, 
+					std::shared_ptr<modeling::CageDeformationTool<MESH>>>& cage_container )
+	{
+		if (local_handle_weights_.size() > 0)
+		{
+			for (auto& [name_handle, vw] : local_handle_weights_)
+			{
+				std::shared_ptr<modeling::HandleDeformationTool<MESH>> local_hdt = handle_container[name_handle];
+
+				Vec3 handle_position = local_hdt->get_handle_position(); 
+
+				bind_handle(name_handle, handle_position);
+			}
+		}
+
+		if (local_axis_weights_.size() > 0)
+		{
+			for (auto& [name_axis, vw] : local_axis_weights_)
+			{
+				std::shared_ptr<modeling::AxisDeformationTool<MESH>> local_adt = axis_container[name_axis];
+
+				std::vector<GraphVertex> axis_vertices = 
+												local_adt->get_axis_skeleton();
+
+				bind_axis(*(local_adt->control_axis_), name_axis, 
+						local_adt->control_axis_vertex_position_, axis_vertices);
+			}
+		}
+
+		if (local_cage_weights_.size() > 0)
+		{
+			for (auto& [name_cage, cw] : local_cage_weights_)
+			{
+				std::shared_ptr<modeling::CageDeformationTool<MESH>> local_cdt = cage_container[name_cage];
+
+					bind_local_cage(*(local_cdt->control_cage_), name_cage, 
+									local_cdt->control_cage_vertex_position_, local_cdt->control_cage_vertex_index_);
+			}
+				
+		}
+	}
+
+
 	/// @brief deform the model 
 	/// call the specific deformation type function 
 	/// @param object model to deform 
@@ -248,9 +318,27 @@ public:
 	/// @param object_vertex_index indices of the vertices of the model 
 	void deform_object(MESH& object, 
 					CMap2::Attribute<Vec3>* object_vertex_position,
-					CMap2::Attribute<uint32>* object_vertex_index)
+					CMap2::Attribute<uint32>* object_vertex_index, 
+					std::unordered_map<std::string, 
+					std::shared_ptr<modeling::HandleDeformationTool<MESH>>>& handle_container, 
+					std::unordered_map<std::string, 
+					std::shared_ptr<modeling::AxisDeformationTool<MESH>>>& axis_container, 
+					std::unordered_map<std::string, 
+					std::shared_ptr<modeling::CageDeformationTool<MESH>>>& cage_container
+					)
 	{
-		 
+		 if (need_full_bind_)
+		{
+			std::cout << "need full "<< std::endl; 
+			bind_object(object, object_vertex_position, object_vertex_index); 
+			std::cout << "check obj " << std::endl; 
+			bind_connecting_tools(handle_container, axis_container, cage_container); 
+
+			std::cout << "check connecting tools" << std::endl; 
+
+			need_full_bind_ = false;
+		}
+
 		if (deformation_type_ == "MVC")
 		{
 			deform_object_mvc(object, object_vertex_position, 
@@ -644,6 +732,30 @@ private:
 						CMap2::Attribute<Vec3>* object_vertex_position, 
 						CMap2::Attribute<uint32>* object_vertex_index)
 	{
+		foreach_cell(object, [&](Vertex v) -> bool {
+			const Vec3& surface_point = value<Vec3>(object, 
+												object_vertex_position, v);
+			const uint32& surface_point_index = 
+							value<uint32>(object, object_vertex_index, v);
+
+			Eigen::VectorXd local_row_weights; 
+			compute_mvc_coordinates_on_point(surface_point, 
+														local_row_weights);
+			
+			object_weights_.position_.row(surface_point_index) = local_row_weights;
+
+			return true;
+		});
+	}
+
+	/// @brief bind object with MVC
+	/// @param object model to deform 
+	/// @param object_vertex_position positions of the vertices of the model  
+	/// @param object_vertex_index indices of the vertices of the model 
+	void bind_object_mvc_parallel(MESH& object, 
+						CMap2::Attribute<Vec3>* object_vertex_position, 
+						CMap2::Attribute<uint32>* object_vertex_index)
+	{
 		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			const Vec3& surface_point = value<Vec3>(object, 
 												object_vertex_position, v);
@@ -659,6 +771,8 @@ private:
 			return true;
 		});
 	}
+
+	
 
 	/// @brief update the MVC weights of a local area of the model 
 	/// useful when content spatial tools is deformed and then need to update the weights of its zone of influence
@@ -694,6 +808,39 @@ private:
 						CMap2::Attribute<Vec3>* object_vertex_position,
 						CMap2::Attribute<uint32>* object_vertex_index)
 	{
+		foreach_cell(object, [&](Vertex v) -> bool {
+			uint32 object_point_index = value<uint32>(object, 
+													object_vertex_index, v);
+
+			Vec3 new_position = {0.0, 0.0, 0.0};
+
+			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
+				const Vec3& cage_point = value<Vec3>(*global_cage_, 
+										global_cage_vertex_position_, cv);
+
+				uint32 cage_point_index = value<uint32>(*global_cage_, 
+											global_cage_vertex_index_, cv);
+
+				new_position += object_weights_
+					.position_(object_point_index, cage_point_index) 
+															* cage_point;
+
+				return true;
+			});
+
+			value<Vec3>(object, object_vertex_position, v) = new_position;
+			return true;
+		});
+	}
+
+	/// @brief deform model with MVC deformation type
+	/// @param object model to deform 
+	/// @param object_vertex_position positions of the vertices of the model 
+	/// @param object_vertex_index indices of the vertices of the model 
+	void deform_object_mvc_parallel(MESH& object, 
+						CMap2::Attribute<Vec3>* object_vertex_position,
+						CMap2::Attribute<uint32>* object_vertex_index)
+	{
 		parallel_foreach_cell(object, [&](Vertex v) -> bool {
 			uint32 object_point_index = value<uint32>(object, 
 													object_vertex_index, v);
@@ -719,11 +866,40 @@ private:
 		});
 	}
 
+
+
 	/// @brief bind model with Green deformation type 
 	/// @param object model to deform
 	/// @param object_vertex_position positions of the vertices of the model  
 	/// @param object_vertex_index indices of the vertices of the model 
 	void bind_object_green(MESH& object, 
+						CMap2::Attribute<Vec3>* object_vertex_position, 
+						CMap2::Attribute<uint32>* object_vertex_index)
+	{
+
+		foreach_cell(object, [&](Vertex v) -> bool {
+			const Vec3& surface_point = value<Vec3>(object, 
+												object_vertex_position, v);
+			const uint32& surface_point_index = 
+								value<uint32>(object, object_vertex_index, v);
+
+			VectorWeights local_row_vector_weights; 
+			compute_green_coordinates_on_point(surface_point, 
+												local_row_vector_weights);
+			
+			object_weights_.position_.row(surface_point_index) = local_row_vector_weights.position_;
+
+			object_weights_.normal_.row(surface_point_index) = local_row_vector_weights.normal_;
+
+			return true;
+		});
+	}
+
+	/// @brief bind model with Green deformation type 
+	/// @param object model to deform
+	/// @param object_vertex_position positions of the vertices of the model  
+	/// @param object_vertex_index indices of the vertices of the model 
+	void bind_object_green_parallel(MESH& object, 
 						CMap2::Attribute<Vec3>* object_vertex_position, 
 						CMap2::Attribute<uint32>* object_vertex_index)
 	{
@@ -745,6 +921,8 @@ private:
 			return true;
 		});
 	}
+
+
 
 
 	/// @brief update the Green weights of a local area of the model 
@@ -774,6 +952,76 @@ private:
 	/// @param object_vertex_position positions of the vertices of the model 
 	/// @param object_vertex_index indices of the vertices of the model 
 	void deform_object_green(MESH& object, 
+							CMap2::Attribute<Vec3>* object_vertex_position,
+							CMap2::Attribute<uint32>* object_vertex_index)
+	{
+
+		foreach_cell(object, [&](Vertex v) -> bool {
+			uint32 vidx = value<uint32>(object, object_vertex_index, v);
+
+			Vec3 new_position = {0.0, 0.0, 0.0};
+
+			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
+				const Vec3& cage_point = value<Vec3>(*global_cage_, 
+										global_cage_vertex_position_, cv);
+
+				uint32 cage_point_idx = value<uint32>(*global_cage_, 
+										global_cage_vertex_index_, cv);
+
+				new_position += object_weights_
+							.position_(vidx, cage_point_idx) * cage_point;
+
+				return true;
+			});
+
+			Vec3 new_normal = {0.0, 0.0, 0.0};
+
+			const auto sqrt8 = sqrt(8);
+
+			for (std::size_t t = 0; t < cage_triangles_.size(); t++)
+			{
+
+				std::vector<Vec3> triangle_position(3);
+				for (std::size_t i = 0; i < 3; i++)
+				{
+					triangle_position[i] =
+						value<Vec3>(*global_cage_, 
+									global_cage_vertex_position_, 
+									cage_triangles_[t].vertices_[i]);
+				}
+
+				const Vec3 t_normal = cage_triangles_[t].normal_;
+				const auto t_u0 = cage_triangles_[t].edges_.first;
+				const auto t_v0 = cage_triangles_[t].edges_.second;
+
+				const auto t_u1 = 
+					triangle_position[1] - triangle_position[0];
+				const auto t_v1 = 
+					triangle_position[2] - triangle_position[1];
+
+				const auto area_face = (t_u0.cross(t_v0)).norm() * 0.5;
+				double t_sj =
+					sqrt((t_u1.squaredNorm()) * (t_v0.squaredNorm()) 
+							- 2.0 * (t_u1.dot(t_v1)) * (t_u0.dot(t_v0)) +
+						 (t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
+							(sqrt8 * area_face);
+
+				new_normal += 
+					object_weights_.normal_(vidx, t) * t_sj * t_normal;
+			}
+
+			value<Vec3>(object, object_vertex_position, v) = 
+												new_position + new_normal;
+
+			return true;
+		});
+	}
+
+	/// @brief deform model with Green deformation model 
+	/// @param object model to deform 
+	/// @param object_vertex_position positions of the vertices of the model 
+	/// @param object_vertex_index indices of the vertices of the model 
+	void deform_object_green_parallel(MESH& object, 
 							CMap2::Attribute<Vec3>* object_vertex_position,
 							CMap2::Attribute<uint32>* object_vertex_index)
 	{
@@ -1130,6 +1378,34 @@ private:
 			std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
 	{
 
+		foreach_cell(local_cage, [&](Vertex v) -> bool {
+			const Vec3& local_cage_point = value<Vec3>(local_cage, 
+											local_cage_vertex_position, v);
+			const uint32& local_cage_point_index = 
+					value<uint32>(local_cage, local_cage_vertex_index, v);
+
+			Eigen::VectorXd local_row_weights; 
+			compute_mvc_coordinates_on_point(local_cage_point, local_row_weights);
+
+			local_cage_weights_[cage_name]
+				.position_.row(local_cage_point_index) = local_row_weights; 		 			
+
+			return true;
+		});
+
+	}
+
+	/// @brief bind local cage with MVC deformation type 
+	/// @param local_cage 
+	/// @param cage_name local cage name
+	/// @param local_cage_vertex_position positions of the local cage vertices
+	/// @param local_cage_vertex_index indices of the local cage vertices
+	void bind_local_cage_mvc_parallel(MESH& local_cage, 
+							const std::string& cage_name, 
+			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+			std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+
 		parallel_foreach_cell(local_cage, [&](Vertex v) -> bool {
 			const Vec3& local_cage_point = value<Vec3>(local_cage, 
 											local_cage_vertex_position, v);
@@ -1153,6 +1429,35 @@ private:
 	/// @param local_cage_vertex_position positions of the local cage vertices
 	/// @param local_cage_vertex_index indices of the local cage vertices
 	void bind_local_cage_green(MESH& local_cage, 
+							const std::string& cage_name, 
+			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+			std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		foreach_cell(local_cage, [&](Vertex v) -> bool {
+			const Vec3& local_cage_point = value<Vec3>(local_cage, 
+											local_cage_vertex_position, v);
+			const uint32& local_cage_point_index = 
+					value<uint32>(local_cage, local_cage_vertex_index, v);
+
+			VectorWeights local_row_vector_weights; 
+			compute_green_coordinates_on_point(local_cage_point, local_row_vector_weights);
+
+			local_cage_weights_[cage_name]
+				.position_.row(local_cage_point_index) = local_row_vector_weights.position_; 
+
+			local_cage_weights_[cage_name]
+				.normal_.row(local_cage_point_index) = local_row_vector_weights.normal_; 
+
+			return true;
+		});
+	}
+
+	/// @brief bind local cage with Green deformation type 
+	/// @param local_cage 
+	/// @param cage_name local cage name
+	/// @param local_cage_vertex_position positions of the local cage vertices
+	/// @param local_cage_vertex_index indices of the local cage vertices
+	void bind_local_cage_green_parallel(MESH& local_cage, 
 							const std::string& cage_name, 
 			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
 			std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
@@ -1182,6 +1487,44 @@ private:
 	/// @param local_cage_vertex_position positions of the local cage vertices
 	/// @param local_cage_vertex_index indices of the local cage vertices
 	void deform_local_cage_mvc(MESH& local_cage, 
+							const std::string& cage_name, 
+			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+			std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		MatrixWeights local_cage_weights = local_cage_weights_[cage_name]; 
+
+		foreach_cell(local_cage, [&](Vertex v) -> bool {
+			uint32 local_cage_point_index = value<uint32>(local_cage, 
+												local_cage_vertex_index, v);
+
+			Vec3 new_position = {0.0, 0.0, 0.0};
+
+			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
+				const Vec3& cage_point = value<Vec3>(*global_cage_, 
+										global_cage_vertex_position_, cv);
+
+				uint32 cage_point_index = value<uint32>(*global_cage_, 
+											global_cage_vertex_index_, cv);
+
+				new_position += local_cage_weights
+					.position_(local_cage_point_index, cage_point_index) 
+						* cage_point;
+
+				return true;
+			});
+
+			value<Vec3>(local_cage, local_cage_vertex_position, v) = 
+															new_position;
+			return true;
+		});
+	}
+
+		/// @brief deform local cage with MVC deformation type 
+	/// @param local_cage 
+	/// @param cage_name local cage name
+	/// @param local_cage_vertex_position positions of the local cage vertices
+	/// @param local_cage_vertex_index indices of the local cage vertices
+	void deform_local_cage_mvc_parallel(MESH& local_cage, 
 							const std::string& cage_name, 
 			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
 			std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
@@ -1220,6 +1563,79 @@ private:
 	/// @param local_cage_vertex_position positions of the local cage vertices
 	/// @param local_cage_vertex_index indices of the local cage vertices
 	void deform_local_cage_green(MESH& local_cage, 
+								const std::string& cage_name, 
+			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+			std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		MatrixWeights local_cage_weights = local_cage_weights_[cage_name]; 
+
+		foreach_cell(local_cage, [&](Vertex v) -> bool {
+			uint32 vidx = 
+				value<uint32>(local_cage, local_cage_vertex_index, v);
+
+			Vec3 new_position = {0.0, 0.0, 0.0};
+
+			foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
+				const Vec3& cage_point = value<Vec3>(*global_cage_, 
+										global_cage_vertex_position_, cv);
+
+				uint32 cage_point_index = value<uint32>(*global_cage_, 
+											global_cage_vertex_index_, cv);
+
+				new_position += local_cage_weights
+					.position_(vidx, cage_point_index) * cage_point;
+
+				return true;
+			});
+
+			Vec3 new_normal = {0.0, 0.0, 0.0};
+
+			const auto sqrt8 = sqrt(8);
+
+			for (std::size_t t = 0; t < cage_triangles_.size(); t++)
+			{
+
+				std::vector<Vec3> triangle_position(3);
+				for (std::size_t i = 0; i < 3; i++)
+				{
+					triangle_position[i] = value<Vec3>(*global_cage_, 
+												global_cage_vertex_position_, 
+											cage_triangles_[t].vertices_[i]);
+				}
+
+				const Vec3 t_normal = cage_triangles_[t].normal_;
+				const auto t_u0 = cage_triangles_[t].edges_.first;
+				const auto t_v0 = cage_triangles_[t].edges_.second;
+
+				const auto t_u1 = 
+					triangle_position[1] - triangle_position[0];
+				const auto t_v1 = 
+					triangle_position[2] - triangle_position[1];
+
+				const auto area_face = (t_u0.cross(t_v0)).norm() * 0.5;
+				double t_sj = 
+					sqrt((t_u1.squaredNorm()) * (t_v0.squaredNorm()) 
+							- 2.0 * (t_u1.dot(t_v1)) * (t_u0.dot(t_v0)) +
+					(t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
+						(sqrt8 * area_face);
+
+				new_normal += 
+					local_cage_weights.normal_(vidx, t) * t_sj * t_normal;
+			}
+
+			value<Vec3>(local_cage, local_cage_vertex_position, v) = 
+												new_position + new_normal;
+
+			return true;
+		});
+	}
+
+	// @brief deform local cage with Green deformation type 
+	/// @param local_cage 
+	/// @param cage_name local cage name
+	/// @param local_cage_vertex_position positions of the local cage vertices
+	/// @param local_cage_vertex_index indices of the local cage vertices
+	void deform_local_cage_green_parallel(MESH& local_cage, 
 								const std::string& cage_name, 
 			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
 			std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
