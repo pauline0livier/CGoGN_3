@@ -101,7 +101,7 @@ void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position,
 /// @param bb_min Vec3 minimum values in local frame
 /// @param bb_max Vec3 maximum values in local frame
 /// @param local_frame matrice   
-void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* m_vertex_position, 
+std::vector<CMap2::Vertex> create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* m_vertex_position, 
 					const Vec3& bb_min, const Vec3& bb_max,
 					const Eigen::Matrix3d& local_frame)
 {
@@ -155,6 +155,8 @@ void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* m_vertex_position,
 					(frame_inverse * local_positions[p]) + bb_min;
 
 	}
+
+	return vertices; 
 
 }
 

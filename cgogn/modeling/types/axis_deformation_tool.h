@@ -122,7 +122,7 @@ public:
 
 		axis_skeleton_ = 
 			cgogn::modeling::create_axis(*g, g_vertex_position, 
-										g_vertex_radius, vertex_coordinates, Scalar(0.5));
+										g_vertex_radius, vertex_coordinates, Scalar(0.06));
 
 		control_axis_vertex_position_ = 
 				cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
@@ -261,8 +261,7 @@ public:
 		uint32 nb_bones = axis_skeleton_.size() +1;
 		object_weights_ = Eigen::SparseMatrix<double, Eigen::RowMajor>(nbv_object, nb_bones); 
 
-		
-		bind_object_rigid(object, object_vertex_position); 
+		bind_object_rigid(object, object_vertex_position);  
 		
 	}
 
@@ -335,8 +334,6 @@ private:
 	void bind_object_rigid(MESH& object, 
 		CMap2::Attribute<Vec3>* object_vertex_position)
 	{
-		std::shared_ptr<Attribute<uint32>> object_vertex_index =
-			get_attribute<uint32, MeshVertex>(object, "vertex_index");
 
 		for ( const auto &myPair : object_influence_area_ ) {
 			uint32 vertex_index = myPair.first;
@@ -347,7 +344,6 @@ private:
 			object_weights_.row(vertex_index) = 
 				cgogn::modeling::weight_partial_skeleton(inside_axis_position_, 
 												surface_point);
-
 		}
 
 	}

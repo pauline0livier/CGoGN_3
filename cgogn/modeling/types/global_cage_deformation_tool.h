@@ -329,12 +329,8 @@ public:
 	{
 		 if (need_full_bind_)
 		{
-			std::cout << "need full "<< std::endl; 
-			bind_object(object, object_vertex_position, object_vertex_index); 
-			std::cout << "check obj " << std::endl; 
+			bind_object(object, object_vertex_position, object_vertex_index);  
 			bind_connecting_tools(handle_container, axis_container, cage_container); 
-
-			std::cout << "check connecting tools" << std::endl; 
 
 			need_full_bind_ = false;
 		}

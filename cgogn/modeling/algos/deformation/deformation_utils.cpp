@@ -267,7 +267,7 @@ std::pair<Eigen::Vector2d, std::vector<bool>> weight_two_bones(const Vec3& A,
 Eigen::SparseVector<double> weight_partial_skeleton(const std::vector<Vec3> axis_positions, const Vec3& target_point)
 {
 
-	const double threshold = 0.3;
+	const double threshold = 0.2;
 	const double opposite_threshold = 1.0 - threshold; 
 
 	std::size_t number_of_bones = axis_positions.size() - 1; 

@@ -115,8 +115,9 @@ public:
 	{
 		control_handle_ = g;
 		handle_vertex_ = cgogn::modeling::create_handle(*g, g_vertex_position, 
-											g_vertex_radius, center, Scalar(3));
+											g_vertex_radius, center, Scalar(0.06));
 											// 3 for low poly fox, 0.25 sphere
+											/// 0.01 raptor
 
 		control_handle_vertex_position_ = 
 				cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
@@ -274,6 +275,15 @@ public:
 	}
 
 	/// @brief update handle position 
+	/// useful when handle is displaced by other spatial tools 
+	/// @param new_position 
+	void update_handle_position_variable_bis()
+	{
+
+		handle_position_ = get_handle_position(); 
+	}
+
+	/// @brief update handle position 
 	/// used when other handles around 
 	void update_handle_position(const Vec3& new_position)
 	{ 
@@ -302,7 +312,7 @@ public:
 	/// @param object_vertex_position position of the vertices of the model 
 	void init_bind_object(MESH& object)
 	{
-		uint32 nbv_object = nb_cells<MeshVertex>(object);
+		uint32 nbv_object = nb_cells<MeshVertex>(object); 
 
 		object_weights_.resize(nbv_object);
 		object_weights_.setZero();
@@ -310,13 +320,13 @@ public:
 		Scalar current_max = 0; 
 		for ( const auto &myPair : object_influence_area_ ) {
 			uint32 vertex_index = myPair.first;
-
+ 
 			if (distance_to_handle_[vertex_index] > current_max){
 				current_max = distance_to_handle_[vertex_index]; 
 			}
 		}
  
-		radius_of_influence_ = current_max; 
+		radius_of_influence_ = current_max*0.5; 
 
 		bind_object_round();
 	}
@@ -368,14 +378,14 @@ public:
 			need_full_bind_ = false;
 		}
 
-		const Vec3 new_deformation = get_handle_deformation();
+		const Vec3 deformation = get_handle_deformation(); 
 
 		for ( const auto &myPair : object_influence_area_ ) {
 			uint32 vertex_index = myPair.first;
 			MeshVertex v = myPair.second.vertex; 
 
 			const Vec3 new_transformation = 
-						object_weights_[vertex_index] * new_deformation; 
+						object_weights_[vertex_index] * deformation; 
 
 			object_influence_area_[vertex_index].max_local_translation += 
 					new_transformation; 
@@ -415,11 +425,18 @@ public:
 		const Vec3 handle_new_position = value<Vec3>(*control_handle_, 
 							control_handle_vertex_position_, handle_vertex_);
 
-		const Vec3 deformation = (handle_new_position - handle_position_);
+		const Vec3& deformation = (handle_new_position - handle_position_);
 
 		handle_position_ = handle_new_position;
 
-		return deformation;
+		last_deformation_ = deformation; 
+
+		return deformation; 
+	}
+
+	Vec3 get_deformation()
+	{
+		return last_deformation_; 
 	}
 
 	
@@ -428,6 +445,8 @@ private:
 	Graph::Vertex handle_vertex_;
 	MeshVertex handle_mesh_vertex_;
 	Vec3 handle_position_; 
+
+	Vec3 last_deformation_; 
 
 	Vec3 start_position_;  
 

@@ -35,6 +35,9 @@
 
 #include <cgogn/geometry/algos/normal.h>
 
+#include <cgogn/modeling/types/handle_deformation_tool.h>
+#include <cgogn/modeling/types/axis_deformation_tool.h>
+
 namespace cgogn
 {
 
@@ -145,6 +148,12 @@ class CageDeformationTool
 		int cage_index_; 
 	}; 
 
+	struct Tool_data
+	{
+		MatrixWeights weights_; 
+		std::unordered_map<uint32, int> cage_index_; 
+	}; 
+
 public:
 	MESH* control_cage_;
 	std::shared_ptr<Attribute<Vec3>> control_cage_vertex_position_;
@@ -165,6 +174,8 @@ public:
 	Vec3 cage_local_bb_max_; 
 
 	std::unordered_map<std::string, Handle_data> local_handle_data_;
+	std::unordered_map<std::string, Tool_data> local_cage_data_; 
+
 	
 	std::string deformation_type_;
 
@@ -212,7 +223,7 @@ public:
 		local_frame_.row(2) = std::get<2>(main_directions);
 
 		//create_cage_box(*m, m_vertex_position, bb_min, bb_max, local_frame_); 
-		create_cage_box(*m, m_vertex_position, temp_min, temp_max, local_frame_); 
+		control_cage_vertices_ = create_cage_box(*m, m_vertex_position, temp_min, temp_max, local_frame_); 
 
 		control_cage_vertex_position_ = 
 						cgogn::get_attribute<Vec3, Vertex>(*m, "position");
@@ -235,7 +246,7 @@ public:
 
 		set_start_positions(); 
 
-		init_control_cage_plane(main_directions, 3);
+		init_control_cage_plane(main_directions, 5); //3, 25
 
 		init_virtual_cubes();
 	}
@@ -346,20 +357,90 @@ public:
 		}
 	}
 
+	void bind_connecting_tools(std::unordered_map<std::string, 
+					std::shared_ptr<modeling::HandleDeformationTool<MESH>>>& handle_container, 
+					std::unordered_map<std::string, 
+					std::shared_ptr<modeling::AxisDeformationTool<MESH>>>& axis_container, 
+					std::unordered_map<std::string, 
+					std::shared_ptr<modeling::CageDeformationTool<MESH>>>& cage_container )
+	{
+		if (local_handle_data_.size() > 0)
+		{
+			for (auto& [name_handle, data] : local_handle_data_)
+			{
+				std::shared_ptr<modeling::HandleDeformationTool<MESH>> local_hdt = handle_container[name_handle];
+
+				Vec3 handle_position = local_hdt->get_handle_position(); 
+
+				update_bind_handle(name_handle, handle_position);
+			}
+		}
+
+		if (local_cage_data_.size() > 0)
+		{
+			for (auto& [name_cage, cData] : local_cage_data_)
+			{
+				std::shared_ptr<modeling::CageDeformationTool<MESH>> local_cdt = cage_container[name_cage];
+
+				update_bind_local_cage(*(local_cdt->control_cage_), name_cage, 
+									local_cdt->control_cage_vertex_position_, local_cdt->control_cage_vertex_index_);
+			}
+				
+		}
+	}
+
+	void update_local_bounding_box()
+	{
+		Vec3 local_min = {1000.0, 1000.0, 1000.0};
+		Vec3 local_max = {-1000.0, -1000.0, -1000.0};
+
+		foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
+				const Vec3& cage_point = 
+					value<Vec3>(*control_cage_, 
+								control_cage_vertex_position_, cv);
+				
+				const Vec3& local_point = local_frame_*cage_point; 
+				for (size_t j = 0; j < 3; j++)
+				{
+					if (local_point[j] < local_min[j])
+					{
+						local_min[j] = local_point[j];
+					}
+
+					if (local_point[j] > local_max[j])
+					{
+						local_max[j] = local_point[j];
+					}
+				}
+				return true;
+			});
+
+			
+	}
+
 	/// @brief deform the model following the chosen deformation type 
 	/// @param object model to deform 
 	/// @param object_vertex_position position of the vertices of the model
 	/// @param object_vertex_index index of the vertices of the model
 	void deform_object(MESH& object,
 					CMap2::Attribute<Vec3>* object_vertex_position,
-					CMap2::Attribute<uint32>* object_vertex_index)
+					CMap2::Attribute<uint32>* object_vertex_index, 
+					std::unordered_map<std::string, 
+					std::shared_ptr<modeling::HandleDeformationTool<MESH>>>& handle_container, 
+					std::unordered_map<std::string, 
+					std::shared_ptr<modeling::AxisDeformationTool<MESH>>>& axis_container, 
+					std::unordered_map<std::string, 
+					std::shared_ptr<modeling::CageDeformationTool<MESH>>>& cage_container)
 	{
+		update_local_bounding_box(); 
+
 		if (need_full_bind_)
 		{
 			update_virtual_cages(); 
 
 			update_bind_object(object, object_vertex_position, object_vertex_index); 
 
+			bind_connecting_tools(handle_container, axis_container, cage_container); 
 			need_full_bind_ = false;
 		}
 
@@ -432,7 +513,73 @@ public:
 
 	}
 
+
+	void init_bind_local_cage(MESH& local_cage, 
+							const std::string& cage_name, 
+			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+			std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		uint32 nbv_target_cage = nb_cells<Vertex>(local_cage);
+		uint32 nbv_cage = nb_cells<Vertex>(*control_cage_);
+
+		Tool_data cage_data; 
+
+		MatrixWeights local_cage_weights; 
+		local_cage_weights.position_.resize(nbv_target_cage, nbv_cage);
+		local_cage_weights.position_.setZero();
+
+		cage_data.weights_ = local_cage_weights; 
+
+		local_cage_data_[cage_name] = cage_data;
+
+		bind_local_cage_mvc(local_cage, cage_name, local_cage_vertex_position, local_cage_vertex_index);
+
+
+	}
+
+	/// @brief update binding for local cage tool 
+	/// used when deformation type is changed
+	void update_bind_local_cage(MESH& local_cage, const std::string& cage_name, 
+	std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+	std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		local_cage_data_[cage_name].weights_.position_.setZero();
+
+		update_bind_local_cage_mvc(local_cage, cage_name, local_cage_vertex_position, local_cage_vertex_index); 
+	}
+
+
+	void deform_local_cage(MESH& local_cage, const std::string& cage_name, 
+	std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+	std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		
+		deform_local_cage_mvc(local_cage, cage_name, 
+						local_cage_vertex_position, local_cage_vertex_index); 
+
+	}
+
+	/// @brief update the control cage dimensions 
+	/// call when the content spatial tool deformation goes outside the cage
+	/// @param bb_min 
+	/// @param bb_max 
+	void update_control_cage()
+	{
+		Eigen::Matrix3d inverse_frame = local_frame_.inverse(); 
+
+		const Vec3 cage_bb_min = inverse_frame*cage_local_bb_min_; 
+		const Vec3 cage_bb_max = inverse_frame*cage_local_bb_max_;
+
+		modeling::update_bounding_box(*control_cage_, 
+									control_cage_vertex_position_.get(), 
+									control_cage_vertices_, 
+									cage_bb_min, cage_bb_max);
+	}
+
+
 private:
+	std::vector<CMap2::Vertex> control_cage_vertices_; 
+
 	std::vector<Triangle> cage_triangles_;
 
 	Vec3 control_cage_center_;
@@ -1557,7 +1704,6 @@ private:
 			compute_mvc_on_point_inside_cage(handle_position, local_row_weights);
 
 			local_handle_data_[graph_name].weights_.position_ = local_row_weights; 
-
 		}
 		else
 		{
@@ -1630,6 +1776,156 @@ private:
 		}
 		
 	}
+
+	void bind_local_cage_mvc(MESH& local_cage, 
+							const std::string& cage_name, 
+			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+			std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+
+		foreach_cell(local_cage, [&](Vertex v) -> bool {
+
+			const Vec3& cage_position = value<Vec3>(local_cage, 
+											local_cage_vertex_position, v);
+			const uint32& cage_point_index = 
+					value<uint32>(local_cage, local_cage_vertex_index, v);
+
+			const double d_x = get_projection_on_direction(cage_position, local_x_direction_control_planes_.direction), 
+			
+			d_y = get_projection_on_direction(cage_position, local_y_direction_control_planes_.direction),
+		
+			d_z = get_projection_on_direction(cage_position, local_z_direction_control_planes_.direction); 
+
+			const bool valid_x_dir = check_projection_in_area(d_x, local_x_direction_control_planes_.d_min, local_x_direction_control_planes_.d_max), 
+					
+			valid_y_dir = check_projection_in_area(d_y, local_y_direction_control_planes_.d_min, local_y_direction_control_planes_.d_max), 
+					   
+			valid_z_dir = check_projection_in_area(d_z, local_z_direction_control_planes_.d_min, local_z_direction_control_planes_.d_max); 
+		
+		if (valid_x_dir && valid_y_dir && valid_z_dir)
+		{
+			local_cage_data_[cage_name].cage_index_[cage_point_index] = 27; 
+
+			Eigen::VectorXd local_row_weights;
+			compute_mvc_on_point_inside_cage(cage_position, local_row_weights);
+
+			local_cage_data_[cage_name].weights_.position_.row(cage_point_index) = local_row_weights; 
+
+		}
+		else
+		{
+
+			Vec3 projection_values = {d_x, d_y, d_z};  
+			
+			std::vector<bool> valid_values(3); 
+			valid_values[0] = valid_x_dir, valid_values[1] = valid_y_dir, 
+			valid_values[2] = valid_z_dir; 
+
+			Vec3 max_area = {local_x_direction_control_planes_.d_max, local_y_direction_control_planes_.d_max, local_z_direction_control_planes_.d_max}; 
+
+			std::size_t virtual_cube_index = get_index_virtual_cube(projection_values, valid_values, max_area); 
+
+			local_cage_data_[cage_name].cage_index_[cage_point_index] = virtual_cube_index; 
+
+			Virtual_cube virtual_cube_target = virtual_cubes_[virtual_cube_index]; 
+
+			Eigen::VectorXd local_row_weights;
+			compute_mvc_on_point_outside_cage(cage_position, 			local_row_weights, virtual_cube_target);
+
+			local_cage_data_[cage_name].weights_.position_.row(cage_point_index) = local_row_weights;
+
+		} 						
+
+			return true; 
+		}); 
+	}
+
+	void update_bind_local_cage_mvc(MESH& local_cage, 
+							const std::string& cage_name, 
+			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+			std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		foreach_cell(local_cage, [&](Vertex v) -> bool {
+			const Vec3& cage_position = value<Vec3>(local_cage, 
+											local_cage_vertex_position, v);
+			const uint32& cage_point_index = 
+					value<uint32>(local_cage, local_cage_vertex_index, v);
+
+			const uint32 activation_index = local_cage_data_[cage_name].cage_index_[cage_point_index]; 
+
+			if (activation_index == 27)
+			{
+				Eigen::VectorXd local_row_weights;
+				compute_mvc_on_point_inside_cage(cage_position, local_row_weights);
+
+				local_cage_data_[cage_name].weights_.position_.row(cage_point_index) = local_row_weights; 
+
+			} 
+			else {
+				Virtual_cube virtual_cube_target = virtual_cubes_[activation_index]; 
+
+				Eigen::VectorXd local_row_weights;
+				compute_mvc_on_point_outside_cage(cage_position, 			local_row_weights, virtual_cube_target);
+
+				local_cage_data_[cage_name].weights_.position_.row(cage_point_index) = local_row_weights;
+			}
+
+			return true; 
+		}); 
+	}
+
+	void deform_local_cage_mvc(MESH& local_cage, 
+							const std::string& cage_name, 
+			std::shared_ptr<Attribute<Vec3>>& local_cage_vertex_position, 
+			std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
+	{
+		MatrixWeights local_cage_weights = local_cage_data_[cage_name].weights_;
+
+		 foreach_cell(local_cage, [&](Vertex v) -> bool {
+			uint32 local_cage_point_index = value<uint32>(local_cage, 
+												local_cage_vertex_index, v);
+
+			uint32 activation_index = local_cage_data_[cage_name].cage_index_[local_cage_point_index]; 
+
+			if (activation_index == 27)
+			{
+				Vec3 new_position = {0.0, 0.0, 0.0};
+
+				foreach_cell(*control_cage_, [&](Vertex cv) -> bool {
+					const Vec3& cage_point = value<Vec3>(*control_cage_, 
+										control_cage_vertex_position_, cv);
+
+					uint32 cage_point_index = value<uint32>(*control_cage_, 
+											control_cage_vertex_index_, cv);
+
+					new_position += local_cage_data_[cage_name].weights_
+					.position_(local_cage_point_index, cage_point_index) 
+						* cage_point;
+
+					return true;
+				});
+
+				value<Vec3>(local_cage, local_cage_vertex_position, v) = new_position;
+			} 
+			else {
+				Virtual_cube virtual_cube_target =  virtual_cubes_[activation_index];  
+
+				Vec3 new_position = {0.0, 0.0, 0.0};
+				for (size_t p = 0; p < virtual_cube_target.points.size(); p++){
+					const Point& cage_point = virtual_cube_target.points[p];
+					uint32 cage_point_index = p;
+
+					new_position += local_cage_data_[cage_name].weights_
+					.position_(local_cage_point_index, cage_point_index) 
+						* cage_point.position;
+
+					}
+					value<Vec3>(local_cage, local_cage_vertex_position, v) = new_position;
+			}
+			return true;
+		});
+	}
+	
 
 	/// @brief compute MVC on point inside the cage 
 	/// state-of-the-art method 
@@ -1922,6 +2218,7 @@ private:
 								Eigen::VectorXd& result_weights,
 								const Virtual_cube& virtual_cube_target)
 	{
+
 		uint32 nbv_cage = nb_cells<Vertex>(*control_cage_);
 
 		result_weights.resize(nbv_cage); 
@@ -1955,7 +2252,7 @@ private:
 
 			u[cage_point_index] = 
 				(cage_point.position - surface_point) / d[cage_point_index];
-		}
+		} 
 
 		double l[3], theta[3], w[3], c[3], s[3];
 
@@ -2034,11 +2331,11 @@ private:
 			w_control_cage_coords_[triangle_index[0]] += w[0];
 			w_control_cage_coords_[triangle_index[1]] += w[1];
 			w_control_cage_coords_[triangle_index[2]] += w[2];
-		}
+		} 
 
 		for (std::size_t p = 0; p < number_of_points; p++)
 		{
-			uint32 cage_point_index = p;
+			uint32 cage_point_index = p; 
 
 			result_weights[cage_point_index] =
 				w_control_cage_coords_[cage_point_index] / sumWeights;
@@ -2320,6 +2617,8 @@ private:
 			}
 		}
 	}
+
+	
 
 
 	/// @brief compute Green on point outside the cage 

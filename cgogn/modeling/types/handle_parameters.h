@@ -123,7 +123,7 @@ public:
 			std::vector<Vertex> picked;
 
 			geometry::picking_sphere(*graph_, 
-								vertex_position_.get(), 5.0, A, B, picked);
+								vertex_position_.get(), 2.0, A, B, picked);
 								// 5.0 for fox
 			if (!picked.empty())
 			{
@@ -204,8 +204,7 @@ public:
 							selected_vertices_set_->size() > 0 && 
 				param_point_sprite_->attributes_initialized())
 		{
-			param_point_sprite_->point_size_ = 
-				vertex_base_size_ * vertex_scale_factor_;
+			param_point_sprite_->point_size_ = vertex_base_size_ * vertex_scale_factor_;
 			param_point_sprite_->bind(proj_matrix, view_matrix);
 			glDrawArrays(GL_POINTS, 0, selected_vertices_set_->size());
 			param_point_sprite_->release();

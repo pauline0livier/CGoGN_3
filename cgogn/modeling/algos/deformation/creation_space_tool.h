@@ -57,7 +57,7 @@ void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position,
 /**
  * create box with specified center, normal and dimensions 
 */
-void create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, 
+std::vector<CMap2::Vertex> create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, 
                                     const Vec3& bb_min, const Vec3& bb_max, 
                             const Eigen::Matrix3d& local_frame); 
 /**
