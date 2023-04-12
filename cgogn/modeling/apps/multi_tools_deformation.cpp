@@ -60,7 +60,10 @@ int main(int argc, char** argv)
 	 
 	if (argc < 2)
 		//filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/low-poly-fox-by-pixelmannen.obj"); 
-		filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/spot_triangulated.obj"); 
+		filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/spot_triangulated.obj");
+		//filename = std::string(DEFAULT_MESH_PATH) + std::string("obj/sphere.obj");
+		//filename = std::string(DEFAULT_MESH_PATH) + std::string("off/horse.off");
+
 	else
 		filename = std::string(argv[1]);
 

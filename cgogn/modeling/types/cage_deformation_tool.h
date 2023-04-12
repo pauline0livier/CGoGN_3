@@ -37,6 +37,7 @@
 
 #include <cgogn/modeling/types/handle_deformation_tool.h>
 #include <cgogn/modeling/types/axis_deformation_tool.h>
+#include <chrono>
 
 namespace cgogn
 {
@@ -364,6 +365,8 @@ public:
 					std::unordered_map<std::string, 
 					std::shared_ptr<modeling::CageDeformationTool<MESH>>>& cage_container )
 	{
+		
+
 		if (local_handle_data_.size() > 0)
 		{
 			for (auto& [name_handle, data] : local_handle_data_)
@@ -415,7 +418,8 @@ public:
 				return true;
 			});
 
-			
+		cage_local_bb_min_ = local_min; 
+		cage_local_bb_max_ = local_max; 
 	}
 
 	/// @brief deform the model following the chosen deformation type 
@@ -436,11 +440,16 @@ public:
 
 		if (need_full_bind_)
 		{
+			auto begin = std::chrono::high_resolution_clock::now();
 			update_virtual_cages(); 
 
 			update_bind_object(object, object_vertex_position, object_vertex_index); 
 
 			bind_connecting_tools(handle_container, axis_container, cage_container); 
+
+			auto end = std::chrono::high_resolution_clock::now();
+			auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end -begin);
+				std::cout << "update Time measured in seconds" << elapsed.count() * 1e-9 << std::endl;
 			need_full_bind_ = false;
 		}
 

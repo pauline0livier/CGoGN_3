@@ -40,6 +40,8 @@
 
 #include <GLFW/glfw3.h>
 
+#include <chrono>
+
 #include <cgogn/modeling/algos/deformation/creation_space_tool.h>
 #include <cgogn/modeling/algos/deformation/deformation_definitions.h>
 #include <cgogn/modeling/algos/deformation/deformation_utils.h>
@@ -77,6 +79,13 @@ using Vec2 = geometry::Vec2;
 using Vec3 = geometry::Vec3;
 using Mat3 = geometry::Mat3;
 using Scalar = geometry::Scalar;
+
+// To insert for the chrono
+/*auto begin = std::chrono::high_resolution_clock::now();
+auto end = std::chrono::high_resolution_clock::now();
+auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - /begin);
+std::cout << "Time measured in seconds" << elapsed.count() * 1e-9 << std::endl;*/
+
 
 template <typename MESH, typename GRAPH>
 
@@ -363,6 +372,7 @@ private:
 	/// @param object model to deform 
 	void create_global_cage_tool(const MESH& object)
 	{
+		
 		std::string cage_name = "global_cage";
 
 		const auto [it, inserted] =
@@ -405,6 +415,9 @@ private:
 
 			global_cage_ = true; 
 		}
+		
+
+		
 	}
 	
 	/// @brief create local handle on model 
@@ -416,6 +429,8 @@ private:
 				const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 				CellsSet<MESH, MeshVertex>* handle_set)
 	{
+		
+
 		int handle_number = handle_container_.size();
 		const std::string handle_name = "local_handle" + 
 										std::to_string(handle_number);
@@ -499,6 +514,7 @@ private:
 	void create_axis_tool(const MESH& object, 
 			const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position)
 	{
+		auto begin = std::chrono::high_resolution_clock::now();
 		int axis_number = axis_container_.size();
 		std::string axis_name = "local_axis" + std::to_string(axis_number);
 
@@ -598,6 +614,7 @@ private:
 			const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
 			CellsSet<MESH, MeshVertex>* control_set)
 	{
+		
 		int cage_number = cage_container_.size();
 		std::string cage_name = "local_cage" + std::to_string(cage_number);
 
@@ -691,6 +708,7 @@ private:
 		std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position,
 		const std::string& binding_type)
 	{
+		auto begin = std::chrono::high_resolution_clock::now();
 
 		std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> gcdt = 
 									global_cage_container_["global_cage"];
@@ -748,6 +766,10 @@ private:
 				
 			}
 		}
+
+		auto end = std::chrono::high_resolution_clock::now();
+		auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end -begin);
+		std::cout << "Time measured in seconds" << elapsed.count() * 1e-9 << std::endl; 
 
 		gcdt->cage_attribute_update_connection_ =
 			boost::synapse::connect<typename MeshProvider<MESH>::
@@ -870,6 +892,8 @@ private:
 		std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position,
 		const std::string& binding_type)
 	{
+		auto begin = std::chrono::high_resolution_clock::now();
+
 		std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> gcdt = 
 									global_cage_container_["global_cage"];
 
@@ -922,6 +946,7 @@ private:
 		std::string binding_type)
 	{
 
+		auto begin = std::chrono::high_resolution_clock::now();
 		modeling::Parameters<MESH>& p_cage = *parameters_[&local_cage];
 
 		std::shared_ptr<modeling::
@@ -979,6 +1004,10 @@ private:
 									cdt->control_cage_vertex_position_, cdt->control_cage_vertex_index_);
 			} 
 		}
+
+		auto end = std::chrono::high_resolution_clock::now();
+		auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end -begin);
+		std::cout << "Time measured in seconds" << elapsed.count() * 1e-9 << std::endl; 
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 
@@ -1100,6 +1129,8 @@ private:
 					}
 			}); 
 
+			
+
 	}
 
 
@@ -1116,6 +1147,7 @@ private:
 		std::string binding_type)
 	{
 
+		
 		modeling::Parameters<MESH>& p_cage = *parameters_[&local_cage];
 
 		std::shared_ptr<modeling::
@@ -1155,6 +1187,7 @@ private:
 		std::string binding_type)
 	{
 
+		auto begin = std::chrono::high_resolution_clock::now();
 		modeling::HandleParameters<GRAPH>& p_handle = 
 									*handle_parameters_[&control_handle];
 
@@ -1192,6 +1225,10 @@ private:
 		}
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
+
+		auto end = std::chrono::high_resolution_clock::now();
+		auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end -begin);
+		std::cout << "Time measured in seconds" << elapsed.count() * 1e-9 << std::endl;
 
 		hdt->handle_attribute_update_connection_ =
 			boost::synapse::connect<typename GraphProvider<GRAPH>::
@@ -1326,6 +1363,8 @@ private:
 							}
 						}
 					});
+
+					
 	}
 
 	/// @brief update bind local handle to model and surrounding tools 
@@ -1367,6 +1406,7 @@ private:
 		const std::shared_ptr<GraphAttribute<Vec3>>& axis_vertex_position,
 		std::string binding_type)
 	{
+		auto begin = std::chrono::high_resolution_clock::now();
 		modeling::AxisParameters<GRAPH>& p_axis = 
 										*axis_parameters_[&control_axis];
 
@@ -1378,6 +1418,10 @@ private:
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 
 		adt->init_bind_object(object, object_vertex_position.get()); 
+
+		auto end = std::chrono::high_resolution_clock::now();
+auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end -begin);
+std::cout << "Time measured in seconds" << elapsed.count() * 1e-9 << std::endl; 
 
 		adt->axis_attribute_update_connection_ =
 			boost::synapse::connect<typename GraphProvider<GRAPH>::
@@ -1414,6 +1458,7 @@ private:
 						}
 					}
 				});
+
 	}
 
 

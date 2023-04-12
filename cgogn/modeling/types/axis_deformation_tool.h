@@ -34,6 +34,7 @@
 #include <cgogn/rendering/types.h>
 
 #include <cgogn/modeling/types/dual_quaternion.h>
+#include <chrono>
 
 namespace cgogn
 {
