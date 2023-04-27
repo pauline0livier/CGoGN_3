@@ -145,12 +145,14 @@ class CageDeformationTool
 	struct Handle_data
 	{
 		VectorWeights weights_; 
+		Vec3 fixed_position_;
 		int cage_index_; 
 	}; 
 
 	struct Tool_data
 	{
 		MatrixWeights weights_; 
+		std::unordered_map<uint32, Vec3> fixed_position_;
 		std::unordered_map<uint32, int> cage_index_; 
 	}; 
 
@@ -166,7 +168,11 @@ public:
 	Eigen::VectorXd attenuation_;
 
 	MatrixWeights object_weights_;
+	std::unordered_map<uint32, Vec3> object_fixed_position_;
+
 	Eigen::VectorXi object_activation_cage_; 
+
+	std::unordered_map<uint32, Vertex> object_influence_area_; 
 
 	Eigen::Matrix3d local_frame_;  
 
@@ -264,6 +270,21 @@ public:
 	void set_split_deformation_type(const std::string& new_type)
 	{
 		split_deformation_type_ = new_type; 
+	}
+
+	/// @brief set object influence area
+	void set_object_influence_area(MESH& object, 
+			CMap2::Attribute<uint32>* object_vertex_index,
+			const std::vector<Vertex>& influence_set)
+	{
+		for (std::size_t i = 0; i < influence_set.size(); i++)
+		{
+			Vertex v = influence_set[i]; 
+			uint32 vertex_index = 
+					value<uint32>(object, object_vertex_index, v); 
+			
+			object_influence_area_[vertex_index] = v; 
+		}
 	}
 
 	/// @brief require full re-binding of the local cage
@@ -477,7 +498,7 @@ public:
 		handle_weights.position_.resize(nbv_cage);
 		handle_weights.position_.setZero();
 
-		handle_data.weights_ = handle_weights; 
+		handle_data.weights_ = handle_weights;  
 
 		local_handle_data_[graph_name] = handle_data;
 
@@ -495,6 +516,8 @@ public:
 					const Vec3& handle_position)
 	{
 		local_handle_data_[graph_name].weights_.position_.setZero();
+
+		local_handle_data_[graph_name].fixed_position_ = {0.0, 0.0, 0.0}; 
 
 		if (deformation_type_ == "MVC"){
 			update_bind_handle_mvc(graph_name, handle_position); 
@@ -549,6 +572,7 @@ public:
 	std::shared_ptr<Attribute<uint32>>& local_cage_vertex_index)
 	{
 		local_cage_data_[cage_name].weights_.position_.setZero();
+		local_cage_data_[cage_name].fixed_position_.clear(); 
 
 		update_bind_local_cage_mvc(local_cage, cage_name, local_cage_vertex_position, local_cage_vertex_index); 
 	}
@@ -686,7 +710,7 @@ private:
 					value<uint32_t>(*control_cage_, 
 									control_cage_vertex_index_, point_i.vertex);
 				point_i.inside_control_cage = true;
-				point_i.shift_vector = {0.0, 0.0, 0.0}; 
+				point_i.shift_vector = {0.0, 0.0, 0.0};  
 				points[p] = point_i; 
 			}
 
@@ -1216,11 +1240,15 @@ private:
 				Virtual_cube virtual_cube_target = virtual_cages_[object_activation_cage_[surface_point_index]]; 
 
 				Eigen::VectorXd local_row_weights; 
+				Vec3 fixed_position; 
 				compute_mvc_on_point_outside_cage(surface_point_position, 
 												local_row_weights, 
-												virtual_cube_target);
+												virtual_cube_target,
+												fixed_position);
 
-				object_weights_.position_.row(surface_point_index) = local_row_weights; 
+				object_weights_.position_.row(surface_point_index) = local_row_weights;  
+
+				object_fixed_position_[surface_point_index] = fixed_position; 
 			}
 
 			return true; 
@@ -1285,12 +1313,16 @@ private:
 
 				Virtual_cube virtual_cube_target = virtual_cages_[virtual_cube_index]; 
 
-				Eigen::VectorXd local_row_weights; 
+				Eigen::VectorXd local_row_weights;  
+
+				Vec3 fixed_position; 
 				compute_mvc_on_point_outside_cage(surface_point_position, 
 												local_row_weights, 
-												virtual_cube_target);
+												virtual_cube_target, fixed_position);
 
 				object_weights_.position_.row(surface_point_index) = local_row_weights; 
+
+				object_fixed_position_[surface_point_index] = fixed_position; 
 			}
 			return true; 
 		}); 
@@ -1353,12 +1385,16 @@ private:
 
 				Virtual_cube virtual_cube_target = virtual_cages_[virtual_cube_index]; 
 
-				Eigen::VectorXd local_row_weights; 
+				Eigen::VectorXd local_row_weights;  
+				Vec3 fixed_position; 
+
 				compute_mvc_on_point_outside_cage(surface_point_position, 
 												local_row_weights, 
-												virtual_cube_target);
+												virtual_cube_target, fixed_position);
 
 				object_weights_.position_.row(surface_point_index) = local_row_weights; 
+
+				object_fixed_position_[surface_point_index] = fixed_position; 
 			}
 			return true; 
 		}); 
@@ -1493,9 +1529,13 @@ private:
 			Virtual_cube virtual_cube_target = virtual_cages_[local_handle_data_[graph_name].cage_index_]; 
 
 			Eigen::VectorXd local_row_weights;
-			compute_mvc_on_point_outside_cage(handle_position, 			local_row_weights, virtual_cube_target);
+			Vec3 fixed_position; 
+
+			compute_mvc_on_point_outside_cage(handle_position, 			local_row_weights, virtual_cube_target, fixed_position);
 
 			local_handle_data_[graph_name].weights_.position_ = local_row_weights;
+
+			local_handle_data_[graph_name].fixed_position_ = fixed_position; 
 		}
 	}
 
@@ -1543,9 +1583,14 @@ private:
 			Virtual_cube virtual_cube_target = virtual_cages_[virtual_cube_index]; 
 
 			Eigen::VectorXd local_row_weights;
-			compute_mvc_on_point_outside_cage(handle_position, 			local_row_weights, virtual_cube_target);
+			Vec3 fixed_position; 
+
+			compute_mvc_on_point_outside_cage(handle_position, 			local_row_weights, virtual_cube_target, fixed_position);
 
 			local_handle_data_[graph_name].weights_.position_ = local_row_weights;
+
+			local_handle_data_[graph_name].fixed_position_ = fixed_position; 
+
 		} 								
 	}
 
@@ -1651,9 +1696,13 @@ private:
 			Virtual_cube virtual_cube_target = virtual_cages_[virtual_cube_index]; 
 
 			Eigen::VectorXd local_row_weights;
-			compute_mvc_on_point_outside_cage(cage_position, 			local_row_weights, virtual_cube_target);
+			Vec3 fixed_position; 
+
+			compute_mvc_on_point_outside_cage(cage_position, 			local_row_weights, virtual_cube_target, fixed_position);
 
 			local_cage_data_[cage_name].weights_.position_.row(cage_point_index) = local_row_weights;
+
+			local_cage_data_[cage_name].fixed_position_[cage_point_index] = fixed_position; 
 
 		} 						
 
@@ -1686,9 +1735,13 @@ private:
 				Virtual_cube virtual_cube_target = virtual_cages_[activation_index]; 
 
 				Eigen::VectorXd local_row_weights;
-				compute_mvc_on_point_outside_cage(cage_position, 			local_row_weights, virtual_cube_target);
+				Vec3 fixed_position; 
+
+				compute_mvc_on_point_outside_cage(cage_position, 			local_row_weights, virtual_cube_target, fixed_position);
 
 				local_cage_data_[cage_name].weights_.position_.row(cage_point_index) = local_row_weights;
+
+				local_cage_data_[cage_name].fixed_position_[cage_point_index] = fixed_position; 
 			}
 
 			return true; 
@@ -2037,7 +2090,8 @@ private:
 	/// @return 
 	bool compute_mvc_on_point_outside_cage(const Vec3& surface_point, 
 								Eigen::VectorXd& result_weights,
-								const Virtual_cube& virtual_cube_target)
+								const Virtual_cube& virtual_cube_target, 
+								Vec3& fixed_position)
 	{
 
 		uint32 nbv_cage = nb_cells<Vertex>(*control_cage_);
@@ -2068,6 +2122,13 @@ private:
 			if (d[cage_point_index] < epsilon)
 			{
 				result_weights[cage_point_index] = 1.0;
+
+				if (!cage_point.inside_control_cage)
+				{
+					fixed_position = cage_point.position;
+				}
+				 
+
 				return true;
 			}
 
@@ -2154,12 +2215,20 @@ private:
 			w_control_cage_coords_[triangle_index[2]] += w[2];
 		} 
 
+		fixed_position = {0.0, 0.0, 0.0}; 
 		for (std::size_t p = 0; p < number_of_points; p++)
 		{
 			uint32 cage_point_index = p; 
 
 			result_weights[cage_point_index] =
 				w_control_cage_coords_[cage_point_index] / sumWeights;
+
+			const Point& cage_point = virtual_cube_target.points[p];
+
+			if (!cage_point.inside_control_cage)
+			{
+				fixed_position += result_weights[cage_point_index]*cage_point.position; 
+			}
 
 		}
 

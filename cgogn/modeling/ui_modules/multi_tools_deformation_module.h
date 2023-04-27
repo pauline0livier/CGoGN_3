@@ -1964,10 +1964,33 @@ protected:
 					
 					}
 
-					model_p.object_update_ = false;
+					if (ImGui::Button("Accept cage influence area##vertices_set"))
+					{
+						model_p.selected_vertices_set_->foreach_cell(
+								[&](MeshVertex v) -> bool {
+									influence_set_.push_back(v);
+									return true;
+								});
 
-					ImGui::Separator();
-					ImGui::Text("Binding");
+						std::string last_cage_name = "local_cage" + 
+							std::to_string(cage_container_.size() - 1);
+
+						std::shared_ptr<modeling::CageDeformationTool<MESH>> current_cdt = cage_container_[last_cage_name];
+
+						std::shared_ptr<MeshAttribute<uint32>> model_vertex_index =
+								get_attribute<uint32, MeshVertex>(*model_, 
+															"vertex_index");
+
+						current_cdt->set_object_influence_area(*model_, model_vertex_index.get(), influence_set_); 
+							
+						influence_set_.clear();
+
+						model_p.selected_vertices_set_->clear();
+						mesh_provider_->emit_cells_set_changed(*model_, 
+											model_p.selected_vertices_set_);
+					}
+			
+					model_p.object_update_ = false;
 
 								
 				}
@@ -2018,8 +2041,7 @@ protected:
 							old_p.selected_vertices_set_ = nullptr;
 
 							selected_mesh_ = selected_cage_;
-							modeling::Parameters<MESH>& cage_p = 
-												*parameters_[selected_mesh_];
+							modeling::Parameters<MESH>& cage_p = *parameters_[selected_mesh_];
 
 							const std::string cage_name = 
 								mesh_provider_->mesh_name(*selected_cage_);
@@ -2060,69 +2082,70 @@ protected:
 										ImGui::Text(extension);
 									}
 
-								ImGui::Separator();
-								static ImGuiComboFlags flags = 0;
+									ImGui::Separator();
+									static ImGuiComboFlags flags = 0;
 
-								const char* items[] = { "MVC", "Green" };
-								static const char* item_current = items[0];       
+									const char* items[] = { "MVC", "Green" };
+									static const char* item_current = items[0];       
 
-								if (ImGui::BeginCombo("combo local cage", 
+									if (ImGui::BeginCombo("combo local cage", 
 															item_current, flags)) 
-								{
-									for (int n = 0; n < IM_ARRAYSIZE(items); n++)
 									{
-										bool is_selected = (item_current == items[n]);
-										if (ImGui::Selectable(items[n], is_selected))
-											item_current = items[n];
-										if (is_selected)
-											ImGui::SetItemDefaultFocus();   
-										}
-									ImGui::EndCombo();
-								}
+										for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+										{
+											bool is_selected = (item_current == items[n]);
+											if (ImGui::Selectable(items[n], is_selected))
+												item_current = items[n];
+											if (is_selected)
+												ImGui::SetItemDefaultFocus();   
+											}
+										ImGui::EndCombo();
+									}
 								
 
-								if (ImGui::Button("Bind local cage"))
-								{
+									if (ImGui::Button("Bind local cage"))
+									{
 
-									if (selected_cdt_->deformation_type_.empty()){
-										bind_local_cage(*model_, 
+										if (selected_cdt_->deformation_type_.empty()){
+											bind_local_cage(*model_, 
 													model_p.vertex_position_, 
 													*(selected_cdt_->control_cage_),
 											selected_cdt_->control_cage_vertex_position_, item_current);
-									}
-									else if (selected_gcdt_->deformation_type_ != item_current)
-									{
+										}
+										else if (selected_gcdt_->deformation_type_ != item_current)
+										{
 										update_bind_local_cage(*model_, 
 													model_p.vertex_position_, 
 													*(selected_cdt_->control_cage_),
 											selected_cdt_->control_cage_vertex_position_,
 											item_current);
-									}
-								}
-
-								const char* items2[] = { "Strip", "Attenuation" };
-								static const char* item_current2 = items2[0];       
-
-								if (ImGui::BeginCombo("mode local cage", 
-															item_current2, flags)) 
-								{
-									for (int n = 0; n < IM_ARRAYSIZE(items2); n++)
-									{
-										bool is_selected = (item_current2 == items2[n]);
-										if (ImGui::Selectable(items2[n], is_selected))
-											item_current2 = items2[n];
-										if (is_selected)
-											ImGui::SetItemDefaultFocus();   
 										}
-									ImGui::EndCombo();
+									}
+
+									const char* items2[] = { "Strip", "Attenuation" };
+									static const char* item_current2 = items2[0];       
+
+									if (ImGui::BeginCombo("mode local cage", 
+															item_current2, flags)) 
+									{
+										for (int n = 0; n < IM_ARRAYSIZE(items2); n++)
+										{
+											bool is_selected = (item_current2 == items2[n]);
+											if (ImGui::Selectable(items2[n], is_selected))
+												item_current2 = items2[n];
+											if (is_selected)
+												ImGui::SetItemDefaultFocus();   
+											}
+										ImGui::EndCombo();
+									}
+
+									if (ImGui::Button("Set mode"))
+									{
+										selected_cdt_->set_split_deformation_type(item_current2); 
+									}
+
 								}
 
-								if (ImGui::Button("Set mode"))
-								{
-									selected_cdt_->set_split_deformation_type(item_current2); 
-								}
-
-								}
 								else
 								{
 									cage_type_ = "global"; 
