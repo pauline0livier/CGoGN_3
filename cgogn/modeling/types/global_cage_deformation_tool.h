@@ -40,7 +40,6 @@
 #include <cgogn/geometry/types/vector_traits.h>
 
 #include <boost/synapse/connect.hpp>
-#include <chrono>
 
 namespace cgogn
 {
@@ -330,14 +329,9 @@ public:
 	{
 		 if (need_full_bind_)
 		{
-			auto begin = std::chrono::high_resolution_clock::now();
 
 			bind_object(object, object_vertex_position, object_vertex_index);  
 			bind_connecting_tools(handle_container, axis_container, cage_container); 
-
-			auto end = std::chrono::high_resolution_clock::now();
-			auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end -begin);
-				std::cout << "update Time measured in seconds" << elapsed.count() * 1e-9 << std::endl;
 
 			need_full_bind_ = false;
 		}

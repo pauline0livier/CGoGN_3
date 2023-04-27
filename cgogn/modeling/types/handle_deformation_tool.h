@@ -33,7 +33,6 @@
 #include <cgogn/modeling/algos/deformation/deformation_utils.h>
 #include <cgogn/modeling/algos/deformation/deformation_definitions.h>
 #include <cgogn/geometry/algos/laplacian.h>
-#include <chrono>
 
 namespace cgogn
 {

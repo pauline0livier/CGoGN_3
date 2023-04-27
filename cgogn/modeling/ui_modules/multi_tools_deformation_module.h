@@ -514,7 +514,6 @@ private:
 	void create_axis_tool(const MESH& object, 
 			const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position)
 	{
-		auto begin = std::chrono::high_resolution_clock::now();
 		int axis_number = axis_container_.size();
 		std::string axis_name = "local_axis" + std::to_string(axis_number);
 
@@ -660,10 +659,18 @@ private:
 				modeling::get_extended_bounding_box(local_boundaries.first, 
 											local_boundaries.second, 1.1f);
 
+			MeshData<MESH>& md = mesh_provider_->mesh_data(object);
+
+			std::tuple<Vec3, Vec3, Vec3> extended_bounding_box_object =
+				modeling::get_extended_bounding_box(md.bb_min_, 
+													md.bb_max_, 1.2);
+
 			cdt->create_space_tool(l_cage, l_cage_vertex_position.get(), 
 									std::get<0>(extended_boundaries),
 									std::get<1>(extended_boundaries), 
-									main_directions);
+									main_directions, std::get<0>(extended_bounding_box_object),
+									std::get<1>(extended_bounding_box_object)
+									);
 
 			mesh_provider_->emit_connectivity_changed(*l_cage);
 			mesh_provider_->emit_attribute_changed(*l_cage, 
@@ -708,8 +715,6 @@ private:
 		std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position,
 		const std::string& binding_type)
 	{
-		auto begin = std::chrono::high_resolution_clock::now();
-
 		std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> gcdt = 
 									global_cage_container_["global_cage"];
 
@@ -766,10 +771,6 @@ private:
 				
 			}
 		}
-
-		auto end = std::chrono::high_resolution_clock::now();
-		auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end -begin);
-		std::cout << "Time measured in seconds" << elapsed.count() * 1e-9 << std::endl; 
 
 		gcdt->cage_attribute_update_connection_ =
 			boost::synapse::connect<typename MeshProvider<MESH>::
@@ -892,7 +893,6 @@ private:
 		std::shared_ptr<MeshAttribute<Vec3>>& cage_vertex_position,
 		const std::string& binding_type)
 	{
-		auto begin = std::chrono::high_resolution_clock::now();
 
 		std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> gcdt = 
 									global_cage_container_["global_cage"];
@@ -946,7 +946,6 @@ private:
 		std::string binding_type)
 	{
 
-		auto begin = std::chrono::high_resolution_clock::now();
 		modeling::Parameters<MESH>& p_cage = *parameters_[&local_cage];
 
 		std::shared_ptr<modeling::
@@ -1004,10 +1003,6 @@ private:
 									cdt->control_cage_vertex_position_, cdt->control_cage_vertex_index_);
 			} 
 		}
-
-		auto end = std::chrono::high_resolution_clock::now();
-		auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end -begin);
-		std::cout << "Time measured in seconds" << elapsed.count() * 1e-9 << std::endl; 
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 
@@ -1187,7 +1182,6 @@ private:
 		std::string binding_type)
 	{
 
-		auto begin = std::chrono::high_resolution_clock::now();
 		modeling::HandleParameters<GRAPH>& p_handle = 
 									*handle_parameters_[&control_handle];
 
@@ -1225,10 +1219,6 @@ private:
 		}
 
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
-
-		auto end = std::chrono::high_resolution_clock::now();
-		auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end -begin);
-		std::cout << "Time measured in seconds" << elapsed.count() * 1e-9 << std::endl;
 
 		hdt->handle_attribute_update_connection_ =
 			boost::synapse::connect<typename GraphProvider<GRAPH>::
@@ -1281,27 +1271,27 @@ private:
 
 										const Vec3 shifted_pos = {local_position[0]-0.2, local_position[1]-0.2, local_position[1]-0.2}; 
 
-										if (!(modeling::check_triple_projection_in_area(shifted_pos, cdt->cage_local_bb_min_, cdt->cage_local_bb_max_)))
+										if (!(modeling::check_triple_projection_in_area(shifted_pos, cdt->control_cage_local_bb_min_, cdt->control_cage_local_bb_max_)))
 										{
 											const double scale = 2.0; 
 
 											// need resize cage 
 											if (local_displacement[0] > 0){
-												cdt->cage_local_bb_max_[0] += scale*local_displacement[0]; 
+												cdt->control_cage_local_bb_max_[0] += scale*local_displacement[0]; 
 											} else {
-												cdt->cage_local_bb_min_[0] += scale*local_displacement[0];
+												cdt->control_cage_local_bb_min_[0] += scale*local_displacement[0];
 											}
 
 											if (local_displacement[1] > 0){
-												cdt->cage_local_bb_max_[1] += scale*local_displacement[1]; 
+												cdt->control_cage_local_bb_max_[1] += scale*local_displacement[1]; 
 											} else {
-												cdt->cage_local_bb_min_[1] += scale*local_displacement[1];
+												cdt->control_cage_local_bb_min_[1] += scale*local_displacement[1];
 											}
 
 											if (local_displacement[2] > 0){
-												cdt->cage_local_bb_max_[2] += scale*local_displacement[2]; 
+												cdt->control_cage_local_bb_max_[2] += scale*local_displacement[2]; 
 											} else {
-												cdt->cage_local_bb_min_[2] += scale*local_displacement[2];
+												cdt->control_cage_local_bb_min_[2] += scale*local_displacement[2];
 											}
 
 											cdt->update_control_cage();
@@ -1406,7 +1396,6 @@ private:
 		const std::shared_ptr<GraphAttribute<Vec3>>& axis_vertex_position,
 		std::string binding_type)
 	{
-		auto begin = std::chrono::high_resolution_clock::now();
 		modeling::AxisParameters<GRAPH>& p_axis = 
 										*axis_parameters_[&control_axis];
 
@@ -1418,10 +1407,6 @@ private:
 		MeshData<MESH>& md = mesh_provider_->mesh_data(object);
 
 		adt->init_bind_object(object, object_vertex_position.get()); 
-
-		auto end = std::chrono::high_resolution_clock::now();
-auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end -begin);
-std::cout << "Time measured in seconds" << elapsed.count() * 1e-9 << std::endl; 
 
 		adt->axis_attribute_update_connection_ =
 			boost::synapse::connect<typename GraphProvider<GRAPH>::
