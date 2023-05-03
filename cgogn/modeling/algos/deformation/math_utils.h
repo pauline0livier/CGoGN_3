@@ -106,6 +106,14 @@ std::pair<Vec3,Vec3> get_border_values_in_set_along_local_frame(const CMap2& m,
                     const std::tuple<Vec3, Vec3, Vec3>& main_directions); 
 
 /**
+ * get extrema values in provided unordered map, in local frame
+*/
+std::pair<Vec3,Vec3> get_border_values_in_map_along_local_frame(const CMap2& m, 
+					const CMap2::Attribute<Vec3>* attribute, 
+					std::unordered_map<uint32, CMap2::Vertex> control_set, 
+					const std::tuple<Vec3, Vec3, Vec3>& main_directions);
+
+/**
  * get extrema values in array of Vec3
 */
 std::pair<Vec3, Vec3> get_border_values_in_array_Vec3(

@@ -333,6 +333,56 @@ std::pair<Vec3,Vec3> get_border_values_in_set_along_local_frame(const CMap2& m,
 }
 
 /**
+ * get extrema values in provided unordered map, in local frame  
+*/
+std::pair<Vec3,Vec3> get_border_values_in_map_along_local_frame(const CMap2& m, 
+					const CMap2::Attribute<Vec3>* attribute, 
+					std::unordered_map<uint32, CMap2::Vertex> control_set, 
+					const std::tuple<Vec3, Vec3, Vec3>& main_directions)
+{
+	Vec3 local_min = {1000.0, 1000.0, 1000.0};
+	Vec3 local_max = {-1000.0, -1000.0, -1000.0};
+
+	std::vector<Vec3> main_directions_vector(3); 
+	main_directions_vector[0] = std::get<0>(main_directions); 
+	main_directions_vector[1] = std::get<1>(main_directions); 
+	main_directions_vector[2] = std::get<2>(main_directions);
+
+	for ( const auto &myPair : control_set ) {
+		uint32 object_point_index = myPair.first;
+		CMap2::Vertex v = myPair.second; 
+
+		const Vec3& position = value<Vec3>(m, attribute, v);
+
+		for (size_t j = 0; j < 3; j++)
+		{
+			const double projection_j = position.dot(main_directions_vector[j]);
+			 
+			if (projection_j < local_min[j])
+			{
+				local_min[j] = projection_j;
+			}
+
+			if (projection_j > local_max[j])
+			{
+				local_max[j] = projection_j;
+			}
+		}
+	}
+
+	Vec3 min_position = {0.0, 0.0, 0.0}, 
+	max_position = {0.0, 0.0, 0.0};
+
+	for (size_t j = 0; j < 3; j++)
+	{
+		min_position += local_min[j]*main_directions_vector[j]; 
+		max_position += local_max[j]*main_directions_vector[j]; 	
+	} 
+
+	return std::make_pair(min_position, max_position);
+}
+
+/**
  * compute extrema values from a array of Vec3
  * @returns {pair<Vec3, Vec3>} extrema values
 */

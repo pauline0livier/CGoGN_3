@@ -634,12 +634,9 @@ private:
 
 			set_vertex_position(*l_cage, l_cage_vertex_position);
 
-			std::shared_ptr<MeshAttribute<Vec3>> mesh_vertex_normal = 
-							get_attribute<Vec3, MeshVertex>(object, "normal");
-
-			Vec3 center = 
+			/*Vec3 center = 
 				modeling::get_mean_value_attribute_from_set(object, 
-									object_vertex_position.get(), control_set); 
+									object_vertex_position.get(), control_set); */
 
 			/*std::tuple<Vec3, Vec3, Vec3> main_directions = 
 				modeling::find_main_directions_from_set(object, 
@@ -1981,7 +1978,7 @@ protected:
 								get_attribute<uint32, MeshVertex>(*model_, 
 															"vertex_index");
 
-						current_cdt->set_object_influence_area(*model_, model_vertex_index.get(), influence_set_); 
+						current_cdt->set_object_influence_area(*model_, model_p.vertex_position_.get(), model_vertex_index.get(), influence_set_); 
 							
 						influence_set_.clear();
 
