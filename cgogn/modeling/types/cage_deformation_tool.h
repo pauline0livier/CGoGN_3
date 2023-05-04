@@ -1848,8 +1848,7 @@ private:
 				Virtual_cube virtual_cube_target = 
 						virtual_cages_attenuation_[object_activation_cage_attenuation_[object_point_index]];  
 
-				Vec3 new_position = {0.0, 0.0, 0.0}; 
-				//object_fixed_position_[object_point_index]; 
+				Vec3 new_position = object_fixed_position_[object_point_index]; 
 
 				for (size_t p = 0; p < virtual_cube_target.points.size(); p++){
 					const Point& cage_point = virtual_cube_target.points[p];
@@ -2694,6 +2693,8 @@ private:
 		double sumWeights = 0.0;
 		double epsilon = 0.00000001;
 
+		fixed_position = {0.0, 0.0, 0.0}; 
+
 		Eigen::VectorXd w_control_cage_coords_;
 
 		w_control_cage_coords_.resize(nbv_cage);
@@ -2718,7 +2719,7 @@ private:
 
 				if (!cage_point.inside_control_cage)
 				{
-					fixed_position = cage_point.position;
+					fixed_position += cage_point.position;
 				}
 				 
 
@@ -2808,7 +2809,6 @@ private:
 			w_control_cage_coords_[triangle_index[2]] += w[2];
 		} 
 
-		fixed_position = {0.0, 0.0, 0.0}; 
 		for (std::size_t p = 0; p < number_of_points; p++)
 		{
 			uint32 cage_point_index = p; 
