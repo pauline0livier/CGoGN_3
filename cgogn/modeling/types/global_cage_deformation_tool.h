@@ -75,8 +75,10 @@ class GlobalCageDeformationTool
 		Vec3 object_bounding_box_point_; 
 		Vec3 shift_vector_; 
 		uint32 cage_index_; 
-		
+
 	};
+
+	
 
 
 public:
