@@ -70,15 +70,14 @@ std::vector<CMap2::Vertex> create_bounding_box(CMap2& m,
 	return vertices;
 }
 
-/**
- * Update the positions of the vertices of CMap2 
- * of type generalized cube  
- * from the provided bounding box values
- * @param {CMap2} m 
- * @param {CMap2::Attribute<Vec3>} vertex_position
- * @param {Vec3} bb_min 
- * @param {Vec3} bb_max 
-*/
+/// @brief Update the positions of the vertices of CMap2 
+/// of type generalized cube  
+/// from the provided bounding box values
+/// @param m 
+/// @param vertex_position 
+/// @param vertices 
+/// @param bb_min 
+/// @param bb_max 
 void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, 
 					const std::vector<CMap2::Vertex>& vertices,
 					const Vec3& bb_min, const Vec3& bb_max)
@@ -93,6 +92,22 @@ void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position,
 	value<Vec3>(m, vertex_position, vertices[5]) = {bb_min[0], bb_min[1], bb_max[2]};
 	value<Vec3>(m, vertex_position, vertices[6]) = {bb_max[0], bb_min[1], bb_max[2]};
 	value<Vec3>(m, vertex_position, vertices[7]) = {bb_max[0], bb_max[1], bb_max[2]};
+}
+
+ 
+std::vector<Vec3> get_bounding_box_positions(const Vec3& bb_min, const Vec3& bb_max)
+{
+	std::vector<Vec3> positions(8); 
+	positions[0] = bb_min; 
+	positions[1] = {bb_min[0], bb_max[1], bb_min[2]}; 
+	positions[2] = {bb_max[0], bb_max[1], bb_min[2]};
+	positions[3] = {bb_max[0], bb_min[1], bb_min[2]};
+	positions[4] = {bb_min[0], bb_max[1], bb_max[2]};
+	positions[5] = {bb_min[0], bb_min[1], bb_max[2]};
+	positions[6] = {bb_max[0], bb_min[1], bb_max[2]};
+	positions[7] = {bb_max[0], bb_max[1], bb_max[2]};
+
+	return positions; 
 }
 
 /// @brief Create hexahedron from bounding values and main directions 

@@ -53,6 +53,10 @@ std::vector<CMap2::Vertex> create_bounding_box(CMap2& m,
 void update_bounding_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, 
                                     const std::vector<CMap2::Vertex>& vertices, 
                                     const Vec3& bb_min, const Vec3& bb_max); 
+/**
+ * get bounding box positions for cage to update 
+ */
+std::vector<Vec3> get_bounding_box_positions(const Vec3& bb_min, const Vec3& bb_max); 
 
 /**
  * create box with specified center, normal and dimensions 

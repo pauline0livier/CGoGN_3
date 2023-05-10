@@ -74,8 +74,9 @@ class GlobalCageDeformationTool
 	{
 		Vec3 object_bounding_box_point_; 
 		Vec3 shift_vector_; 
-		uint32 cage_index_; 
+		Vertex vertex_;
 
+		Vec3 start_position_; 
 	};
 
 	
@@ -128,8 +129,7 @@ public:
 		}
 		/*global_cage_vertices_ = modeling::create_bounding_box(*m, 
 											m_vertex_position, bb_min, bb_max);*/
-		global_cage_vertices_ = modeling::create_bounding_box(*m, 
-											m_vertex_position, temp_min, temp_max);
+		std::vector<Vertex> global_cage_vertices = modeling::create_bounding_box(*m, m_vertex_position, temp_min, temp_max);
 
 		global_cage_vertex_position_ = get_attribute<Vec3, Vertex>(*m, 
 																"position");
@@ -139,10 +139,21 @@ public:
 		modeling::set_attribute_vertex_index(*global_cage_, 
 											global_cage_vertex_index_.get());
 
-		init_triangles(); 
+		init_cage_points(global_cage_vertices); 
 
-		set_start_positions(); 
+		init_triangles(); 
 		
+	}
+
+	/// @brief update shift vector between global cage points and object bounding box 
+	void update_shift_vectors()
+	{
+		for (std::size_t i = 0; i < cage_points.size(); i++)
+		{
+			Cage_point point = cage_points[i]; 
+
+			cage_points[i].shift_vector_ = value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) - point.object_bounding_box_point_; 
+		}
 	}
 
 	/// @brief update the global cage dimensions 
@@ -151,10 +162,15 @@ public:
 	/// @param bb_max 
 	void update_global_cage(const Vec3& bb_min, const Vec3& bb_max)
 	{
-		modeling::update_bounding_box(*global_cage_, 
-									global_cage_vertex_position_.get(), 
-									global_cage_vertices_, 
-									bb_min, bb_max);
+		std::vector<Vec3> object_bounding_box_positions = modeling::get_bounding_box_positions(bb_min, bb_max); 
+
+		for (std::size_t i = 0; i < cage_points.size(); i++)
+		{
+			cage_points[i].object_bounding_box_point_ = object_bounding_box_positions[i]; 
+
+			Cage_point point = cage_points[i]; 
+			value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) = point.object_bounding_box_point_ + point.shift_vector_;  
+		}
 	}
 
 	/// @brief set deformation type
@@ -169,14 +185,13 @@ public:
 	/// allow to change binding deformation type 
 	void reset_deformation()
 	{
-		foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
-			uint32 cage_point_index = value<uint32>(*global_cage_, 
-											global_cage_vertex_index_, cv);
-
-			value<Vec3>(*global_cage_, global_cage_vertex_position_, cv) = 		start_positions_[cage_point_index]; 
-
-			return true;
-		});
+		for (std::size_t i = 0; i < cage_points.size(); i++)
+		{
+			cage_points[i].shift_vector_ = {0.0, 0.0, 0.0}; 
+			
+			const Cage_point point = cage_points[i]; 
+			value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) = point.start_position_; 
+		}
 	}
 
 	/// @brief require full re-binding of the global cage
@@ -629,32 +644,31 @@ private:
 	}; 
 
 	std::vector<Triangle> cage_triangles_;
-	std::vector<CMap2::Vertex> global_cage_vertices_;
+	
 	std::shared_ptr<Attribute<uint32>> global_cage_vertex_index_;
-
-	std::vector<Vec3> start_positions_; 
+	
+	std::vector<Cage_point> cage_points; 
 
 	bool need_update_weights_; 
-	
-	/// @brief set start positions to reset the deformation
-	///
-	void set_start_positions()
+
+	void init_cage_points(const std::vector<Vertex>& global_cage_vertices)
 	{
-		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
+		std::size_t number_of_vertices = global_cage_vertices.size(); 
 
-		start_positions_.resize(nbv_cage);
+		cage_points.resize(number_of_vertices); 
+		for (std::size_t i = 0; i < number_of_vertices; i++)
+		{
+			Cage_point new_point; 
+			new_point.vertex_ = global_cage_vertices[i]; 
+			const Vec3 start_position = value<Vec3>(*global_cage_, 
+											global_cage_vertex_position_, global_cage_vertices[i]);
 
-		foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
-			const Vec3& cage_point = value<Vec3>(*global_cage_, 
-										global_cage_vertex_position_, cv);
+			new_point.object_bounding_box_point_ = start_position;
+			new_point.shift_vector_ = {0.0, 0.0, 0.0}; 
+			new_point.start_position_ = start_position; 
 
-			uint32 cage_point_index = value<uint32>(*global_cage_, 
-											global_cage_vertex_index_, cv);
-
-			start_positions_[cage_point_index] = cage_point; 
-
-			return true;
-		});
+			cage_points[i] = new_point;  
+		}
 	}
 
 	

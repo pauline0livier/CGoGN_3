@@ -787,6 +787,8 @@ private:
 								get_attribute<uint32, MeshVertex>(object, 
 																"vertex_index");
 
+							current_gcdt->update_shift_vectors(); 
+							
 							current_gcdt->deform_object(object, 
 												object_vertex_position.get(),
 												object_vertex_index.get(), 
