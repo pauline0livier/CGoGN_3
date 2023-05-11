@@ -1338,6 +1338,7 @@ private:
 									if (!(e_bb_min == cmd.bb_min_) || 
 											!(e_bb_max == cmd.bb_max_))
 									{
+
 										gcdt->update_global_cage(e_bb_min,
 																 e_bb_max);
 
@@ -2152,7 +2153,11 @@ protected:
 
 									if (ImGui::Button("Reset deformation"))
 									{
-										selected_gcdt_->reset_deformation(); 
+										std::shared_ptr<MeshAttribute<uint32>> model_vertex_index =
+											get_attribute<uint32, MeshVertex>(*model_, "vertex_index");
+
+										selected_gcdt_->reset_deformation(*model_, model_p.vertex_position_.get(), model_vertex_index.get());
+
 										mesh_provider_->
 											emit_attribute_changed(
 											*(selected_gcdt_->global_cage_), 
@@ -2302,8 +2307,7 @@ protected:
 
 
 								if (ImGui::Button("Reset deformation"))
-								{
-
+								{ 
 									selected_hdt_->reset_deformation(*model_, model_p.vertex_position_.get(), activation_map_, handle_container_); 
 
 									graph_provider_->emit_attribute_changed(

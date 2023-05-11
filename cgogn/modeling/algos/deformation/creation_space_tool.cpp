@@ -67,6 +67,9 @@ std::vector<CMap2::Vertex> create_bounding_box(CMap2& m,
 	value<Vec3>(m, vertex_position, vertices[7]) = 
 											{bb_max[0], bb_max[1], bb_max[2]};
 
+
+	
+
 	return vertices;
 }
 
@@ -189,6 +192,22 @@ void set_attribute_vertex_index(CMap2& cage,
 		value<uint32>(cage, position_indices, v) = nb_vertices++;
 		return true;
 	});
+}
+
+/**
+ * set cage position_indices by running through the vertices array 
+ * @param {CMap2} cage
+ * @param {CMap2::Attribute<uint32>*} position_indices
+ * @param {vector of CMap2::Vertex} vertices
+*/
+void set_attribute_vertex_index_from_vertices_array(CMap2& cage, 
+                                    CMap2::Attribute<uint32>* position_indices, std::vector<CMap2::Vertex> vertices)
+{
+	const std::size_t vertices_size = vertices.size(); 
+	for (std::size_t i = 0; i < vertices_size; i++)
+	{
+		value<uint32>(cage, position_indices, vertices[i]) = i;
+	}
 }
 
 /**

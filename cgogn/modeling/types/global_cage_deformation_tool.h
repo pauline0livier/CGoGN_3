@@ -72,12 +72,25 @@ class GlobalCageDeformationTool
 
 	struct Cage_point
 	{
-		Vec3 object_bounding_box_point_; 
-		Vec3 shift_vector_; 
 		Vertex vertex_;
+		uint32 index_;
 
+		Vec3 rest_position_; 
+		Vec3 current_position_; 
 		Vec3 start_position_; 
+
+		Vec3 shift_vector_; 
+		 
 	};
+
+
+	struct Triangle
+	{
+		std::vector<Cage_point> points_; 
+
+		Vec3 normal_;
+		std::pair<Vec3, Vec3> edges_;
+	}; 
 
 	
 
@@ -136,8 +149,8 @@ public:
 
 		global_cage_vertex_index_ = add_attribute<uint32, Vertex>(*global_cage_, 
 														"vertex_index");
-		modeling::set_attribute_vertex_index(*global_cage_, 
-											global_cage_vertex_index_.get());
+		modeling::set_attribute_vertex_index_from_vertices_array(*global_cage_, 
+											global_cage_vertex_index_.get(), global_cage_vertices);
 
 		init_cage_points(global_cage_vertices); 
 
@@ -148,11 +161,11 @@ public:
 	/// @brief update shift vector between global cage points and object bounding box 
 	void update_shift_vectors()
 	{
-		for (std::size_t i = 0; i < cage_points.size(); i++)
+		for (std::size_t i = 0; i < cage_points_.size(); i++)
 		{
-			Cage_point point = cage_points[i]; 
+			Cage_point point = cage_points_[i]; 
 
-			cage_points[i].shift_vector_ = value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) - point.object_bounding_box_point_; 
+			cage_points_[i].shift_vector_ = value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) - point.rest_position_; 
 		}
 	}
 
@@ -164,12 +177,16 @@ public:
 	{
 		std::vector<Vec3> object_bounding_box_positions = modeling::get_bounding_box_positions(bb_min, bb_max); 
 
-		for (std::size_t i = 0; i < cage_points.size(); i++)
+		for (std::size_t i = 0; i < cage_points_.size(); i++)
 		{
-			cage_points[i].object_bounding_box_point_ = object_bounding_box_positions[i]; 
+			Cage_point point = cage_points_[i]; 
 
-			Cage_point point = cage_points[i]; 
-			value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) = point.object_bounding_box_point_ + point.shift_vector_;  
+			cage_points_[i].rest_position_ = object_bounding_box_positions[i] + point.shift_vector_; 
+
+			cage_points_[i].current_position_ = point.rest_position_; 
+			//cage_points_[i].shift_vector_ = {0.0, 0.0, 0.0}; 
+
+			value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) = cage_points_[i].current_position_; 
 		}
 	}
 
@@ -183,15 +200,36 @@ public:
 
 	/// @brief reset global cage deformation
 	/// allow to change binding deformation type 
-	void reset_deformation()
+	void reset_deformation(MESH& object, 
+					CMap2::Attribute<Vec3>* object_vertex_position,
+					CMap2::Attribute<uint32>* object_vertex_index)
 	{
-		for (std::size_t i = 0; i < cage_points.size(); i++)
+		for (std::size_t i = 0; i < cage_points_.size(); i++)
 		{
-			cage_points[i].shift_vector_ = {0.0, 0.0, 0.0}; 
+			cage_points_[i].shift_vector_ = {0.0, 0.0, 0.0}; 
 			
-			const Cage_point point = cage_points[i]; 
-			value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) = point.start_position_; 
+			const Cage_point point = cage_points_[i]; 
+
+			cage_points_[i].current_position_ = point.start_position_;
+			cage_points_[i].rest_position_ = point.start_position_;
+			
+			value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) = cage_points_[i].current_position_; 
 		}
+
+		if (deformation_type_ == "MVC")
+		{
+			deform_object_mvc(object, object_vertex_position, 
+										object_vertex_index); 
+		}
+
+		if (deformation_type_ == "Green")
+		{
+			deform_object_green(object, object_vertex_position, 
+										object_vertex_index);
+		}
+
+		require_full_binding(); 
+		
 	}
 
 	/// @brief require full re-binding of the global cage
@@ -258,7 +296,11 @@ public:
 				int32 nbt_cage = cage_triangles_.size();
 				object_weights_.normal_.resize(nbv_object, nbt_cage);
 			}
+
 			object_weights_.normal_.setZero();
+
+			update_cage_triangles_data(); 
+
 			bind_object_green(object, object_vertex_position,
 										 object_vertex_index);
 		}
@@ -629,25 +671,12 @@ public:
 
 
 private:
-	/**
-	 * private structure triangle 
-	 * different than local cage triangle
-	 * no virtual cube here
-	*/
-	struct Triangle
-	{
-		std::vector<CMap2::Vertex> vertices_; 
-		std::vector<Vec3> positions_;
-		std::vector<uint32> indices_;
-		Vec3 normal_;
-		std::pair<Vec3, Vec3> edges_;
-	}; 
 
 	std::vector<Triangle> cage_triangles_;
 	
 	std::shared_ptr<Attribute<uint32>> global_cage_vertex_index_;
 	
-	std::vector<Cage_point> cage_points; 
+	std::vector<Cage_point> cage_points_; 
 
 	bool need_update_weights_; 
 
@@ -655,19 +684,44 @@ private:
 	{
 		std::size_t number_of_vertices = global_cage_vertices.size(); 
 
-		cage_points.resize(number_of_vertices); 
+		cage_points_.resize(number_of_vertices); 
 		for (std::size_t i = 0; i < number_of_vertices; i++)
 		{
 			Cage_point new_point; 
 			new_point.vertex_ = global_cage_vertices[i]; 
+			new_point.index_ = i; 
 			const Vec3 start_position = value<Vec3>(*global_cage_, 
-											global_cage_vertex_position_, global_cage_vertices[i]);
+											global_cage_vertex_position_, new_point.vertex_);
 
-			new_point.object_bounding_box_point_ = start_position;
-			new_point.shift_vector_ = {0.0, 0.0, 0.0}; 
+			new_point.rest_position_ = start_position;
+			new_point.current_position_ = start_position; 
 			new_point.start_position_ = start_position; 
+			
+			new_point.shift_vector_ = {0.0, 0.0, 0.0}; 
 
-			cage_points[i] = new_point;  
+			cage_points_[i] = new_point;  
+		}
+	}
+
+	/// @brief update positions, edges and normal of cage triangles 
+	void update_cage_triangles_data()
+	{
+		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
+		{
+			for (std::size_t i = 0; i < 3; i++){
+				cage_triangles_[t].points_[i].rest_position_ = value<Vec3>(*global_cage_, 
+						global_cage_vertex_position_, cage_triangles_[t].points_[i].vertex_); 
+			}
+
+			cage_triangles_[t].normal_ = 
+				(geometry::normal(cage_triangles_[t].points_[0].rest_position_, 
+								cage_triangles_[t].points_[1].rest_position_, 
+								cage_triangles_[t].points_[2].rest_position_))
+							.normalized(); 
+			cage_triangles_[t].edges_ = 
+				std::make_pair( cage_triangles_[t].points_[1].rest_position_ - cage_triangles_[t].points_[0].rest_position_, 
+							cage_triangles_[t].points_[2].rest_position_ 
+									- cage_triangles_[t].points_[1].rest_position_);  
 		}
 	}
 
@@ -679,65 +733,61 @@ private:
 			std::vector<CMap2::Vertex> face_vertices_ = 
 										incident_vertices(*global_cage_, fc);
 
-			std::vector<CMap2::Vertex> triangle1_vertices(3); 
-			triangle1_vertices[0] = face_vertices_[1]; 
-			triangle1_vertices[1] = face_vertices_[3]; 
-			triangle1_vertices[2] = face_vertices_[0];
+			const uint32 index_point0 = value<uint32>(*global_cage_, 
+						global_cage_vertex_index_, face_vertices_[0]); 
+			
+			const uint32 index_point1 = value<uint32>(*global_cage_, 
+						global_cage_vertex_index_, face_vertices_[1]); 
 
-			std::vector<CMap2::Vertex> triangle2_vertices(3); 
-			triangle2_vertices[0] = face_vertices_[1]; 
-			triangle2_vertices[1] = face_vertices_[2]; 
-			triangle2_vertices[2] = face_vertices_[3];
+			const uint32 index_point2 = value<uint32>(*global_cage_, 
+						global_cage_vertex_index_, face_vertices_[2]); 
 
-
-			std::vector<Vec3> triangle1_positions, triangle2_positions;
-			std::vector<uint32> triangle1_indices, triangle2_indices;
-
-			for (std::size_t i = 0; i < 3; i++){
-				triangle1_positions.push_back(value<Vec3>(*global_cage_, 
-						global_cage_vertex_position_, triangle1_vertices[i])); 
-				
-				triangle2_positions.push_back(value<Vec3>(*global_cage_, 
-						global_cage_vertex_position_, triangle2_vertices[i])); 
-
-				triangle1_indices.push_back(value<uint32>(*global_cage_, 
-						global_cage_vertex_index_, triangle1_vertices[i]));
-				
-				triangle2_indices.push_back(value<uint32>(*global_cage_, 
-						global_cage_vertex_index_, triangle2_vertices[i])); 
-			}
+			const uint32 index_point3 = value<uint32>(*global_cage_, 
+						global_cage_vertex_index_, face_vertices_[3]);
 
 			Triangle triangle1; 
-			triangle1.vertices_ = triangle1_vertices; 
-			triangle1.positions_ = triangle1_positions; 
-			triangle1.indices_ = triangle1_indices; 
+			triangle1.points_.resize(3); 
+			triangle1.points_[0] = cage_points_[index_point1]; 
+			triangle1.points_[1] = cage_points_[index_point3]; 
+			triangle1.points_[2] = cage_points_[index_point0]; 
+
+			const Vec3 triangle1_rest_position0 = triangle1.points_[0].rest_position_; 
+			const Vec3 triangle1_rest_position1 = triangle1.points_[1].rest_position_; 
+			const Vec3 triangle1_rest_position2 = triangle1.points_[2].rest_position_; 
+
 			triangle1.normal_ = 
-				(geometry::normal(triangle1_positions[0], 
-								triangle1_positions[1], 
-								triangle1_positions[2]))
+				(geometry::normal(triangle1_rest_position0, 
+								triangle1_rest_position1, 
+								triangle1_rest_position2))
 							.normalized(); 
 			triangle1.edges_ = 
-				std::make_pair(triangle1_positions[1] 
-									- triangle1_positions[0], 
-							triangle1_positions[2] 
-									- triangle1_positions[1]);  
+				std::make_pair(triangle1_rest_position1 
+									- triangle1_rest_position0, 
+							triangle1_rest_position2 
+									- triangle1_rest_position1);  
 			cage_triangles_.push_back(triangle1); 
 
 			Triangle triangle2; 
-			triangle2.vertices_ = triangle2_vertices; 
-			triangle2.positions_ = triangle2_positions;
-			triangle2.indices_ = triangle2_indices; 
+			triangle2.points_.resize(3); 
+			triangle2.points_[0] = cage_points_[index_point1]; 
+			triangle2.points_[1] = cage_points_[index_point2]; 
+			triangle2.points_[2] = cage_points_[index_point3]; 
+
+			const Vec3 triangle2_rest_position0 = triangle2.points_[0].rest_position_; 
+			const Vec3 triangle2_rest_position1 = triangle2.points_[1].rest_position_; 
+			const Vec3 triangle2_rest_position2 = triangle2.points_[2].rest_position_; 
+
 			triangle2.normal_ = 
-				(geometry::normal(triangle2_positions[0], 
-								triangle2_positions[1], 
-								triangle2_positions[2]))
+				(geometry::normal(triangle2_rest_position0, 
+								triangle2_rest_position1, 
+								triangle2_rest_position2))
 							.normalized();
 
 			triangle2.edges_ = 
-				std::make_pair(triangle2_positions[1] 
-								- triangle2_positions[0], 
-							triangle2_positions[2] 
-								- triangle2_positions[1]);  
+				std::make_pair(triangle2_rest_position1 
+									- triangle2_rest_position0, 
+							triangle2_rest_position2 
+									- triangle2_rest_position1);  
 			cage_triangles_.push_back(triangle2); 
 
 			return true;
@@ -1008,7 +1058,7 @@ private:
 					triangle_position[i] =
 						value<Vec3>(*global_cage_, 
 									global_cage_vertex_position_, 
-									cage_triangles_[t].vertices_[i]);
+									cage_triangles_[t].points_[i].vertex_);
 				}
 
 				const Vec3 t_normal = cage_triangles_[t].normal_;
@@ -1078,7 +1128,7 @@ private:
 					triangle_position[i] =
 						value<Vec3>(*global_cage_, 
 									global_cage_vertex_position_, 
-									cage_triangles_[t].vertices_[i]);
+									cage_triangles_[t].points_[i].vertex_);
 				}
 
 				const Vec3 t_normal = cage_triangles_[t].normal_;
@@ -1200,7 +1250,7 @@ private:
 			{
 				triangle_position[i] = value<Vec3>(*global_cage_, 
 											global_cage_vertex_position_, 
-											cage_triangles_[t].vertices_[i]);
+											cage_triangles_[t].points_[i].vertex_);
 			}
 
 			const Vec3 t_normal = cage_triangles_[t].normal_;
@@ -1361,7 +1411,7 @@ private:
 				{
 					triangle_position[i] = value<Vec3>(*global_cage_,
 											global_cage_vertex_position_, 
-											cage_triangles_[t].vertices_[i]);
+											cage_triangles_[t].points_[i].vertex_);
 				}
 
 				const Vec3 t_normal = cage_triangles_[t].normal_;
@@ -1621,7 +1671,7 @@ private:
 				{
 					triangle_position[i] = value<Vec3>(*global_cage_, 
 												global_cage_vertex_position_, 
-											cage_triangles_[t].vertices_[i]);
+											cage_triangles_[t].points_[i].vertex_);
 				}
 
 				const Vec3 t_normal = cage_triangles_[t].normal_;
@@ -1694,7 +1744,7 @@ private:
 				{
 					triangle_position[i] = value<Vec3>(*global_cage_, 
 												global_cage_vertex_position_, 
-											cage_triangles_[t].vertices_[i]);
+											cage_triangles_[t].points_[i].vertex_);
 				}
 
 				const Vec3 t_normal = cage_triangles_[t].normal_;
@@ -1774,7 +1824,11 @@ private:
 		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
 		{
 
-			std::vector<uint32> triangle_index = cage_triangles_[t].indices_; 
+			std::vector<uint32> triangle_index(3); 
+			for (std::size_t i = 0; i < 3; i++)
+			{
+				triangle_index[i] = cage_triangles_[t].points_[i].index_; 
+			}
 
 			for (std::size_t i = 0; i < 3; i++)
 			{
@@ -1882,8 +1936,11 @@ private:
 
 		for (std::size_t t = 0; t < nbt_cage; t++)
 		{
-			const std::vector<Vec3> triangle_position = 
-											cage_triangles_[t].positions_; 
+			std::vector<Vec3> triangle_position(3); 
+			for (std::size_t i = 0; i < 3; i++)
+			{
+				triangle_position[i] = cage_triangles_[t].points_[i].rest_position_; 
+			}
 
 			const Vec3 t_normal = cage_triangles_[t].normal_; 
 
@@ -1930,7 +1987,7 @@ private:
 				for (size_t l = 0; l < 3; l++)
 				{
 					const uint32 cage_point_index = 
-								cage_triangles_[t].indices_[l]; 
+								cage_triangles_[t].points_[l].index_; 
 
 					const Vec3 Nl = t_N[(l + 1) % 3];
 					const double num = Nl.dot(t_w);

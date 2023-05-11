@@ -71,6 +71,12 @@ void set_attribute_vertex_index(CMap2& cage,
                                     CMap2::Attribute<uint32>* position_indices);
 
 /**
+ * set attribute vertex index for CMap2, from provided vertices array
+*/
+void set_attribute_vertex_index_from_vertices_array(CMap2& cage, 
+                                    CMap2::Attribute<uint32>* position_indices, std::vector<CMap2::Vertex> vertices);
+
+/**
  * set attribute vertex index for IncidenceGraph
 */
 void set_attribute_vertex_index_graph(IncidenceGraph& graph, 
