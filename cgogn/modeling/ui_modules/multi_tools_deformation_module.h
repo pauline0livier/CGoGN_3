@@ -788,13 +788,17 @@ private:
 																"vertex_index");
 
 							current_gcdt->update_shift_vectors(); 
-							
-							current_gcdt->deform_object(object, 
+
+							current_gcdt->check_need_rebinding(object, 
 												object_vertex_position.get(),
 												object_vertex_index.get(), 
 												handle_container_, 
 												axis_container_, 
-												cage_container_);
+												cage_container_); 
+							
+							current_gcdt->deform_object(object, 
+												object_vertex_position.get(),
+												object_vertex_index.get());
 
 							mesh_provider_->emit_attribute_changed(object, 
 												object_vertex_position.get());
@@ -1329,25 +1333,30 @@ private:
 							GlobalCageDeformationTool<MESH>> gcdt =
 									global_cage_container_["global_cage"];
 
-									MESH* global_cage = gcdt->global_cage_;
-									MeshData<MESH>& cmd = 
+								MESH* global_cage = gcdt->global_cage_;
+
+								MeshData<MESH>& cmd = 
 									mesh_provider_->mesh_data(*global_cage);
 
-									gcdt->require_full_binding(); 
+								std::tuple<Vec3, Vec3, Vec3> 
+								extended_bounding_box_bis =
+								modeling::get_extended_bounding_box(
+									md.bb_min_, md.bb_max_, 1.1);
 
-									if (!(e_bb_min == cmd.bb_min_) || 
+								gcdt->require_full_binding(); 
+
+								if (!(e_bb_min == cmd.bb_min_) || 
 											!(e_bb_max == cmd.bb_max_))
-									{
-
-										gcdt->update_global_cage(e_bb_min,
+								{
+									std::pair<Vec3, Vec3> cage_resting_positions = gcdt->get_rest_positions_bounding_box(); 
+ 
+									gcdt->update_global_cage(e_bb_min,
 																 e_bb_max);
 
-										mesh_provider_->
-											emit_attribute_changed(
+									mesh_provider_-> emit_attribute_changed(
 											*global_cage, 
 											gcdt->global_cage_vertex_position_.get());
 										
-
 									}
 								}
 							}
@@ -2156,7 +2165,11 @@ protected:
 										std::shared_ptr<MeshAttribute<uint32>> model_vertex_index =
 											get_attribute<uint32, MeshVertex>(*model_, "vertex_index");
 
-										selected_gcdt_->reset_deformation(*model_, model_p.vertex_position_.get(), model_vertex_index.get());
+										selected_gcdt_->reset_deformation();
+
+										global_cage_deform_mesh_and_tools(model_p); 
+
+										selected_gcdt_->require_full_binding(); 
 
 										mesh_provider_->
 											emit_attribute_changed(
@@ -2766,7 +2779,8 @@ private:
 
 		}
 
-		uint32 handle_mesh_vertex_index = current_hdt->handle_mesh_vertex_index_; 
+		const uint32 handle_mesh_vertex_index = current_hdt->get_handle_mesh_vertex_index(); 
+
 		if (current_hdt->object_influence_area_[handle_mesh_vertex_index].shared){
 			activation_map_[handle_mesh_vertex_index].name_tool_vertex_ = last_handle_name; 
 		}
@@ -2853,7 +2867,7 @@ private:
 			other_hdt->object_influence_area_[vertex_index].shared = true; 
 			other_hdt->shared_vertex_[vertex_index] = v;
 
-			if (vertex_index == other_hdt->handle_mesh_vertex_index_)
+			if (vertex_index == other_hdt->get_handle_mesh_vertex_index())
 			{
 				activation_map_[vertex_index].name_tool_vertex_ = name_first_tool; 
 			}
@@ -3058,6 +3072,36 @@ private:
 												model_vertex_position.get());
 
 
+	}
+
+
+	void global_cage_deform_mesh_and_tools(const modeling::Parameters<MESH>& model_p)
+	{
+		std::shared_ptr<MeshAttribute<uint32>> model_vertex_index =
+											get_attribute<uint32, MeshVertex>(*model_, "vertex_index");
+
+		selected_gcdt_->deform_object(*model_, model_p.vertex_position_.get(), model_vertex_index.get());
+
+		mesh_provider_->emit_attribute_changed(*model_, model_p.vertex_position_.get());
+
+		if (selected_gcdt_->local_handle_weights_.size() > 0)
+		{
+			for (auto& [name, vw] : selected_gcdt_->local_handle_weights_)
+			{
+				std::shared_ptr<modeling::HandleDeformationTool<MESH>> local_hdt = handle_container_[name];
+
+				modeling::HandleParameters<GRAPH>& p_handle = *handle_parameters_[local_hdt->control_handle_];
+
+				selected_gcdt_->deform_handle(*(local_hdt->control_handle_), name, p_handle.vertex_position_, local_hdt->get_handle_vertex());
+
+				local_hdt->update_handle_position_variable(); 
+
+				local_hdt->require_full_binding(); 
+
+				graph_provider_->emit_attribute_changed(
+					*(local_hdt->control_handle_), local_hdt->control_handle_vertex_position_.get());
+				}
+		}
 	}
 
 

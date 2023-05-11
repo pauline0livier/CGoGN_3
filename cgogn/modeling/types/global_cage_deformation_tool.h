@@ -165,8 +165,15 @@ public:
 		{
 			Cage_point point = cage_points_[i]; 
 
-			cage_points_[i].shift_vector_ = value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) - point.rest_position_; 
+			cage_points_[i].current_position_ = value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_); 
+
+			cage_points_[i].shift_vector_ = cage_points_[i].current_position_ - point.rest_position_; 
 		}
+	}
+
+	std::pair<Vec3, Vec3> get_rest_positions_bounding_box()
+	{
+		return std::make_pair(cage_points_[0].current_position_, cage_points_[7].current_position_); 
 	}
 
 	/// @brief update the global cage dimensions 
@@ -181,10 +188,12 @@ public:
 		{
 			Cage_point point = cage_points_[i]; 
 
-			cage_points_[i].rest_position_ = object_bounding_box_positions[i] + point.shift_vector_; 
+			//cage_points_[i].rest_position_ = object_bounding_box_positions[i] + point.shift_vector_; 
+			cage_points_[i].rest_position_ = object_bounding_box_positions[i]; 
 
 			cage_points_[i].current_position_ = point.rest_position_; 
-			//cage_points_[i].shift_vector_ = {0.0, 0.0, 0.0}; 
+			//+point.shift_vector_; 
+			 
 
 			value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) = cage_points_[i].current_position_; 
 		}
@@ -200,9 +209,7 @@ public:
 
 	/// @brief reset global cage deformation
 	/// allow to change binding deformation type 
-	void reset_deformation(MESH& object, 
-					CMap2::Attribute<Vec3>* object_vertex_position,
-					CMap2::Attribute<uint32>* object_vertex_index)
+	void reset_deformation()
 	{
 		for (std::size_t i = 0; i < cage_points_.size(); i++)
 		{
@@ -215,21 +222,7 @@ public:
 			
 			value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) = cage_points_[i].current_position_; 
 		}
-
-		if (deformation_type_ == "MVC")
-		{
-			deform_object_mvc(object, object_vertex_position, 
-										object_vertex_index); 
-		}
-
-		if (deformation_type_ == "Green")
-		{
-			deform_object_green(object, object_vertex_position, 
-										object_vertex_index);
-		}
-
-		require_full_binding(); 
-		
+	
 	}
 
 	/// @brief require full re-binding of the global cage
@@ -377,6 +370,33 @@ public:
 		}
 	}
 
+	/// @brief check if need to rebind model and other tools connected to global cage, called when global cage positions is updated by another tool  
+	/// @param object 
+	/// @param object_vertex_position 
+	/// @param object_vertex_index 
+	/// @param handle_container 
+	/// @param axis_container 
+	/// @param cage_container 
+	void check_need_rebinding(MESH& object, 
+					CMap2::Attribute<Vec3>* object_vertex_position,
+					CMap2::Attribute<uint32>* object_vertex_index, 
+					std::unordered_map<std::string, 
+					std::shared_ptr<modeling::HandleDeformationTool<MESH>>>& handle_container, 
+					std::unordered_map<std::string, 
+					std::shared_ptr<modeling::AxisDeformationTool<MESH>>>& axis_container, 
+					std::unordered_map<std::string, 
+					std::shared_ptr<modeling::CageDeformationTool<MESH>>>& cage_container)
+	{
+		if (need_full_bind_)
+		{
+
+			bind_object(object, object_vertex_position, object_vertex_index);  
+			bind_connecting_tools(handle_container, axis_container, cage_container); 
+
+			need_full_bind_ = false;
+		}
+	}
+
 
 	/// @brief deform the model 
 	/// call the specific deformation type function 
@@ -385,24 +405,9 @@ public:
 	/// @param object_vertex_index indices of the vertices of the model 
 	void deform_object(MESH& object, 
 					CMap2::Attribute<Vec3>* object_vertex_position,
-					CMap2::Attribute<uint32>* object_vertex_index, 
-					std::unordered_map<std::string, 
-					std::shared_ptr<modeling::HandleDeformationTool<MESH>>>& handle_container, 
-					std::unordered_map<std::string, 
-					std::shared_ptr<modeling::AxisDeformationTool<MESH>>>& axis_container, 
-					std::unordered_map<std::string, 
-					std::shared_ptr<modeling::CageDeformationTool<MESH>>>& cage_container
-					)
+					CMap2::Attribute<uint32>* object_vertex_index)
 	{
-		 if (need_full_bind_)
-		{
-
-			bind_object(object, object_vertex_position, object_vertex_index);  
-			bind_connecting_tools(handle_container, axis_container, cage_container); 
-
-			need_full_bind_ = false;
-		}
-
+		 
 		if (deformation_type_ == "MVC")
 		{
 			deform_object_mvc(object, object_vertex_position, 
