@@ -173,7 +173,7 @@ public:
 
 	std::pair<Vec3, Vec3> get_rest_positions_bounding_box()
 	{
-		return std::make_pair(cage_points_[0].current_position_, cage_points_[7].current_position_); 
+		return std::make_pair(cage_points_[0].rest_position_, cage_points_[7].rest_position_); 
 	}
 
 	/// @brief update the global cage dimensions 
@@ -187,13 +187,10 @@ public:
 		for (std::size_t i = 0; i < cage_points_.size(); i++)
 		{
 			Cage_point point = cage_points_[i]; 
-
-			//cage_points_[i].rest_position_ = object_bounding_box_positions[i] + point.shift_vector_; 
+ 
 			cage_points_[i].rest_position_ = object_bounding_box_positions[i]; 
 
-			cage_points_[i].current_position_ = point.rest_position_; 
-			//+point.shift_vector_; 
-			 
+			cage_points_[i].current_position_ = point.rest_position_ + point.shift_vector_; 	 
 
 			value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) = cage_points_[i].current_position_; 
 		}
@@ -478,21 +475,23 @@ public:
 	/// @param graph_name name of the handle  
 	/// @param graph_vertex_position position of the handle's vertex
 	/// @param handle_vertex handle vertex 
-	void deform_handle(Graph& g, const std::string& graph_name, 
+	Vec3 deform_handle(Graph& g, const std::string& graph_name, 
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position, 
 					const GraphVertex& handle_vertex)
 	{
 		if (deformation_type_ == "MVC")
 		{
-			deform_handle_mvc(g, graph_name, graph_vertex_position, 
+			return deform_handle_mvc(g, graph_name, graph_vertex_position, 
 								handle_vertex); 
 		}
 
 		if (deformation_type_ == "Green")
 		{
-			deform_handle_green(g, graph_name, graph_vertex_position, 
+			return deform_handle_green(g, graph_name, graph_vertex_position, 
 								handle_vertex);
 		}
+
+		return Vec3(); 
 	}
 
 
@@ -1198,7 +1197,7 @@ private:
 	/// @param graph_name handle name  
 	/// @param graph_vertex_position position of the handle vertex
 	/// @param handle_vertex handle vertex
-	void deform_handle_mvc(Graph& g, const std::string& graph_name, 
+	Vec3 deform_handle_mvc(Graph& g, const std::string& graph_name, 
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 							const GraphVertex& handle_vertex)
 	{
@@ -1217,7 +1216,8 @@ private:
 			return true;
 		});
 
-		value<Vec3>(g, graph_vertex_position, handle_vertex) = new_position;
+		//value<Vec3>(g, graph_vertex_position, handle_vertex) = new_position;
+		return new_position; 
 	}
 
 	
@@ -1226,7 +1226,7 @@ private:
 	/// @param graph_name handle name  
 	/// @param graph_vertex_position position of the handle vertex
 	/// @param handle_vertex handle vertex
-	void deform_handle_green(Graph& g, const std::string& graph_name, 
+	Vec3 deform_handle_green(Graph& g, const std::string& graph_name, 
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
 							 const GraphVertex& handle_vertex)
 	{
@@ -1275,8 +1275,10 @@ private:
 			new_normal += handle_weights.normal_[t] * t_sj * t_normal;
 		}
 
-		value<Vec3>(g, graph_vertex_position, handle_vertex) = 
-												new_position + new_normal;
+		//value<Vec3>(g, graph_vertex_position, handle_vertex) = 
+												//new_position + new_normal;
+
+		return new_position + new_normal; 
 	}
 
 	/// @brief bind axis with MVC deformation type

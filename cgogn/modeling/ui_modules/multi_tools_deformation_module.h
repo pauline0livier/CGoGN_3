@@ -728,7 +728,7 @@ private:
 			for (auto& [name, hdt] : handle_container_)
 			{
 				if (gcdt->local_handle_weights_.count(name) == 0){
-					Vec3 handle_position = hdt->get_handle_position(); 
+					Vec3 handle_position = hdt->get_handle_rest_position(); 
 
 					gcdt->init_bind_handle(name, handle_position);
 				} 
@@ -815,14 +815,14 @@ private:
 									modeling::HandleParameters<GRAPH>& p_handle =
 									*handle_parameters_[local_hdt->control_handle_];
 
-									current_gcdt->deform_handle(
+									local_hdt->require_full_binding();
+
+									const Vec3 new_handle_position = current_gcdt->deform_handle(
 										*(local_hdt->control_handle_), name,
 										p_handle.vertex_position_,
 										local_hdt->get_handle_vertex());
 
-									local_hdt->update_handle_position_variable(); 
-
-									local_hdt->require_full_binding(); 
+									local_hdt->update_handle_variable(new_handle_position); 
 
 									graph_provider_->emit_attribute_changed(
 										*(local_hdt->control_handle_),
@@ -1240,6 +1240,11 @@ private:
 								get_attribute<uint32, MeshVertex>(object, 
 															"vertex_index");
 
+							current_hdt->update_shift_vector(); 
+
+							current_hdt->check_need_rebinding(object, 
+											object_vertex_position.get()); 
+
 							current_hdt->deform_object(object, 
 											object_vertex_position.get(), 
 											object_vertex_index.get());
@@ -1335,21 +1340,13 @@ private:
 
 								MESH* global_cage = gcdt->global_cage_;
 
-								MeshData<MESH>& cmd = 
-									mesh_provider_->mesh_data(*global_cage);
-
-								std::tuple<Vec3, Vec3, Vec3> 
-								extended_bounding_box_bis =
-								modeling::get_extended_bounding_box(
-									md.bb_min_, md.bb_max_, 1.1);
-
-								gcdt->require_full_binding(); 
-
-								if (!(e_bb_min == cmd.bb_min_) || 
-											!(e_bb_max == cmd.bb_max_))
+								std::pair<Vec3, Vec3> cage_resting_positions = gcdt->get_rest_positions_bounding_box();
+								
+								if (!(e_bb_min == cage_resting_positions.first) || !(e_bb_max == cage_resting_positions.second))
 								{
-									std::pair<Vec3, Vec3> cage_resting_positions = gcdt->get_rest_positions_bounding_box(); 
- 
+
+									gcdt->require_full_binding(); 
+
 									gcdt->update_global_cage(e_bb_min,
 																 e_bb_max);
 
@@ -3092,9 +3089,9 @@ private:
 
 				modeling::HandleParameters<GRAPH>& p_handle = *handle_parameters_[local_hdt->control_handle_];
 
-				selected_gcdt_->deform_handle(*(local_hdt->control_handle_), name, p_handle.vertex_position_, local_hdt->get_handle_vertex());
+				const Vec3 new_position = selected_gcdt_->deform_handle(*(local_hdt->control_handle_), name, p_handle.vertex_position_, local_hdt->get_handle_vertex());
 
-				local_hdt->update_handle_position_variable(); 
+				local_hdt->update_handle_variable(new_position); 
 
 				local_hdt->require_full_binding(); 
 

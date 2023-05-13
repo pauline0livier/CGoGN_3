@@ -79,6 +79,8 @@ class HandleDeformationTool
 		Vec3 current_position_; 
 		Vec3 rest_position_; 
 
+		Vec3 shift_vector_; 
+
 		Vec3 last_deformation_; 
 
 		std::string name_; 
@@ -143,9 +145,63 @@ public:
 														g_vertex_index.get());
 
 		handle_data_.current_position_ = center;
-		handle_data_.name_ = handle_name; 
+		handle_data_.rest_position_ = center; 
+		handle_data_.shift_vector_ = {0.0, 0.0, 0.0};  
 
 		handle_data_.start_position_ = center; 
+
+		handle_data_.name_ = handle_name;
+	}
+
+	/// @brief get handle rest position 
+	/// useful to bind it with other tools 
+	/// @return handle current rest position
+	Vec3 get_handle_rest_position()
+	{
+		return handle_data_.rest_position_; 
+	}
+
+	/// @brief set handle rest position 
+	/// after other tool deformation
+	void set_handle_rest_position(const Vec3& new_rest_position)
+	{	
+		handle_data_.rest_position_ = new_rest_position; 
+	}
+
+	/// @brief update shift vector between rest and current position 
+	void update_shift_vector()
+	{
+
+		handle_data_.last_deformation_ = value<Vec3>(*control_handle_, 
+							control_handle_vertex_position_, handle_data_.vertex_) - handle_data_.current_position_; 
+		
+		handle_data_.shift_vector_ += handle_data_.last_deformation_;
+
+		handle_data_.current_position_ = value<Vec3>(*control_handle_, 
+							control_handle_vertex_position_, handle_data_.vertex_); 
+
+	}
+
+	void check_need_rebinding(MESH& object, 
+					CMap2::Attribute<Vec3>* object_vertex_position)
+	{
+		if (need_full_bind_)
+		{
+			rebind_object(object, object_vertex_position); 
+			need_full_bind_ = false;
+		}
+	}
+
+	/// @brief update handle rest position   
+	void update_handle_variable(const Vec3& new_position)
+	{
+
+		handle_data_.rest_position_ = new_position; 
+		handle_data_.current_position_ = handle_data_.rest_position_+ handle_data_.shift_vector_;
+
+		value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_data_.vertex_) = handle_data_.current_position_; 
+
+
 	}
 
 	/// @brief set object influence area
@@ -279,24 +335,7 @@ public:
 	}
 
 
-	/// @brief update handle position 
-	/// useful when handle is displaced by other spatial tools 
-	/// @param new_position 
-	void update_handle_position_variable()
-	{
 
-		handle_data_.current_position_ = get_handle_position(); 
-		handle_data_.start_position_ = get_handle_position(); 
-	}
-
-	/// @brief update handle position 
-	/// useful when handle is displaced by other spatial tools 
-	/// @param new_position 
-	void update_handle_position_variable_bis()
-	{
-
-		handle_data_.current_position_ = get_handle_position(); 
-	}
 
 	/// @brief update handle position 
 	/// used when other handles around 
@@ -386,20 +425,12 @@ public:
 					CMap2::Attribute<uint32>* object_vertex_index )
 	{
 
-		if (need_full_bind_)
-		{
-			rebind_object(object, object_vertex_position); 
-			need_full_bind_ = false;
-		}
-
-		const Vec3 deformation = get_handle_deformation(); 
-
 		for ( const auto &myPair : object_influence_area_ ) {
 			uint32 vertex_index = myPair.first;
 			MeshVertex v = myPair.second.vertex; 
 
 			const Vec3 new_transformation = 
-						object_weights_[vertex_index] * deformation; 
+						object_weights_[vertex_index] * handle_data_.last_deformation_; 
 
 			object_influence_area_[vertex_index].max_local_translation += 
 					new_transformation; 
@@ -429,22 +460,7 @@ public:
 	{
 		return handle_data_.mesh_vertex_index_; 
 	}
-	
-	/// @brief compute handle deformation
-	/// @return handle deformation
-	const Vec3 get_handle_deformation()
-	{
-		const Vec3 handle_new_position = value<Vec3>(*control_handle_, 
-							control_handle_vertex_position_, handle_data_.vertex_);
 
-		const Vec3& deformation = (handle_new_position - handle_data_.current_position_);
-
-		handle_data_.current_position_ = handle_new_position;
-
-		handle_data_.last_deformation_ = deformation; 
-
-		return deformation; 
-	}
 
 	Vec3 get_deformation()
 	{
