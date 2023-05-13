@@ -728,9 +728,9 @@ private:
 			for (auto& [name, hdt] : handle_container_)
 			{
 				if (gcdt->local_handle_weights_.count(name) == 0){
-					Vec3 handle_position = hdt->get_handle_rest_position(); 
-
-					gcdt->init_bind_handle(name, handle_position);
+					
+					modeling::Handle_variables handle_variables = hdt->handle_variables_; 
+					gcdt->init_bind_handle(handle_variables);
 				} 
 			}
 		}
@@ -812,17 +812,17 @@ private:
 										HandleDeformationTool<MESH>> local_hdt =
 											handle_container_[name];
 
+									modeling::Handle_variables handle_variables = local_hdt->handle_variables_; 
+
 									modeling::HandleParameters<GRAPH>& p_handle =
 									*handle_parameters_[local_hdt->control_handle_];
 
 									local_hdt->require_full_binding();
 
-									const Vec3 new_handle_position = current_gcdt->deform_handle(
-										*(local_hdt->control_handle_), name,
+									current_gcdt->deform_handle(
+										*(local_hdt->control_handle_), 
 										p_handle.vertex_position_,
-										local_hdt->get_handle_vertex());
-
-									local_hdt->update_handle_variable(new_handle_position); 
+										handle_variables); 
 
 									graph_provider_->emit_attribute_changed(
 										*(local_hdt->control_handle_),
@@ -912,9 +912,9 @@ private:
 		{
 			for (auto& [name, hdt] : handle_container_)
 			{
-				Vec3 handle_position = hdt->get_handle_position();
+				modeling::Handle_variables handle_variables = hdt->handle_variables_;
 
-				gcdt->bind_handle(name, handle_position);
+				gcdt->bind_handle(handle_variables);
 			}
 		}
 
@@ -967,10 +967,10 @@ private:
 		{
 			for (auto& [name, hdt] : handle_container_)
 			{
-				if (cdt->local_handle_data_.count(name) == 0){
-					Vec3 handle_position = hdt->get_handle_position(); 
+				if (cdt->local_handle_tool_data_.count(name) == 0){
+					modeling::Handle_variables handle_variables = hdt->handle_variables_; 
 
-					cdt->init_bind_handle(name, handle_position);
+					cdt->init_bind_handle(handle_variables);
 				} 
 			}
 		}
@@ -1038,22 +1038,25 @@ private:
 							mesh_provider_->emit_attribute_changed(object, 
 											object_vertex_position.get());
 
-							if (current_cdt->local_handle_data_.size() > 0)
+							if (current_cdt->local_handle_tool_data_.size() > 0)
 							{
 								for (auto& [name, handle_data] : 
-										current_cdt->local_handle_data_)
+										current_cdt->local_handle_tool_data_)
 								{
 									std::shared_ptr<modeling::
 										HandleDeformationTool<MESH>> local_hdt =
 											handle_container_[name];
 
+									modeling::Handle_variables handle_variables = 
+										local_hdt->handle_variables_;
+
 									modeling::HandleParameters<GRAPH>& p_handle =
 									*handle_parameters_[local_hdt->control_handle_];
 
 									current_cdt->deform_handle(
-										*(local_hdt->control_handle_), name,
+										*(local_hdt->control_handle_), 
 										p_handle.vertex_position_,
-										local_hdt->get_handle_vertex());
+										handle_variables);
 
 									//local_hdt->update_handle_position_variable_bis(); 
 
@@ -1163,9 +1166,9 @@ private:
 		{
 			for (auto& [name, hdt] : handle_container_)
 			{
-				Vec3 handle_position = hdt->get_handle_position();
+				modeling::Handle_variables handle_variables = hdt->handle_variables_;
 
-				cdt->update_bind_handle(name, handle_position);
+				cdt->update_bind_handle(handle_variables);
 			}
 		}
 	}
@@ -1202,9 +1205,9 @@ private:
 
 			
 			if (gcdt->local_handle_weights_.count(p_handle.name_) == 0){
-				Vec3 handle_position = hdt->get_handle_position(); 
+				modeling::Handle_variables handle_variables = hdt->handle_variables_;
 
-				gcdt->init_bind_handle(p_handle.name_, handle_position);
+				gcdt->init_bind_handle(handle_variables);
 			} 
 		}
 
@@ -1212,10 +1215,11 @@ private:
 		{
 			for (auto& [name, cdt] : cage_container_)
 			{
-				if (cdt->local_handle_data_.count(p_handle.name_) == 0)
+				if (cdt->local_handle_tool_data_.count(p_handle.name_) == 0)
 				{
-					Vec3 handle_position = hdt->get_handle_position(); 
-					cdt->init_bind_handle(p_handle.name_, handle_position);
+					modeling::Handle_variables handle_variables = 
+														hdt->handle_variables_;
+					cdt->init_bind_handle(handle_variables);
 				} 
 			}
 			
@@ -1257,7 +1261,7 @@ private:
 							mesh_provider_->emit_attribute_changed(object, 
 											object_vertex_position.get()); 
 
-							if (cage_container_.size() > 0)
+							/*if (cage_container_.size() > 0)
 							{
 								for (auto& [name, cdt] : cage_container_)
 								{
@@ -1319,7 +1323,7 @@ private:
 									}
 								}
 
-							}
+							}*/
 							
 							md.update_bb();
 							std::tuple<Vec3, Vec3, Vec3> 
@@ -1342,7 +1346,8 @@ private:
 
 								std::pair<Vec3, Vec3> cage_resting_positions = gcdt->get_rest_positions_bounding_box();
 								
-								if (!(e_bb_min == cage_resting_positions.first) || !(e_bb_max == cage_resting_positions.second))
+								if (!(e_bb_min == cage_resting_positions.first) 
+								|| !(e_bb_max == cage_resting_positions.second))
 								{
 
 									gcdt->require_full_binding(); 
@@ -2640,7 +2645,7 @@ private:
 													*handle_parameters_[g];
 					if (p.vertex_position_.get() == attribute)
 					{
-						p.vertex_base_size_ = 0.1; //3.5; //0.4;// 3.5 low poly fox
+						p.vertex_base_size_ = 3.5; //0.1 for cow; //0.4;// 3.5 low poly fox
 						p.update_selected_vertices_vbo();
 					}
 
@@ -2884,11 +2889,11 @@ private:
 
 			uint32 axis_mesh_index = std::distance(other_adt->axis_mesh_vertices_index_.begin(), itr); 
  
-    		if (itr != other_adt->axis_mesh_vertices_index_.cend()) {
+			if (itr != other_adt->axis_mesh_vertices_index_.cend()) {
 				
 				activation_map_[vertex_index].axis_mesh_vertex_.insert({name_first_tool, axis_mesh_index}); 
-   			}
-   		
+			}
+		
 		}
 	}
 
@@ -3006,7 +3011,7 @@ private:
 
 							target_adt->require_full_binding(); 
 						}
-    							
+								
 					}
 				}
 				
@@ -3047,7 +3052,7 @@ private:
 
 							target_hdt->require_full_binding(); 
 						}
-    							
+								
 				}
 
 				if (activation_map_[vertex_index].axis_names_.size() > 1){
@@ -3089,9 +3094,11 @@ private:
 
 				modeling::HandleParameters<GRAPH>& p_handle = *handle_parameters_[local_hdt->control_handle_];
 
-				const Vec3 new_position = selected_gcdt_->deform_handle(*(local_hdt->control_handle_), name, p_handle.vertex_position_, local_hdt->get_handle_vertex());
+				modeling::Handle_variables local_handle_variables = local_hdt->handle_variables_; 
 
-				local_hdt->update_handle_variable(new_position); 
+				selected_gcdt_->deform_handle(*(local_hdt->control_handle_), p_handle.vertex_position_, local_handle_variables);
+
+				//local_hdt->update_handle_variable(new_position); 
 
 				local_hdt->require_full_binding(); 
 

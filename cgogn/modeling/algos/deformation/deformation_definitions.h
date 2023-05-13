@@ -73,6 +73,23 @@ struct SharedVertexData
 
 }; 
 
+struct Handle_variables
+{
+	IncidenceGraph::Vertex vertex_;
+	CMap2::Vertex mesh_vertex_;
+
+	uint32 mesh_vertex_index_;
+
+	Vec3 current_position_;
+	Vec3 rest_position_;
+
+	Vec3 shift_vector_;
+
+	Vec3 last_deformation_;
+
+	std::string name_;
+};
+
 } // namespace modeling
 
 } // namespace cgogn

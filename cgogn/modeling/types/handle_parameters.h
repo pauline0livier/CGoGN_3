@@ -123,8 +123,8 @@ public:
 			std::vector<Vertex> picked;
 
 			geometry::picking_sphere(*graph_, 
-								vertex_position_.get(), 2.0, A, B, picked);
-								// 5.0 for fox
+								vertex_position_.get(), 6.0, A, B, picked);
+								// 5.0 for fox, 2.0 cow
 			if (!picked.empty())
 			{
 				switch (button)

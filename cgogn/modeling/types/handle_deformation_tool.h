@@ -68,14 +68,17 @@ class HandleDeformationTool
 		bool reset;  
 	};
 
-	struct Handle_data
+	
+
+public:
+
+	/*struct Handle_variables
 	{
 		Graph::Vertex vertex_; 
 		MeshVertex mesh_vertex_; 
 
 		uint32 mesh_vertex_index_; 
 		
-		Vec3 start_position_; 
 		Vec3 current_position_; 
 		Vec3 rest_position_; 
 
@@ -84,12 +87,12 @@ class HandleDeformationTool
 		Vec3 last_deformation_; 
 
 		std::string name_; 
-	}; 
-
-public:
+	};*/ 
 
 	Graph* control_handle_;
 	Eigen::VectorXd object_weights_;
+
+	Handle_variables handle_variables_;
 
 	std::shared_ptr<Graph::Attribute<Vec3>> 
 									control_handle_vertex_position_;
@@ -131,9 +134,9 @@ public:
 	{
 		control_handle_ = g;
 
-		handle_data_.vertex_ = cgogn::modeling::create_handle(*g, g_vertex_position, g_vertex_radius, center, Scalar(0.06));
+		handle_variables_.vertex_ = cgogn::modeling::create_handle(*g, g_vertex_position, g_vertex_radius, center, Scalar(3));
 											// 3 for low poly fox, 0.25 sphere
-											/// 0.01 raptor
+											/// 0.01 raptor, 0.06 cow
 
 		control_handle_vertex_position_ = 
 				cgogn::get_attribute<Vec3, Graph::Vertex>(*g, "position");
@@ -144,13 +147,11 @@ public:
 		cgogn::modeling::set_attribute_vertex_index_graph(*control_handle_, 
 														g_vertex_index.get());
 
-		handle_data_.current_position_ = center;
-		handle_data_.rest_position_ = center; 
-		handle_data_.shift_vector_ = {0.0, 0.0, 0.0};  
+		handle_variables_.current_position_ = center;
+		handle_variables_.rest_position_ = center; 
+		handle_variables_.shift_vector_ = {0.0, 0.0, 0.0};  
 
-		handle_data_.start_position_ = center; 
-
-		handle_data_.name_ = handle_name;
+		handle_variables_.name_ = handle_name;
 	}
 
 	/// @brief get handle rest position 
@@ -158,27 +159,27 @@ public:
 	/// @return handle current rest position
 	Vec3 get_handle_rest_position()
 	{
-		return handle_data_.rest_position_; 
+		return handle_variables_.rest_position_; 
 	}
 
 	/// @brief set handle rest position 
 	/// after other tool deformation
 	void set_handle_rest_position(const Vec3& new_rest_position)
 	{	
-		handle_data_.rest_position_ = new_rest_position; 
+		handle_variables_.rest_position_ = new_rest_position; 
 	}
 
 	/// @brief update shift vector between rest and current position 
 	void update_shift_vector()
 	{
 
-		handle_data_.last_deformation_ = value<Vec3>(*control_handle_, 
-							control_handle_vertex_position_, handle_data_.vertex_) - handle_data_.current_position_; 
+		handle_variables_.last_deformation_ = value<Vec3>(*control_handle_, 
+							control_handle_vertex_position_, handle_variables_.vertex_) - handle_variables_.current_position_; 
 		
-		handle_data_.shift_vector_ += handle_data_.last_deformation_;
+		handle_variables_.shift_vector_ += handle_variables_.last_deformation_;
 
-		handle_data_.current_position_ = value<Vec3>(*control_handle_, 
-							control_handle_vertex_position_, handle_data_.vertex_); 
+		handle_variables_.current_position_ = value<Vec3>(*control_handle_, 
+							control_handle_vertex_position_, handle_variables_.vertex_); 
 
 	}
 
@@ -196,10 +197,10 @@ public:
 	void update_handle_variable(const Vec3& new_position)
 	{
 
-		handle_data_.rest_position_ = new_position; 
-		handle_data_.current_position_ = handle_data_.rest_position_+ handle_data_.shift_vector_;
+		handle_variables_.rest_position_ = new_position; 
+		handle_variables_.current_position_ = handle_variables_.rest_position_+ handle_variables_.shift_vector_;
 
-		value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_data_.vertex_) = handle_data_.current_position_; 
+		value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_variables_.vertex_) = handle_variables_.current_position_; 
 
 
 	}
@@ -240,10 +241,10 @@ public:
 					std::unordered_map<uint32,modeling::SharedVertexData>& activation_map, std::unordered_map<std::string, 
 		std::shared_ptr<modeling::HandleDeformationTool<MESH>>>& handle_container)
 	{
-		value<Vec3>(*control_handle_, 
-							control_handle_vertex_position_, handle_data_.vertex_) = handle_data_.start_position_; 
+		/* value<Vec3>(*control_handle_, 
+							control_handle_vertex_position_, handle_variables_.vertex_) = handle_variables_.start_position_; 
 
-		handle_data_.current_position_ = handle_data_.start_position_; 
+		handle_variables_.current_position_ = handle_variables_.start_position_; 
 
 		for ( const auto &myPair : object_influence_area_ ) {
 			uint32 vertex_index = myPair.first;
@@ -252,7 +253,7 @@ public:
 			if (!object_influence_area_[vertex_index].shared){
 				value<Vec3>(object, object_vertex_position, v) -= object_influence_area_[vertex_index].max_local_translation;
 			} else {
-				if (activation_map[vertex_index].current_max_handle_.first == handle_data_.name_){
+				if (activation_map[vertex_index].current_max_handle_.first == handle_variables_.name_){
 					value<Vec3>(object, object_vertex_position, v) -= object_influence_area_[vertex_index].max_local_translation;
 
 					std::string name_next_max_handle; 
@@ -260,7 +261,7 @@ public:
 					Vec3 current_max_vector = {0.0, 0.0, 0.0}; 
 					for ( const auto &otherPair : activation_map[vertex_index].handle_translation_ )
 						{
-							if (otherPair.first != handle_data_.name_)
+							if (otherPair.first != handle_variables_.name_)
 							{
 								std::shared_ptr<modeling::HandleDeformationTool<MESH>> other_hdt = handle_container[otherPair.first]; 
 
@@ -284,7 +285,7 @@ public:
 
 			
 		}
-
+		*/
 
 	}
 
@@ -300,8 +301,8 @@ public:
 	/// @brief reset transformation
 	Vec3 get_reset_transformation()
 	{ 
-		return handle_data_.start_position_ - value<Vec3>(*control_handle_, 
-							control_handle_vertex_position_, handle_data_.vertex_); 
+		return handle_variables_.start_position_ - value<Vec3>(*control_handle_, 
+							control_handle_vertex_position_, handle_variables_.vertex_); 
 	}
 
 	/// @brief set geodesic distance of the points 
@@ -329,7 +330,7 @@ public:
 			const Vec3 vertex_position = value<Vec3>(object, 
 				object_vertex_position, v); 
 
-			distance_to_handle_[vertex_index] = (vertex_position - handle_data_.current_position_).norm(); 
+			distance_to_handle_[vertex_index] = (vertex_position - handle_variables_.current_position_).norm(); 
 
 		}
 	}
@@ -341,16 +342,16 @@ public:
 	/// used when other handles around 
 	void update_handle_position(const Vec3& new_position)
 	{ 
-		handle_data_.current_position_ = new_position; 
+		handle_variables_.current_position_ = new_position; 
 		value<Vec3>(*control_handle_, 
-				control_handle_vertex_position_, handle_data_.vertex_) = new_position; 
+				control_handle_vertex_position_, handle_variables_.vertex_) = new_position; 
 
 	}
 
 	/// @brief 
 	/// @return handle vertex 
 	Graph::Vertex get_handle_vertex(){
-		return handle_data_.vertex_; 
+		return handle_variables_.vertex_; 
 	}
 
 	/// @brief useful to compute the handle displacement 
@@ -358,7 +359,7 @@ public:
 	/// @return handle position 
 	Vec3 get_handle_position(){
 		return value<Vec3>(*control_handle_, 
-							control_handle_vertex_position_, handle_data_.vertex_);
+							control_handle_vertex_position_, handle_variables_.vertex_);
 	}
 
 	/// @brief initialize binding for object
@@ -430,7 +431,7 @@ public:
 			MeshVertex v = myPair.second.vertex; 
 
 			const Vec3 new_transformation = 
-						object_weights_[vertex_index] * handle_data_.last_deformation_; 
+						object_weights_[vertex_index] * handle_variables_.last_deformation_; 
 
 			object_influence_area_[vertex_index].max_local_translation += 
 					new_transformation; 
@@ -453,24 +454,23 @@ public:
 	/// @param m_v mesh vertex
 	void set_handle_mesh_vertex(const MeshVertex& m_v)
 	{
-		handle_data_.mesh_vertex_ = m_v;
+		handle_variables_.mesh_vertex_ = m_v;
 	}
 
 	const uint32& get_handle_mesh_vertex_index()
 	{
-		return handle_data_.mesh_vertex_index_; 
+		return handle_variables_.mesh_vertex_index_; 
 	}
 
 
 	Vec3 get_deformation()
 	{
-		return handle_data_.last_deformation_; 
+		return handle_variables_.last_deformation_; 
 	}
 
 	
 
-private:
-	Handle_data handle_data_; 
+private: 
 
 	std::unordered_map<uint32, Scalar> distance_to_handle_; 
 
@@ -519,8 +519,8 @@ private:
 
 		Eigen::VectorXd u0(nb_vertices);
 		u0.setZero();
-		uint32 vidx = value<uint32>(m, m_vertex_index, handle_data_.mesh_vertex_);
-		handle_data_.mesh_vertex_index_ = vidx; 
+		uint32 vidx = value<uint32>(m, m_vertex_index, handle_variables_.mesh_vertex_);
+		handle_variables_.mesh_vertex_index_ = vidx; 
 		u0(vidx) = 1.0;
 
 		Scalar h = cgogn::geometry::mean_edge_length(m, m_vertex_position);
@@ -625,8 +625,8 @@ private:
 
 		Eigen::VectorXd u0(nb_vertices);
 		u0.setZero();
-		uint32 vidx = value<uint32>(m, m_vertex_index, handle_data_.mesh_vertex_);
-		handle_data_.mesh_vertex_index_ = vidx; 
+		uint32 vidx = value<uint32>(m, m_vertex_index, handle_variables_.mesh_vertex_);
+		handle_variables_.mesh_vertex_index_ = vidx; 
 		u0(vidx) = 1.0;
 
 		Scalar h = cgogn::geometry::mean_edge_length(m, m_vertex_position);

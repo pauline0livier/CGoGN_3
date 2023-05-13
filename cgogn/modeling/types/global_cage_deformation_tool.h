@@ -92,6 +92,12 @@ class GlobalCageDeformationTool
 		std::pair<Vec3, Vec3> edges_;
 	}; 
 
+
+	struct Handle_data
+	{
+		VectorWeights current_position_weights_; 
+		VectorWeights rest_position_weights_;
+	}; 
 	
 
 
@@ -102,7 +108,8 @@ public:
 	MatrixWeights object_weights_;
 	std::unordered_map<std::string, MatrixWeights> local_cage_weights_; 
 	std::unordered_map<std::string, MatrixWeights> local_axis_weights_; 
-	std::unordered_map<std::string, VectorWeights> local_handle_weights_; 
+
+	std::unordered_map<std::string, Handle_data> local_handle_weights_; 
 
 	std::string deformation_type_;
 
@@ -332,11 +339,12 @@ public:
 		{
 			for (auto& [name_handle, vw] : local_handle_weights_)
 			{
-				std::shared_ptr<modeling::HandleDeformationTool<MESH>> local_hdt = handle_container[name_handle];
+				std::shared_ptr<modeling::HandleDeformationTool<MESH>> local_hdt = 
+								handle_container[name_handle];
 
-				Vec3 handle_position = local_hdt->get_handle_position(); 
+				Handle_variables local_handle_variables = local_hdt->handle_variables_;
 
-				bind_handle(name_handle, handle_position);
+				bind_handle(local_handle_variables);
 			}
 		}
 
@@ -421,29 +429,45 @@ public:
 	/// @brief initialize binding for handle tool 
 	/// @param graph_name name of the handle 
 	/// @param handle_position position of the handle 
-	void init_bind_handle(const std::string& graph_name, 
-						const Vec3& handle_position)
+	void init_bind_handle(const Handle_variables& handle_variables)
 	{
 
+		
 		uint32 nbv_cage = nb_cells<Vertex>(*global_cage_);
 
-		VectorWeights handle_weights; 
+		Handle_data new_handle_data; 
+
+		VectorWeights current_position_weights;
+		VectorWeights rest_position_weights; 
 		 
-		handle_weights.position_.resize(nbv_cage);
-		handle_weights.position_.setZero();
-		local_handle_weights_[graph_name] = handle_weights;
+		current_position_weights.position_.resize(nbv_cage);
+		current_position_weights.position_.setZero();
+
+		rest_position_weights.position_.resize(nbv_cage);
+		rest_position_weights.position_.setZero();
+
+		const std::string graph_name = handle_variables.name_; 
+
+		local_handle_weights_[graph_name] = new_handle_data;
 
 		if (deformation_type_ == "MVC"){
-			bind_handle_mvc(graph_name, handle_position); 
+			bind_handle_mvc(handle_variables); 
 		}
 
 		if (deformation_type_ == "Green"){
 			uint32 nbt_cage = cage_triangles_.size();
 
-			local_handle_weights_[graph_name].normal_.resize(nbt_cage); 
-			local_handle_weights_[graph_name].normal_.setZero();
+			local_handle_weights_[graph_name]
+							.current_position_weights_.normal_.resize(nbt_cage); 
+			local_handle_weights_[graph_name]
+							.current_position_weights_.normal_.setZero();
 
-			bind_handle_green(graph_name, handle_position); 
+			local_handle_weights_[graph_name]
+							.rest_position_weights_.normal_.resize(nbt_cage); 
+			local_handle_weights_[graph_name]
+							.rest_position_weights_.normal_.setZero();
+
+			bind_handle_green(handle_variables); 
 		}
 	}
 
@@ -451,22 +475,34 @@ public:
 	/// used when deformation type is changed
 	/// @param graph_name handle name 
 	/// @param handle_position handle position 
-	void bind_handle(const std::string& graph_name, 
-					const Vec3& handle_position)
+	void bind_handle(
+		const Handle_variables& handle_variables)
 	{
-		local_handle_weights_[graph_name].position_.setZero();
+		const std::string graph_name = handle_variables.name_;
+
+		local_handle_weights_[graph_name].current_position_weights_.position_.setZero();
+		local_handle_weights_[graph_name].rest_position_weights_.position_.setZero();
+
 		if (deformation_type_ == "MVC"){
-			bind_handle_mvc(graph_name, handle_position); 
+			bind_handle_mvc(handle_variables); 
 		}
 
 		if (deformation_type_ == "Green"){
-			if (local_handle_weights_[graph_name].normal_ == Eigen::MatrixXd{}){
+			if (local_handle_weights_[graph_name]
+				.current_position_weights_.normal_ == Eigen::MatrixXd{}){
 				uint32 nbt_cage = cage_triangles_.size();
-				local_handle_weights_[graph_name].normal_.resize(nbt_cage); 
+
+				local_handle_weights_[graph_name]
+					.current_position_weights_.normal_.resize(nbt_cage);
+				local_handle_weights_[graph_name]
+					.rest_position_weights_.normal_.resize(nbt_cage); 
 			} 
 
-			local_handle_weights_[graph_name].normal_.setZero();
-			bind_handle_green(graph_name, handle_position); 
+			local_handle_weights_[graph_name]
+						.current_position_weights_.normal_.setZero();
+			local_handle_weights_[graph_name]
+						.rest_position_weights_.normal_.setZero();
+			bind_handle_green(handle_variables); 
 		}
 	}
 
@@ -475,23 +511,22 @@ public:
 	/// @param graph_name name of the handle  
 	/// @param graph_vertex_position position of the handle's vertex
 	/// @param handle_vertex handle vertex 
-	Vec3 deform_handle(Graph& g, const std::string& graph_name, 
+	void deform_handle(Graph& g, 
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position, 
-					const GraphVertex& handle_vertex)
+		const Handle_variables& handle_variables)
 	{
 		if (deformation_type_ == "MVC")
 		{
-			return deform_handle_mvc(g, graph_name, graph_vertex_position, 
-								handle_vertex); 
+			deform_handle_mvc(g, graph_vertex_position, 
+								handle_variables); 
 		}
 
 		if (deformation_type_ == "Green")
 		{
-			return deform_handle_green(g, graph_name, graph_vertex_position, 
-								handle_vertex);
+			deform_handle_green(g, graph_vertex_position, 
+								handle_variables);
 		}
 
-		return Vec3(); 
 	}
 
 
@@ -1165,31 +1200,57 @@ private:
 	/// @brief bind handle MVC deformation type
 	/// @param graph_name handle name 
 	/// @param handle_position position of  handle vertex 
-	void bind_handle_mvc(const std::string& graph_name, 
-						const Vec3& handle_position){
+	void bind_handle_mvc(const Handle_variables& handle_variables){
 
-		Eigen::VectorXd local_row_weights; 
+		const std::string graph_name = handle_variables.name_;
 
-		compute_mvc_coordinates_on_point(handle_position, local_row_weights); 
+		Eigen::VectorXd local_row_weights_current; 
+		Eigen::VectorXd local_row_weights_rest;
+
+		const Vec3 handle_current_position = handle_variables.current_position_; 
+		const Vec3 handle_rest_position = handle_variables.rest_position_; 
+
+		compute_mvc_coordinates_on_point(handle_current_position, local_row_weights_current); 
 
 		local_handle_weights_[graph_name]
-				.position_ = local_row_weights; 							
+				.current_position_weights_.position_ = local_row_weights_current;
+
+		compute_mvc_coordinates_on_point(handle_rest_position, local_row_weights_rest); 
+
+		local_handle_weights_[graph_name]
+				.rest_position_weights_.position_ = local_row_weights_rest; 							
 	}
 
 	/// @brief bind handle Green deformation type
 	/// @param graph_name handle name 
 	/// @param handle_position position of handle vertex 
-	void bind_handle_green(const std::string& graph_name, 
-												const Vec3& handle_position){
+	void bind_handle_green(const Handle_variables& handle_variables){
 
-		VectorWeights local_row_vector_weights; 											
-		compute_green_coordinates_on_point(handle_position, local_row_vector_weights);
+		const std::string graph_name = handle_variables.name_;
+
+		VectorWeights local_row_weights_current; 
+		VectorWeights local_row_weights_rest;
+
+		const Vec3 handle_current_position = handle_variables.current_position_; 
+		const Vec3 handle_rest_position = handle_variables.rest_position_;
+											
+		compute_green_coordinates_on_point(handle_current_position, 
+											local_row_weights_current);
 
 		local_handle_weights_[graph_name]
-				.position_ = local_row_vector_weights.position_;
+				.current_position_weights_.position_ = local_row_weights_current.position_;
 
 		local_handle_weights_[graph_name]
-				.normal_ = local_row_vector_weights.normal_;
+				.current_position_weights_.normal_ = local_row_weights_current.normal_;
+
+		compute_green_coordinates_on_point(handle_rest_position, 
+										local_row_weights_rest);
+
+		local_handle_weights_[graph_name]
+				.rest_position_weights_.position_ = local_row_weights_rest.position_;
+
+		local_handle_weights_[graph_name]
+			.rest_position_weights_.normal_ = local_row_weights_rest.normal_;
 	}
 
 	/// @brief deform handle with MVC deformation type 
@@ -1197,11 +1258,15 @@ private:
 	/// @param graph_name handle name  
 	/// @param graph_vertex_position position of the handle vertex
 	/// @param handle_vertex handle vertex
-	Vec3 deform_handle_mvc(Graph& g, const std::string& graph_name, 
+	void deform_handle_mvc(Graph& g,  
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
-							const GraphVertex& handle_vertex)
+			const Handle_variables& handle_variables)
 	{
-		VectorWeights handle_weights = local_handle_weights_[graph_name]; 
+		const std::string graph_name = handle_variables.name_;
+		GraphVertex handle_vertex = handle_variables.vertex_; 
+
+		VectorWeights handle_weights = 
+					local_handle_weights_[graph_name].current_position_weights_; 
 		Vec3 new_position = {0.0, 0.0, 0.0};
 
 		foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
@@ -1216,8 +1281,7 @@ private:
 			return true;
 		});
 
-		//value<Vec3>(g, graph_vertex_position, handle_vertex) = new_position;
-		return new_position; 
+		value<Vec3>(g, graph_vertex_position, handle_vertex) = new_position;
 	}
 
 	
@@ -1226,11 +1290,15 @@ private:
 	/// @param graph_name handle name  
 	/// @param graph_vertex_position position of the handle vertex
 	/// @param handle_vertex handle vertex
-	Vec3 deform_handle_green(Graph& g, const std::string& graph_name, 
+	void deform_handle_green(Graph& g,  
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
-							 const GraphVertex& handle_vertex)
+			const Handle_variables& handle_variables)
 	{
-		VectorWeights handle_weights = local_handle_weights_[graph_name];
+		const std::string graph_name = handle_variables.name_;
+		GraphVertex handle_vertex = handle_variables.vertex_; 
+
+		VectorWeights handle_weights = 
+					local_handle_weights_[graph_name].current_position_weights_;
 		Vec3 new_position = {0.0, 0.0, 0.0};
 
 		foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
@@ -1275,10 +1343,9 @@ private:
 			new_normal += handle_weights.normal_[t] * t_sj * t_normal;
 		}
 
-		//value<Vec3>(g, graph_vertex_position, handle_vertex) = 
-												//new_position + new_normal;
+		value<Vec3>(g, graph_vertex_position, handle_vertex) = 
+												new_position + new_normal;
 
-		return new_position + new_normal; 
 	}
 
 	/// @brief bind axis with MVC deformation type
@@ -1433,7 +1500,7 @@ private:
 				const auto area_face = (t_u0.cross(t_v0)).norm() * 0.5;
 				double t_sj = sqrt((t_u1.squaredNorm()) * (t_v0.squaredNorm()) 
 								- 2.0 * (t_u1.dot(t_v1)) * (t_u0.dot(t_v0)) +
-						 	(t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
+							(t_v1.squaredNorm()) * (t_u0.squaredNorm())) /
 									(sqrt8 * area_face);
 
 				new_normal +=  
@@ -1901,7 +1968,7 @@ private:
 				w[i] = (theta[i] - c[(i + 1) % 3] 
 						* theta[(i + 2) % 3] - c[(i + 2) % 3] 
 						* theta[(i + 1) % 3]) /
-					   	(2.0 * d[triangle_index[i]] 
+						(2.0 * d[triangle_index[i]] 
 						* sin(theta[(i + 1) % 3]) * s[(i + 2) % 3]);
 			}
 

@@ -145,11 +145,13 @@ class CageDeformationTool
 		Vec3 shift_before_d_min_attenuation; 
 	};
 
-	struct Handle_data
+	struct Handle_tool_data
 	{
-		VectorWeights weights_; 
+		VectorWeights current_position_weights_; 
+		VectorWeights rest_position_weights_;
 		Vec3 fixed_position_;
-		int cage_index_; 
+		int current_position_cage_index_; 
+		int rest_position_cage_index_; 
 	}; 
 
 	struct Tool_data
@@ -183,7 +185,7 @@ public:
 	Vec3 control_cage_local_bb_min_; 
 	Vec3 control_cage_local_bb_max_; 
 
-	std::unordered_map<std::string, Handle_data> local_handle_data_;
+	std::unordered_map<std::string, Handle_tool_data> local_handle_tool_data_;
 	std::unordered_map<std::string, Tool_data> local_cage_data_; 
 	
 	std::string deformation_type_;
@@ -422,15 +424,15 @@ public:
 	{
 		
 
-		if (local_handle_data_.size() > 0)
+		if (local_handle_tool_data_.size() > 0)
 		{
-			for (auto& [name_handle, data] : local_handle_data_)
+			for (auto& [name_handle, data] : local_handle_tool_data_)
 			{
 				std::shared_ptr<modeling::HandleDeformationTool<MESH>> local_hdt = handle_container[name_handle];
 
-				Vec3 handle_position = local_hdt->get_handle_position(); 
+				Handle_variables handle_variables = local_hdt->handle_variables_; 
 
-				update_bind_handle(name_handle, handle_position);
+				update_bind_handle(handle_variables);
 			}
 		}
 
@@ -529,24 +531,30 @@ public:
 	// @brief initialize binding for handle tool 
 	/// @param graph_name name of the handle 
 	/// @param handle_position position of the handle 
-	void init_bind_handle(const std::string& graph_name, 
-						const Vec3& handle_position)
+	void init_bind_handle(const Handle_variables& handle_variables)
 	{
+		const std::string graph_name = handle_variables.name_;
+
 		uint32 nbv_cage = nb_cells<Vertex>(*control_cage_);
 
-		Handle_data handle_data; 
+		Handle_tool_data handle_tool_data; 
 
-		VectorWeights handle_weights; 
+		VectorWeights current_position_weights; 
+		VectorWeights rest_position_weights; 
 		 
-		handle_weights.position_.resize(nbv_cage);
-		handle_weights.position_.setZero();
+		current_position_weights.position_.resize(nbv_cage);
+		current_position_weights.position_.setZero();
 
-		handle_data.weights_ = handle_weights;  
+		rest_position_weights.position_.resize(nbv_cage);
+		rest_position_weights.position_.setZero();
 
-		local_handle_data_[graph_name] = handle_data;
+		handle_tool_data.current_position_weights_ = current_position_weights;
+		handle_tool_data.rest_position_weights_ = rest_position_weights;  
+
+		local_handle_tool_data_[graph_name] = handle_tool_data;
 
 		if (deformation_type_ == "MVC"){
-			bind_handle_mvc(graph_name, handle_position); 
+			bind_handle_mvc(handle_variables); 
 		}
 
 	}
@@ -555,31 +563,31 @@ public:
 	/// used when deformation type is changed
 	/// @param graph_name handle name 
 	/// @param handle_position handle position 
-	void update_bind_handle(const std::string& graph_name, 
-					const Vec3& handle_position)
+	void update_bind_handle(const Handle_variables& handle_variables)
 	{
-		local_handle_data_[graph_name].weights_.position_.setZero();
+		const std::string graph_name = handle_variables.name_;
 
-		local_handle_data_[graph_name].fixed_position_ = {0.0, 0.0, 0.0}; 
+		local_handle_tool_data_[graph_name].current_position_weights_.position_.setZero();
+		local_handle_tool_data_[graph_name].rest_position_weights_.position_.setZero();
+
+		local_handle_tool_data_[graph_name].fixed_position_ = {0.0, 0.0, 0.0}; 
 
 		if (deformation_type_ == "MVC"){
-			update_bind_handle_mvc(graph_name, handle_position); 
+			update_bind_handle_mvc(handle_variables); 
 		}
 	}
 
 	/// @brief deform the handle 
-	/// @param g handle 
-	/// @param graph_name name of the handle  
+	/// @param g handle   
 	/// @param graph_vertex_position position of the handle's vertex
-	/// @param handle_vertex handle vertex 
-	void deform_handle(Graph& g, const std::string& graph_name, 
-			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position, 
-					const GraphVertex& handle_vertex)
+	/// @param handle_variables  
+	void deform_handle(Graph& g, std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position, 
+		const Handle_variables& handle_variables)
 	{
 		if (deformation_type_ == "MVC")
 		{
-			deform_handle_mvc(g, graph_name, graph_vertex_position, 
-								handle_vertex); 
+			deform_handle_mvc(g, graph_vertex_position, 
+								handle_variables); 
 		}
 
 	}
@@ -1985,76 +1993,206 @@ private:
 		}); 
 	}
 
-	void update_bind_handle_mvc(const std::string& graph_name, 
-						const Vec3& handle_position)
+	void update_bind_handle_mvc(
+		const Handle_variables& handle_variables)
 	{
-		if (local_handle_data_[graph_name].cage_index_ ==27 )
+		const std::string graph_name = handle_variables.name_; 
+
+		const Vec3 handle_current_position = handle_variables.current_position_; 
+		const Vec3 handle_rest_position = handle_variables.rest_position_; 
+
+		if (local_handle_tool_data_[graph_name].current_position_cage_index_ == 27 )
 		{
 
 			Eigen::VectorXd local_row_weights;
-			compute_mvc_on_point_inside_cage(handle_position, local_row_weights);
+			compute_mvc_on_point_inside_cage(handle_current_position, local_row_weights);
 
-			local_handle_data_[graph_name].weights_.position_ = local_row_weights; 
+			local_handle_tool_data_[graph_name].current_position_weights_.position_ = local_row_weights; 
 
 		} else {
-			Virtual_cube virtual_cube_target = virtual_cages_[local_handle_data_[graph_name].cage_index_]; 
+			Virtual_cube virtual_cube_target = 
+				virtual_cages_[local_handle_tool_data_[graph_name]
+												.current_position_cage_index_]; 
 
 			Eigen::VectorXd local_row_weights;
 
-			compute_mvc_on_point_outside_cage(handle_position, 			local_row_weights, virtual_cube_target);
+			compute_mvc_on_point_outside_cage(handle_current_position, local_row_weights, virtual_cube_target);
 
-			local_handle_data_[graph_name].weights_.position_ = local_row_weights;
+			local_handle_tool_data_[graph_name].current_position_weights_.position_ = local_row_weights;
+		}
+
+		if (local_handle_tool_data_[graph_name].rest_position_cage_index_ == 27 )
+		{
+
+			Eigen::VectorXd local_row_weights;
+			compute_mvc_on_point_inside_cage(handle_rest_position, local_row_weights);
+
+			local_handle_tool_data_[graph_name].rest_position_weights_.position_ = local_row_weights; 
+
+		} else {
+			Virtual_cube virtual_cube_target = 
+				virtual_cages_[local_handle_tool_data_[graph_name]
+												.rest_position_cage_index_]; 
+
+			Eigen::VectorXd local_row_weights;
+
+			compute_mvc_on_point_outside_cage(handle_rest_position, local_row_weights, virtual_cube_target);
+
+			local_handle_tool_data_[graph_name].rest_position_weights_.position_ = local_row_weights;
 		}
 	}
 
 
 	// @brief bind handle with MVC deformation type
-	void bind_handle_mvc(const std::string& graph_name, 
-						const Vec3& handle_position){
+	void bind_handle_mvc(
+		const Handle_variables& handle_variables){
  
-		const double d_x = get_projection_on_direction(handle_position, local_x_direction_control_planes_.direction), 
+		const std::string graph_name = handle_variables.name_;
+
+		const Vec3 handle_current_position = handle_variables.current_position_; 
+		const Vec3 handle_rest_position = handle_variables.rest_position_;
+
+		// Current position 
+		const double d_x_current = 
+			get_projection_on_direction(handle_current_position, 
+									local_x_direction_control_planes_.direction), 
 			
-		d_y = get_projection_on_direction(handle_position, local_y_direction_control_planes_.direction),
+		d_y_current = 
+			get_projection_on_direction(handle_current_position, 
+									local_y_direction_control_planes_.direction),
 		
-			d_z = get_projection_on_direction(handle_position, local_z_direction_control_planes_.direction); 
+			d_z_current = 
+			get_projection_on_direction(handle_current_position, 
+									local_z_direction_control_planes_.direction); 
 
-		const bool valid_x_dir = check_projection_in_area(d_x, local_x_direction_control_planes_.d_min, local_x_direction_control_planes_.d_max), 
+		const bool valid_x_dir_current = 
+			check_projection_in_area(d_x_current, 
+									local_x_direction_control_planes_.d_min, 
+									local_x_direction_control_planes_.d_max), 
 					
-			valid_y_dir = check_projection_in_area(d_y, local_y_direction_control_planes_.d_min, local_y_direction_control_planes_.d_max), 
+		valid_y_dir_current = 
+			check_projection_in_area(d_y_current, 
+									local_y_direction_control_planes_.d_min, 
+									local_y_direction_control_planes_.d_max), 
 					   
-			valid_z_dir = check_projection_in_area(d_z, local_z_direction_control_planes_.d_min, local_z_direction_control_planes_.d_max); 
+		valid_z_dir_current = 
+			check_projection_in_area(d_z_current, 
+									local_z_direction_control_planes_.d_min, 
+									local_z_direction_control_planes_.d_max); 
 
 		
-		if (valid_x_dir && valid_y_dir && valid_z_dir)
+		if (valid_x_dir_current && valid_y_dir_current && valid_z_dir_current)
 		{
-			local_handle_data_[graph_name].cage_index_ = 27; 
+			local_handle_tool_data_[graph_name]
+											.current_position_cage_index_ = 27; 
 
 			Eigen::VectorXd local_row_weights;
-			compute_mvc_on_point_inside_cage(handle_position, local_row_weights);
+			compute_mvc_on_point_inside_cage(handle_current_position, local_row_weights);
 
-			local_handle_data_[graph_name].weights_.position_ = local_row_weights; 
+			local_handle_tool_data_[graph_name]
+						.current_position_weights_.position_ = local_row_weights; 
 		}
 		else
 		{
-			Vec3 projection_values = {d_x, d_y, d_z};  
+			Vec3 projection_values = {d_x_current, d_y_current, d_z_current};  
 			
 			std::vector<bool> valid_values(3); 
-			valid_values[0] = valid_x_dir, valid_values[1] = valid_y_dir, 
-			valid_values[2] = valid_z_dir; 
+			valid_values[0] = valid_x_dir_current, 
+			valid_values[1] = valid_y_dir_current, 
+			valid_values[2] = valid_z_dir_current; 
 
-			Vec3 max_area = {local_x_direction_control_planes_.d_max, local_y_direction_control_planes_.d_max, local_z_direction_control_planes_.d_max}; 
+			Vec3 max_area = 
+				{local_x_direction_control_planes_.d_max, 
+				local_y_direction_control_planes_.d_max, 
+				local_z_direction_control_planes_.d_max}; 
 
-			std::size_t virtual_cube_index = get_index_virtual_cube(projection_values, valid_values, max_area); 
+			std::size_t virtual_cube_index = 
+				get_index_virtual_cube(projection_values, valid_values, max_area); 
 
-			local_handle_data_[graph_name].cage_index_ = virtual_cube_index; 
+			local_handle_tool_data_[graph_name].current_position_cage_index_ = 
+															virtual_cube_index; 
 
 			Virtual_cube virtual_cube_target = virtual_cages_[virtual_cube_index]; 
 
 			Eigen::VectorXd local_row_weights; 
 
-			compute_mvc_on_point_outside_cage(handle_position, 			local_row_weights, virtual_cube_target);
+			compute_mvc_on_point_outside_cage(handle_current_position, 
+										local_row_weights, virtual_cube_target);
 
-			local_handle_data_[graph_name].weights_.position_ = local_row_weights;
+			local_handle_tool_data_[graph_name].current_position_weights_
+												.position_ = local_row_weights;
+
+		} 
+
+
+		// Rest position 
+		const double d_x_rest = 
+			get_projection_on_direction(handle_rest_position, 
+									local_x_direction_control_planes_.direction), 
+			
+		d_y_rest = 
+			get_projection_on_direction(handle_rest_position, 
+									local_y_direction_control_planes_.direction),
+		
+		d_z_rest = 
+			get_projection_on_direction(handle_rest_position, 
+									local_z_direction_control_planes_.direction); 
+
+		const bool valid_x_dir_rest = 
+			check_projection_in_area(d_x_rest, 
+									local_x_direction_control_planes_.d_min, 
+									local_x_direction_control_planes_.d_max), 
+					
+		valid_y_dir_rest = 
+			check_projection_in_area(d_y_rest, 
+									local_y_direction_control_planes_.d_min, 
+									local_y_direction_control_planes_.d_max), 
+					   
+		valid_z_dir_rest = 
+			check_projection_in_area(d_z_rest, 
+									local_z_direction_control_planes_.d_min, 
+									local_z_direction_control_planes_.d_max); 
+
+		
+		if (valid_x_dir_rest && valid_y_dir_rest && valid_z_dir_rest)
+		{
+			local_handle_tool_data_[graph_name].rest_position_cage_index_ = 27; 
+
+			Eigen::VectorXd local_row_weights;
+			compute_mvc_on_point_inside_cage(handle_rest_position, local_row_weights);
+
+			local_handle_tool_data_[graph_name].rest_position_weights_
+												.position_ = local_row_weights; 
+		}
+		else
+		{
+			Vec3 projection_values = {d_x_rest, d_y_rest, d_z_rest};  
+			
+			std::vector<bool> valid_values(3); 
+			valid_values[0] = valid_x_dir_rest, 
+			valid_values[1] = valid_y_dir_rest, 
+			valid_values[2] = valid_z_dir_rest; 
+
+			Vec3 max_area = 
+				{local_x_direction_control_planes_.d_max, 
+				local_y_direction_control_planes_.d_max, 
+				local_z_direction_control_planes_.d_max}; 
+
+			std::size_t virtual_cube_index = 
+				get_index_virtual_cube(projection_values, valid_values, max_area); 
+
+			local_handle_tool_data_[graph_name].rest_position_cage_index_ = 
+															virtual_cube_index; 
+
+			Virtual_cube virtual_cube_target = virtual_cages_[virtual_cube_index]; 
+
+			Eigen::VectorXd local_row_weights; 
+
+			compute_mvc_on_point_outside_cage(handle_rest_position, 
+										local_row_weights, virtual_cube_target);
+
+			local_handle_tool_data_[graph_name].rest_position_weights_
+												.position_ = local_row_weights;
 
 		} 								
 	}
@@ -2064,13 +2202,21 @@ private:
 	/// @param graph_name handle name  
 	/// @param graph_vertex_position position of the handle vertex
 	/// @param handle_vertex handle vertex
-	void deform_handle_mvc(Graph& g, const std::string& graph_name, 
-			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
-							const GraphVertex& handle_vertex)
+	void deform_handle_mvc(Graph& g, 
+				std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
+		const Handle_variables& handle_variables)
 	{
-		VectorWeights handle_weights = local_handle_data_[graph_name].weights_;
 
-		int handle_cage_index = local_handle_data_[graph_name].cage_index_; 
+		const std::string graph_name = handle_variables.name_;
+		const Vec3 handle_current_position = handle_variables.current_position_;
+
+		GraphVertex handle_vertex = handle_variables.vertex_; 
+
+		VectorWeights handle_weights = 
+				local_handle_tool_data_[graph_name].current_position_weights_;
+
+		int handle_cage_index = 
+				local_handle_tool_data_[graph_name].current_position_cage_index_; 
 
 		if (handle_cage_index == 27)
 		{
