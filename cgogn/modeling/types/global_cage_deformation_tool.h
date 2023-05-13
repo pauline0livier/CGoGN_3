@@ -1313,7 +1313,7 @@ private:
 	/// @param handle_vertex handle vertex
 	void deform_handle_green(Graph& g,  
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
-			const Handle_variables& handle_variables, Vec3& new_rest_position)
+			const Handle_variables& handle_variables, Vec3& rest_position)
 	{
 		const std::string graph_name = handle_variables.name_;
 		GraphVertex handle_vertex = handle_variables.vertex_; 
@@ -1321,6 +1321,10 @@ private:
 		VectorWeights handle_weights = 
 					local_handle_weights_[graph_name].current_position_weights_;
 		Vec3 new_position = {0.0, 0.0, 0.0};
+
+		VectorWeights handle_rest_weights = 
+					local_handle_weights_[graph_name].rest_position_weights_;
+		Vec3 new_rest_position = {0.0, 0.0, 0.0};
 
 		foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
 			const Vec3& cage_point = value<Vec3>(*global_cage_, 
@@ -1331,10 +1335,15 @@ private:
 			new_position += 
 					handle_weights.position_[cage_point_index] * cage_point;
 
+			new_rest_position += 
+					handle_rest_weights.position_[cage_point_index] * cage_point;
+
 			return true;
 		});
 
 		Vec3 new_normal = {0.0, 0.0, 0.0};
+		Vec3 new_rest_normal = {0.0, 0.0, 0.0};
+
 		const auto sqrt8 = sqrt(8);
 
 		for (std::size_t t = 0; t < cage_triangles_.size(); t++)
@@ -1362,10 +1371,13 @@ private:
 						  (sqrt8 * area_face);
 
 			new_normal += handle_weights.normal_[t] * t_sj * t_normal;
+			new_rest_normal += handle_rest_weights.normal_[t] * t_sj * t_normal;
 		}
 
 		value<Vec3>(g, graph_vertex_position, handle_vertex) = 
 												new_position + new_normal;
+
+		rest_position = new_rest_position + new_rest_normal; 
 
 	}
 
