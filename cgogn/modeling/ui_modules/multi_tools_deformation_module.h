@@ -818,7 +818,6 @@ private:
 									local_hdt->require_full_binding();
 
 									Vec3 new_rest_position; 
-									std::cout << "before " << local_hdt->handle_variables_.rest_position_ << std::endl; 
  
 									current_gcdt->deform_handle(
 										*(local_hdt->control_handle_), 
@@ -826,8 +825,6 @@ private:
 										local_hdt->handle_variables_, new_rest_position); 
 
 									local_hdt->update_local_variables(new_rest_position); 
-
-									std::cout << "after " << local_hdt->handle_variables_.rest_position_ << std::endl;
 
 									graph_provider_->emit_attribute_changed(
 										*(local_hdt->control_handle_),
@@ -2301,8 +2298,6 @@ protected:
 										if (old_p.name_ != new_p.name_){
 											old_p.selected_vertices_set_ = nullptr;
 										}
-
-
 									
 									}
 									
@@ -2329,15 +2324,21 @@ protected:
 
 								if (ImGui::Button("Reset deformation"))
 								{ 
-									selected_hdt_->reset_deformation(*model_, model_p.vertex_position_.get(), activation_map_, handle_container_); 
+									selected_hdt_->reset_deformation(*model_,
+									 model_p.vertex_position_.get(), 
+									 activation_map_, handle_container_); 
+
+									mesh_provider_->emit_attribute_changed(
+										*model_,
+									model_p.vertex_position_.get());
+
+									local_handle_deform_tools(); 
 
 									graph_provider_->emit_attribute_changed(
 										*(selected_hdt_->control_handle_),
 									selected_hdt_->control_handle_vertex_position_.get());
 
-									mesh_provider_->emit_attribute_changed(
-										*model_,
-									model_p.vertex_position_.get());
+									
 								} 
 
 								ImGui::Separator();
@@ -3116,6 +3117,43 @@ private:
 				graph_provider_->emit_attribute_changed(
 					*(local_hdt->control_handle_), local_hdt->control_handle_vertex_position_.get());
 				}
+		}
+	}
+
+	void local_handle_deform_tools()
+	{
+		MeshData<MESH>& md = mesh_provider_->mesh_data(*model_);
+
+		md.update_bb();
+		
+		std::tuple<Vec3, Vec3, Vec3> extended_bounding_box =
+			modeling::get_extended_bounding_box(md.bb_min_, md.bb_max_, 1.2);
+
+		Vec3 e_bb_min = std::get<0>(extended_bounding_box);
+		Vec3 e_bb_max = std::get<1>(extended_bounding_box);
+
+		if (global_cage_container_.size() > 0)
+		{
+			std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>> gcdt =
+					global_cage_container_["global_cage"];
+
+			MESH* global_cage = gcdt->global_cage_;
+
+			std::pair<Vec3, Vec3> cage_resting_positions = 
+										gcdt->get_rest_positions_bounding_box();
+								
+			if (!(e_bb_min == cage_resting_positions.first) 
+						|| !(e_bb_max == cage_resting_positions.second))
+			{
+
+				gcdt->require_full_binding(); 
+
+				gcdt->update_global_cage(e_bb_min, e_bb_max);
+
+				mesh_provider_-> emit_attribute_changed(*global_cage, 
+								gcdt->global_cage_vertex_position_.get());
+										
+			}
 		}
 	}
 
