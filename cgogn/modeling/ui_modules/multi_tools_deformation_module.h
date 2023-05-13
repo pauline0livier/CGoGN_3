@@ -812,17 +812,22 @@ private:
 										HandleDeformationTool<MESH>> local_hdt =
 											handle_container_[name];
 
-									modeling::Handle_variables handle_variables = local_hdt->handle_variables_; 
-
 									modeling::HandleParameters<GRAPH>& p_handle =
 									*handle_parameters_[local_hdt->control_handle_];
 
 									local_hdt->require_full_binding();
 
+									Vec3 new_rest_position; 
+									std::cout << "before " << local_hdt->handle_variables_.rest_position_ << std::endl; 
+ 
 									current_gcdt->deform_handle(
 										*(local_hdt->control_handle_), 
 										p_handle.vertex_position_,
-										handle_variables); 
+										local_hdt->handle_variables_, new_rest_position); 
+
+									local_hdt->update_local_variables(new_rest_position); 
+
+									std::cout << "after " << local_hdt->handle_variables_.rest_position_ << std::endl;
 
 									graph_provider_->emit_attribute_changed(
 										*(local_hdt->control_handle_),
@@ -1053,15 +1058,16 @@ private:
 									modeling::HandleParameters<GRAPH>& p_handle =
 									*handle_parameters_[local_hdt->control_handle_];
 
+									local_hdt->require_full_binding();
+
+									Vec3 new_rest_position; 
 									current_cdt->deform_handle(
 										*(local_hdt->control_handle_), 
 										p_handle.vertex_position_,
 										handle_variables);
 
-									//local_hdt->update_handle_position_variable_bis(); 
-
-									//local_hdt->require_full_binding(); 
-
+									local_hdt->update_local_variables(new_rest_position); 
+									
 									graph_provider_->emit_attribute_changed(
 										*(local_hdt->control_handle_),
 									local_hdt->control_handle_vertex_position_.get());
@@ -3096,11 +3102,16 @@ private:
 
 				modeling::Handle_variables local_handle_variables = local_hdt->handle_variables_; 
 
-				selected_gcdt_->deform_handle(*(local_hdt->control_handle_), p_handle.vertex_position_, local_handle_variables);
-
-				//local_hdt->update_handle_variable(new_position); 
-
 				local_hdt->require_full_binding(); 
+
+				Vec3 new_rest_position; 
+
+				selected_gcdt_->deform_handle(*(local_hdt->control_handle_), 
+												p_handle.vertex_position_, 
+												local_handle_variables, 
+												new_rest_position);
+												
+				local_hdt->update_local_variables(new_rest_position); 
 
 				graph_provider_->emit_attribute_changed(
 					*(local_hdt->control_handle_), local_hdt->control_handle_vertex_position_.get());

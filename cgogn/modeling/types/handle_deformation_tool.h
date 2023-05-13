@@ -72,23 +72,6 @@ class HandleDeformationTool
 
 public:
 
-	/*struct Handle_variables
-	{
-		Graph::Vertex vertex_; 
-		MeshVertex mesh_vertex_; 
-
-		uint32 mesh_vertex_index_; 
-		
-		Vec3 current_position_; 
-		Vec3 rest_position_; 
-
-		Vec3 shift_vector_; 
-
-		Vec3 last_deformation_; 
-
-		std::string name_; 
-	};*/ 
-
 	Graph* control_handle_;
 	Eigen::VectorXd object_weights_;
 
@@ -154,21 +137,6 @@ public:
 		handle_variables_.name_ = handle_name;
 	}
 
-	/// @brief get handle rest position 
-	/// useful to bind it with other tools 
-	/// @return handle current rest position
-	Vec3 get_handle_rest_position()
-	{
-		return handle_variables_.rest_position_; 
-	}
-
-	/// @brief set handle rest position 
-	/// after other tool deformation
-	void set_handle_rest_position(const Vec3& new_rest_position)
-	{	
-		handle_variables_.rest_position_ = new_rest_position; 
-	}
-
 	/// @brief update shift vector between rest and current position 
 	void update_shift_vector()
 	{
@@ -194,15 +162,13 @@ public:
 	}
 
 	/// @brief update handle rest position   
-	void update_handle_variable(const Vec3& new_position)
+	void update_local_variables(const Vec3& new_reset_position)
 	{
 
-		handle_variables_.rest_position_ = new_position; 
-		handle_variables_.current_position_ = handle_variables_.rest_position_+ handle_variables_.shift_vector_;
-
-		value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_variables_.vertex_) = handle_variables_.current_position_; 
-
-
+		handle_variables_.rest_position_ = new_reset_position; 
+		handle_variables_.current_position_ = 
+			value<Vec3>(*control_handle_, control_handle_vertex_position_, 
+													handle_variables_.vertex_); 
 	}
 
 	/// @brief set object influence area
@@ -241,10 +207,10 @@ public:
 					std::unordered_map<uint32,modeling::SharedVertexData>& activation_map, std::unordered_map<std::string, 
 		std::shared_ptr<modeling::HandleDeformationTool<MESH>>>& handle_container)
 	{
-		/* value<Vec3>(*control_handle_, 
-							control_handle_vertex_position_, handle_variables_.vertex_) = handle_variables_.start_position_; 
+		value<Vec3>(*control_handle_, 
+							control_handle_vertex_position_, handle_variables_.vertex_) = handle_variables_.rest_position_; 
 
-		handle_variables_.current_position_ = handle_variables_.start_position_; 
+		handle_variables_.current_position_ = handle_variables_.rest_position_; 
 
 		for ( const auto &myPair : object_influence_area_ ) {
 			uint32 vertex_index = myPair.first;
@@ -285,7 +251,6 @@ public:
 
 			
 		}
-		*/
 
 	}
 

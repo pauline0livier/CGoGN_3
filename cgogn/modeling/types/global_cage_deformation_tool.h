@@ -221,8 +221,8 @@ public:
 			
 			const Cage_point point = cage_points_[i]; 
 
-			cage_points_[i].current_position_ = point.start_position_;
-			cage_points_[i].rest_position_ = point.start_position_;
+			cage_points_[i].current_position_ = point.rest_position_;
+			cage_points_[i].rest_position_ = point.rest_position_;
 			
 			value<Vec3>(*global_cage_, global_cage_vertex_position_, point.vertex_) = cage_points_[i].current_position_; 
 		}
@@ -513,18 +513,18 @@ public:
 	/// @param handle_vertex handle vertex 
 	void deform_handle(Graph& g, 
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position, 
-		const Handle_variables& handle_variables)
+		Handle_variables& handle_variables, Vec3& new_rest_position)
 	{
 		if (deformation_type_ == "MVC")
 		{
 			deform_handle_mvc(g, graph_vertex_position, 
-								handle_variables); 
+								handle_variables, new_rest_position); 
 		}
 
 		if (deformation_type_ == "Green")
 		{
 			deform_handle_green(g, graph_vertex_position, 
-								handle_variables);
+								handle_variables, new_rest_position);
 		}
 
 	}
@@ -1260,11 +1260,12 @@ private:
 	/// @param handle_vertex handle vertex
 	void deform_handle_mvc(Graph& g,  
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
-			const Handle_variables& handle_variables)
+			Handle_variables& handle_variables, Vec3& rest_position)
 	{
 		const std::string graph_name = handle_variables.name_;
 		GraphVertex handle_vertex = handle_variables.vertex_; 
 
+		// Current position 
 		VectorWeights handle_weights = 
 					local_handle_weights_[graph_name].current_position_weights_; 
 		Vec3 new_position = {0.0, 0.0, 0.0};
@@ -1282,6 +1283,26 @@ private:
 		});
 
 		value<Vec3>(g, graph_vertex_position, handle_vertex) = new_position;
+
+		// rest position
+		VectorWeights rest_weights = 
+					local_handle_weights_[graph_name].rest_position_weights_; 
+
+		Vec3 new_rest_position = {0.0, 0.0, 0.0};
+
+		foreach_cell(*global_cage_, [&](Vertex cv) -> bool {
+			const Vec3& cage_point = value<Vec3>(*global_cage_, 
+										global_cage_vertex_position_, cv);
+			uint32 cage_point_index = value<uint32>(*global_cage_, 
+											global_cage_vertex_index_, cv);
+
+			new_rest_position += 
+					rest_weights.position_[cage_point_index] * cage_point;
+
+			return true;
+		});
+
+		rest_position = new_rest_position; 
 	}
 
 	
@@ -1292,7 +1313,7 @@ private:
 	/// @param handle_vertex handle vertex
 	void deform_handle_green(Graph& g,  
 			std::shared_ptr<GraphAttribute<Vec3>>& graph_vertex_position,
-			const Handle_variables& handle_variables)
+			const Handle_variables& handle_variables, Vec3& new_rest_position)
 	{
 		const std::string graph_name = handle_variables.name_;
 		GraphVertex handle_vertex = handle_variables.vertex_; 
