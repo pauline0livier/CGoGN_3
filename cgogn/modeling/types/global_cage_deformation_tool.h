@@ -77,7 +77,6 @@ class GlobalCageDeformationTool
 
 		Vec3 rest_position_; 
 		Vec3 current_position_; 
-		Vec3 start_position_; 
 
 		Vec3 shift_vector_; 
 		 
@@ -475,8 +474,7 @@ public:
 	/// used when deformation type is changed
 	/// @param graph_name handle name 
 	/// @param handle_position handle position 
-	void bind_handle(
-		const Handle_variables& handle_variables)
+	void bind_handle(const Handle_variables& handle_variables)
 	{
 		const std::string graph_name = handle_variables.name_;
 
@@ -734,7 +732,6 @@ private:
 
 			new_point.rest_position_ = start_position;
 			new_point.current_position_ = start_position; 
-			new_point.start_position_ = start_position; 
 			
 			new_point.shift_vector_ = {0.0, 0.0, 0.0}; 
 

@@ -266,8 +266,7 @@ public:
 	/// @brief reset transformation
 	Vec3 get_reset_transformation()
 	{ 
-		return handle_variables_.start_position_ - value<Vec3>(*control_handle_, 
-							control_handle_vertex_position_, handle_variables_.vertex_); 
+		return handle_variables_.rest_position_ - value<Vec3>(*control_handle_, control_handle_vertex_position_, handle_variables_.vertex_); 
 	}
 
 	/// @brief set geodesic distance of the points 
