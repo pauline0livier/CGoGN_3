@@ -46,6 +46,7 @@
 #include <cgogn/modeling/algos/deformation/deformation_definitions.h>
 #include <cgogn/modeling/algos/deformation/deformation_utils.h>
 
+#include <cgogn/modeling/types/ribbon_deformation_tool.h>
 #include <cgogn/modeling/types/axis_deformation_tool.h>
 #include <cgogn/modeling/types/cage_deformation_tool.h>
 #include <cgogn/modeling/types/global_cage_deformation_tool.h>
@@ -72,7 +73,8 @@ enum SelectionTool
 {
 	Handle = 0,
 	Axis,
-	Cage, 
+	Cage,
+	Ribbon,  
 };
 
 using Vec2 = geometry::Vec2;
@@ -120,6 +122,8 @@ public:
 	std::unordered_map<std::string, 
 		std::shared_ptr<modeling::CageDeformationTool<MESH>>> cage_container_;
 	std::unordered_map<std::string, 
+		std::shared_ptr<modeling::RibbonDeformationTool<MESH>>> ribbon_container_;
+	std::unordered_map<std::string, 
 	std::shared_ptr<modeling::GlobalCageDeformationTool<MESH>>> global_cage_container_;
 
 	MultiToolsDeformation(const App& app)
@@ -127,7 +131,8 @@ public:
 		"MultiToolsDeformation (" + std::string{mesh_traits<MESH>::name} + ")"), 
 			model_(nullptr), selected_mesh_(nullptr), 
 			selected_handle_(nullptr), selected_axis_(nullptr), 
-			selected_cage_(nullptr), global_cage_(false)
+			selected_cage_(nullptr),
+		  selected_ribbon_(nullptr), global_cage_(false)
 	{
 	}
 
@@ -282,6 +287,16 @@ public:
 			f(*(adt->control_axis_), name);
 	}
 
+	/// @brief loop on the ribbon of ribbon_container
+	/// @tparam FUNC function type
+	/// @param f function to apply on each axis
+	template <typename FUNC>
+	void foreach_ribbon(const FUNC& f)
+	{
+		for (auto& [name, rdt] : ribbon_container_)
+			f(*(rdt->control_ribbon_), name);
+	}
+
 	/////////////
 	// SIGNALS //
 	/////////////
@@ -293,6 +308,8 @@ public:
 						(modeling::CageDeformationTool<MESH>* cdt);
 	using axis_added = struct axis_added_ (*)
 						(modeling::AxisDeformationTool<MESH>* a);
+	using ribbon_added = struct ribbon_added_ (*)
+						(modeling::RibbonDeformationTool<MESH>* a);
 
 private:
 
@@ -694,6 +711,92 @@ private:
 			cage_p.name_ = cage_name; 
 
 			boost::synapse::emit<cage_added>(this, cdt);
+		}
+	}
+
+	/// @brief create local cage on model 
+	/// create CageDeformationTool
+	/// @param object model to deform 
+	/// @param object_vertex_position position of the vertices of the model
+	/// @param control_set user selected vertices 
+	void create_local_ribbon_tool(const MESH& object, 
+			const std::shared_ptr<MeshAttribute<Vec3>>& object_vertex_position,
+			CellsSet<MESH, MeshVertex>* control_set)
+	{
+		
+		int ribbon_number = ribbon_container_.size();
+		std::string ribbon_name = "local_ribbon" + std::to_string(ribbon_number);
+
+		const auto [it, inserted] =
+			ribbon_container_.emplace(ribbon_name, 
+				std::make_shared<modeling::RibbonDeformationTool<MESH>>());
+		modeling::RibbonDeformationTool<MESH>* rdt = it->second.get();
+
+		if (inserted)
+		{
+			MESH* l_ribbon = mesh_provider_->add_mesh(ribbon_name);
+
+			std::shared_ptr<MeshAttribute<Vec3>> l_ribbon_vertex_position =
+				add_attribute<Vec3, MeshVertex>(*l_ribbon, "position");
+
+			mesh_provider_->set_mesh_bb_vertex_position(*l_ribbon, 
+												l_ribbon_vertex_position);
+
+			set_vertex_position(*l_ribbon, l_ribbon_vertex_position);
+
+			/*Vec3 center = 
+				modeling::get_mean_value_attribute_from_set(object, 
+									object_vertex_position.get(), control_set); */
+
+			/*std::tuple<Vec3, Vec3, Vec3> main_directions = 
+				modeling::find_main_directions_from_set(object, 
+										object_vertex_position.get(), 
+										control_set, center); */
+			const Vec3 x_direction = {1.0, 0.0, 0.0}; 
+			const Vec3 y_direction = {0.0, 1.0, 0.0}; 
+			const Vec3 z_direction = {0.0, 0.0, 1.0}; 
+			std::tuple<Vec3, Vec3, Vec3> main_directions = std::make_tuple(z_direction, x_direction, y_direction); 
+
+			std::pair<Vec3, Vec3> local_boundaries = 
+				modeling::get_border_values_in_set_along_local_frame(object, 
+										object_vertex_position.get(), 
+										control_set, main_directions); 
+
+			std::tuple<Vec3, Vec3, Vec3> extended_boundaries =
+				modeling::get_extended_bounding_box(local_boundaries.first, 
+											local_boundaries.second, 1.1f);
+
+			MeshData<MESH>& md = mesh_provider_->mesh_data(object);
+
+			rdt->create_space_tool(l_ribbon, l_ribbon_vertex_position.get(), 
+									std::get<0>(extended_boundaries),
+									std::get<1>(extended_boundaries), main_directions
+									);
+
+			mesh_provider_->emit_connectivity_changed(*l_ribbon);
+			mesh_provider_->emit_attribute_changed(*l_ribbon, 
+											l_ribbon_vertex_position.get());
+
+			View* v1 = app_.current_view();
+
+			surface_render_->set_vertex_position(*v1, *l_ribbon, 
+												l_ribbon_vertex_position);
+
+			surface_render_->set_render_faces(*v1, *l_ribbon, false);
+
+			std::shared_ptr<MeshAttribute<Vec3>> l_ribbon_vertex_normal =
+				add_attribute<Vec3, MeshVertex>(*l_ribbon, "normal");
+
+			geometry::compute_normal<MeshVertex>(*l_ribbon, 
+											l_ribbon_vertex_position.get(), 
+											l_ribbon_vertex_normal.get());
+
+			//cdt->set_center_control_ribbon(std::get<2>(extended_boundaries));
+
+			modeling::Parameters<MESH>& ribbon_p = *parameters_[l_ribbon];
+			ribbon_p.name_ = ribbon_name; 
+
+			boost::synapse::emit<ribbon_added>(this, rdt);
 		}
 	}
 
@@ -1754,6 +1857,10 @@ protected:
 				ImGui::SameLine();
 				ImGui::RadioButton("Handle", 
 						reinterpret_cast<int*>(&selected_tool_), Handle);
+				ImGui::SameLine();
+				ImGui::RadioButton("Ribbon", 
+						reinterpret_cast<int*>(&selected_tool_), Ribbon);
+				
 
 				if (selected_tool_ == Handle)
 				{
@@ -2007,6 +2114,67 @@ protected:
 					model_p.object_update_ = false;
 
 								
+				}
+
+				if (selected_tool_ == Ribbon)
+				{
+					selected_mesh_ = model_;
+					ImGui::Separator();
+
+					imgui_combo_cells_set(model_md, 
+							model_p.selected_vertices_set_, "Set_for_ribbon",
+							[&](CellsSet<MESH, MeshVertex>* cs) {
+								model_p.selected_vertices_set_ = cs;
+								model_p.update_selected_vertices_vbo();
+								need_update = true;
+							});
+
+					model_p.selection_method_ = 
+						modeling::SelectionMethod::WithinSphere;
+					model_p.back_selection_ = true;
+
+					ImGui::SliderFloat("Sphere radius", 
+							&(model_p.sphere_scale_factor_), 10.0f, 100.0f);
+
+					if (model_p.selected_vertices_set_)
+					{
+						ImGui::Text("(nb elements: %d)", 
+							model_p.selected_vertices_set_->size());
+						if (ImGui::Button("Clear##vertices_set"))
+						{
+							model_p.selected_vertices_set_->clear();
+							mesh_provider_->emit_cells_set_changed(
+									*model_, model_p.selected_vertices_set_);
+						}
+					}
+					ImGui::TextUnformatted("Drawing parameters");
+					need_update |= ImGui::ColorEdit3("color##vertices", 
+								model_p.param_point_sprite_->color_.data(),
+									ImGuiColorEditFlags_NoInputs);
+
+					if (need_update || model_p.object_update_)
+					{
+						for (View* v : linked_views_)
+							v->request_update();
+					}
+
+					CellsSet<MESH, MeshVertex>* control_set = nullptr;
+
+					if (ImGui::Button("Accept control set##vertices_set"))
+					{
+						control_set = model_p.selected_vertices_set_;
+
+						create_local_ribbon_tool(*model_, 
+									model_p.vertex_position_, control_set);
+
+						model_p.selected_vertices_set_->clear();
+						
+						mesh_provider_->emit_cells_set_changed(*model_, 
+											model_p.selected_vertices_set_);
+					
+					}
+			
+					model_p.object_update_ = false;
 				}
 
 				ImGui::Separator();
@@ -2587,6 +2755,7 @@ private:
 
 	MESH* selected_mesh_;
 	MESH* selected_cage_;
+	MESH* selected_ribbon_; 
 
 	GRAPH* selected_handle_;
 	GRAPH* selected_axis_;
@@ -2598,6 +2767,8 @@ private:
 															selected_gcdt_;
 	std::shared_ptr<modeling::HandleDeformationTool<MESH>> selected_hdt_;
 	std::shared_ptr<modeling::AxisDeformationTool<MESH>> selected_adt_;
+	std::shared_ptr<modeling::RibbonDeformationTool<MESH>> selected_rdt_;
+	
 
 	std::unordered_map<const MESH*, modeling::Parameters<MESH>*> parameters_;
 

@@ -64,6 +64,13 @@ std::vector<Vec3> get_bounding_box_positions(const Vec3& bb_min, const Vec3& bb_
 std::vector<CMap2::Vertex> create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, 
                                     const Vec3& bb_min, const Vec3& bb_max, 
                             const Eigen::Matrix3d& local_frame); 
+
+/**
+ * create cylinder from specified bounding box 
+*/
+void create_cylinder_tool(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, 
+					const Vec3& bb_min, const Vec3& bb_max); 
+
 /**
  * set attribute vertex index for CMap2
 */

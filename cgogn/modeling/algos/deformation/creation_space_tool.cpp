@@ -178,6 +178,68 @@ std::vector<CMap2::Vertex> create_cage_box(CMap2& m, CMap2::Attribute<Vec3>* m_v
 
 }
 
+/// @brief create cylinder from provided bounding box dimensions 
+/// @param m mesh to turn into cylinder
+/// @param vertex_position 
+/// @param bb_min 
+/// @param bb_max 
+void create_cylinder_tool(CMap2& m, CMap2::Attribute<Vec3>* vertex_position, 
+					const Vec3& bb_min, const Vec3& bb_max)
+{
+	CMap2::Volume v = add_prism(m, 6);
+	Dart f1 = v.dart;
+	Dart f2 = phi<2, 1, 1, 2>(m, f1);
+	std::vector<CMap2::Vertex> vertices = {
+		CMap2::Vertex(f1), CMap2::Vertex(phi1(m, f1)), 
+		CMap2::Vertex(phi<1, 1>(m, f1)), CMap2::Vertex(phi<1, 1, 1>(m, f1)), 
+		CMap2::Vertex(phi<1, 1, 1,1>(m, f1)),CMap2::Vertex(phi_1(m, f1)),
+		CMap2::Vertex(f2), CMap2::Vertex(phi1(m, f2)), 
+		CMap2::Vertex(phi<1, 1>(m, f2)), CMap2::Vertex(phi<1, 1, 1>(m, f2)), 
+		CMap2::Vertex(phi<1, 1, 1, 1>(m, f2)),CMap2::Vertex(phi_1(m, f2))};
+
+	Vec3 bb_min_ = bb_min;
+	Vec3 bb_max_ = bb_max;
+
+	const Vec3 center = (bb_min_ + bb_max)/2.0; 
+	Vec3 center_min = {center[0], center[1], bb_min[2]}; 
+	Vec3 center_max = {center[0], center[1], bb_max[2]};
+
+	double radius = (bb_min[0] - center_min[0])/std::cos(4*M_PI/3); 
+
+	value<Vec3>(m, vertex_position, vertices[1]) = 
+		{bb_min_[0], center_min[1]+radius*std::cos(M_PI), 
+			center_min[2]+radius*std::sin(M_PI)};
+	value<Vec3>(m, vertex_position, vertices[2]) = 
+		{bb_min_[0], center_min[1]+radius*std::cos(2*M_PI/3), 
+			center_min[2]+radius*std::sin(2*M_PI/3)};
+	value<Vec3>(m, vertex_position, vertices[3]) = 
+		{bb_min_[0], center_min[1]+radius*std::cos(M_PI/3), 
+			center_min[2]+radius*std::sin(M_PI/3)};
+	value<Vec3>(m, vertex_position, vertices[4]) = 
+		{bb_min_[0], center_min[1]+radius*std::cos(0), 
+			center_min[2]+radius*std::sin(0)};
+	value<Vec3>(m, vertex_position, vertices[5]) = 
+		{bb_min_[0],center_min[1]+radius*std::cos(5*M_PI/3), 
+			center_min[2]+radius*std::sin(5*M_PI/3)};
+
+	value<Vec3>(m, vertex_position, vertices[6]) = 
+		{bb_max_[0], center_max[1]+radius*std::cos(M_PI), 
+			center_max[2]+radius*std::sin(M_PI)};
+	value<Vec3>(m, vertex_position, vertices[7]) = 
+		{bb_max_[0],center_max[1]+radius*std::cos(4*M_PI/3), 
+			center_max[2]+radius*std::sin(4*M_PI/3)};
+	value<Vec3>(m, vertex_position, vertices[8]) = 
+		{bb_max_[0],center_max[1]+radius*std::cos(5*M_PI/3), 
+			center_max[2]+radius*std::sin(5*M_PI/3)};
+	value<Vec3>(m, vertex_position, vertices[9]) = 
+		{bb_max_[0],center_max[1]+radius*std::cos(0), 
+			center_max[2]+radius*std::sin(0)};
+	value<Vec3>(m, vertex_position, vertices[10]) = bb_max; 
+	value<Vec3>(m, vertex_position, vertices[11]) = 
+		{bb_max_[0],center_max[1]+radius*std::cos(2*M_PI/3), 
+			center_max[2]+radius*std::sin(2*M_PI/3)};
+}
+
 /**
  * set cage position_indices by looping on the vertices
  * @param {CMap2} cage
@@ -201,7 +263,7 @@ void set_attribute_vertex_index(CMap2& cage,
  * @param {vector of CMap2::Vertex} vertices
 */
 void set_attribute_vertex_index_from_vertices_array(CMap2& cage, 
-                                    CMap2::Attribute<uint32>* position_indices, std::vector<CMap2::Vertex> vertices)
+									CMap2::Attribute<uint32>* position_indices, std::vector<CMap2::Vertex> vertices)
 {
 	const std::size_t vertices_size = vertices.size(); 
 	for (std::size_t i = 0; i < vertices_size; i++)
